@@ -5,11 +5,12 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ClipboardList, Truck, IdCard } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import clsx from "clsx";
 import { notifyAuthActivityClient } from "@/lib/auth/notify-client";
 import { MfaChallengeForm } from "@/components/freight/MfaChallengeForm";
 import { createClient } from "@/lib/supabase/client";
+import { setTmsOAuthHints } from "@/lib/tms/oauth-hints";
 
 type Role = "dispatcher" | "carrier" | "driver";
 
@@ -80,19 +81,6 @@ export function FreightLoginForm() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [mfaPending, setMfaPending] = useState(false);
   const [pendingDest, setPendingDest] = useState("/login");
-
-  useEffect(() => {
-    // Drop stale SW caches that previously broke Google return-to-/login.
-    void (async () => {
-      try {
-        if (!("serviceWorker" in navigator)) return;
-        const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map((r) => r.unregister()));
-      } catch {
-        /* ignore */
-      }
-    })();
-  }, []);
 
   const redirectTarget = useMemo(() => {
     switch (role) {
@@ -231,14 +219,8 @@ export function FreightLoginForm() {
       const origin = window.location.origin;
       const nextPath =
         next && next.startsWith("/") && !next.startsWith("//") ? next : redirectTarget;
-      try {
-        sessionStorage.setItem("tms_oauth_next", nextPath);
-        sessionStorage.setItem("tms_oauth_role", role);
-      } catch {
-        /* ignore */
-      }
-      // Path-only redirectTo — query params on redirect_to often break Google OAuth (400)
-      // and Supabase allowlist matching. next/role live in sessionStorage for the callback.
+      setTmsOAuthHints(nextPath, role);
+      // Path-only redirectTo — keeps Google OAuth allowlist + PKCE cookies reliable.
       const redirectTo = `${origin}/auth/callback`;
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",

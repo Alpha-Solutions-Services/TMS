@@ -8,6 +8,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { setTmsOAuthHints } from "@/lib/tms/oauth-hints";
 
 type Plan = "lifetime" | "monthly";
 
@@ -110,12 +111,7 @@ export default function FreightStudentEnroll({
         return;
       }
       const origin = window.location.origin;
-      try {
-        sessionStorage.setItem("tms_oauth_next", "/freight/student/enroll");
-        sessionStorage.setItem("tms_oauth_role", "student");
-      } catch {
-        /* ignore */
-      }
+      setTmsOAuthHints("/freight/student/enroll", "student");
       const { error: oauthError } = await sb.auth.signInWithOAuth({
         provider: "google",
         options: {

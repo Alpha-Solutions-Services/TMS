@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { setTmsOAuthHints } from "@/lib/tms/oauth-hints";
 
 export function CarrierRegisterClient() {
   const router = useRouter();
@@ -52,12 +53,7 @@ export function CarrierRegisterClient() {
         return;
       }
       const origin = window.location.origin;
-      try {
-        sessionStorage.setItem("tms_oauth_next", "/carrier/register");
-        sessionStorage.setItem("tms_oauth_role", "carrier");
-      } catch {
-        /* ignore */
-      }
+      setTmsOAuthHints("/carrier/register", "carrier");
       const { error: oauthError } = await sb.auth.signInWithOAuth({
         provider: "google",
         options: {
