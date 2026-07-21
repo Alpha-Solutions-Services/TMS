@@ -21,7 +21,13 @@ const EMPTY_FORM = {
   documentLink: "",
 };
 
-export function DispatcherCarrierRoster({ showAdd = false }: { showAdd?: boolean }) {
+export function DispatcherCarrierRoster({
+  showAdd = false,
+  canManage = false,
+}: {
+  showAdd?: boolean;
+  canManage?: boolean;
+}) {
   const { data, loading, refresh } = useDispatchDashboard();
   const [formOpen, setFormOpen] = useState(showAdd);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -100,17 +106,23 @@ export function DispatcherCarrierRoster({ showAdd = false }: { showAdd?: boolean
             )}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setFormOpen((o) => !o)}
-          className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[#05080f]"
-        >
-          <Plus className="h-4 w-4" />
-          Add carrier
-        </button>
+        {canManage ? (
+          <button
+            type="button"
+            onClick={() => setFormOpen((o) => !o)}
+            className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[#05080f]"
+          >
+            <Plus className="h-4 w-4" />
+            Add carrier
+          </button>
+        ) : (
+          <p className="text-xs text-[var(--color-muted)]">
+            Only super dispatchers can add carriers to the roster.
+          </p>
+        )}
       </div>
 
-      {formOpen ? (
+      {formOpen && canManage ? (
         <div className="mt-6 grid gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg)]/40 p-4 sm:grid-cols-2 lg:grid-cols-3">
           {(
             [
@@ -217,18 +229,20 @@ export function DispatcherCarrierRoster({ showAdd = false }: { showAdd?: boolean
                   </td>
                   <td className="px-3 py-2.5 capitalize text-[var(--color-muted)]">{c.source}</td>
                   <td className="px-3 py-2.5">
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void removeCarrier(c.id)}
-                      className={clsx(
-                        "rounded p-1.5 text-[var(--color-muted)] hover:text-red-300",
-                        c.source === "sheet" && "opacity-40",
-                      )}
-                      title={c.source === "sheet" ? "Edit in Google Sheet" : "Remove carrier"}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {canManage ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void removeCarrier(c.id)}
+                        className={clsx(
+                          "rounded p-1.5 text-[var(--color-muted)] hover:text-red-300",
+                          c.source === "sheet" && "opacity-40",
+                        )}
+                        title={c.source === "sheet" ? "Edit in Google Sheet" : "Remove carrier"}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    ) : null}
                   </td>
                 </tr>
               ))

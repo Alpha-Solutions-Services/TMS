@@ -1,14 +1,25 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { DispatcherCarrierReview } from "@/components/freight/DispatcherCarrierReview";
 import { DispatcherCarrierManage } from "@/components/freight/DispatcherCarrierManage";
 import { DispatcherCarrierRoster } from "@/components/freight/DispatcherCarrierRoster";
+import { getPortalUser } from "@/lib/portal/auth";
+import { resolveTmsRole } from "@/lib/tms/auth";
 
 export const metadata: Metadata = {
   title: "Carriers — Dispatcher",
 };
 
-function CarriersContent({ showAdd }: { showAdd: boolean }) {
+export const dynamic = "force-dynamic";
+
+function CarriersContent({
+  showAdd,
+  canManage,
+}: {
+  showAdd: boolean;
+  canManage: boolean;
+}) {
   return (
     <div className="space-y-8 p-4 sm:p-6 lg:p-8">
       <div>
@@ -23,7 +34,7 @@ function CarriersContent({ showAdd }: { showAdd: boolean }) {
         </p>
       </div>
 
-      <DispatcherCarrierRoster showAdd={showAdd} />
+      <DispatcherCarrierRoster showAdd={showAdd && canManage} canManage={canManage} />
 
       <DispatcherCarrierManage />
 
@@ -39,14 +50,25 @@ function CarriersContent({ showAdd }: { showAdd: boolean }) {
   );
 }
 
-export default function DispatcherCarriersPage({
+export default async function DispatcherCarriersPage({
   searchParams,
 }: {
   searchParams: { action?: string };
 }) {
+  const user = await getPortalUser();
+  const role = await resolveTmsRole(user);
+  if (!user || (role !== "super_dispatcher" && role !== "sub_dispatcher")) {
+    redirect("/login");
+  }
+
+  const canManage = role === "super_dispatcher";
+
   return (
     <Suspense fallback={<p className="p-8 text-[var(--color-muted)]">Loading…</p>}>
-      <CarriersContent showAdd={searchParams.action === "add"} />
+      <CarriersContent
+        showAdd={searchParams.action === "add"}
+        canManage={canManage}
+      />
     </Suspense>
   );
 }

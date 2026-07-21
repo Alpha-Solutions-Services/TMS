@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAllowedDispatcherEmail } from "@/lib/dispatcher-allowlist";
-import { isSuperDispatcherEmail } from "@/lib/tms/auth";
+import { canAccessDispatcherPortal } from "@/lib/tms/auth";
 
 export default async function HomePage() {
   const sb = await createClient();
@@ -12,10 +11,7 @@ export default async function HomePage() {
   } = await sb.auth.getUser();
   if (!user) redirect("/login");
 
-  if (
-    isSuperDispatcherEmail(user.email) ||
-    isAllowedDispatcherEmail(user.email)
-  ) {
+  if (await canAccessDispatcherPortal(user)) {
     redirect("/dispatcher/dashboard");
   }
 
@@ -27,7 +23,7 @@ export default async function HomePage() {
 
   switch (profile?.role) {
     case "dispatcher":
-      redirect("/dispatcher/dashboard");
+      redirect("/login?error=terminated");
     case "carrier":
       if (profile.carrier_status === "verified") redirect("/carrier/dashboard");
       if (profile.carrier_status === "rejected") redirect("/carrier/rejected");

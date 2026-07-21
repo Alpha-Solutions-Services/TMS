@@ -6,7 +6,7 @@ import { InviteDriverModal } from "@/components/freight/InviteDriverModal";
 import { useDispatchDashboard } from "@/components/freight/useDispatchDashboard";
 import { createClient } from "@/lib/supabase/client";
 
-export function DispatcherDriversManage() {
+export function DispatcherDriversManage({ canInvite = false }: { canInvite?: boolean }) {
   const { data, loading, refresh } = useDispatchDashboard();
   const [verifiedCarriers, setVerifiedCarriers] = useState<
     { id: string; company_name: string | null; full_name: string | null }[]
@@ -128,19 +128,27 @@ export function DispatcherDriversManage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setFormOpen((o) => !o)}
-            className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[#05080f]"
-          >
-            <Plus className="h-4 w-4" />
-            Add driver
-          </button>
-          <InviteDriverModal mode="dispatcher" carriers={verifiedCarriers} />
+          {canInvite ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setFormOpen((o) => !o)}
+                className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[#05080f]"
+              >
+                <Plus className="h-4 w-4" />
+                Add driver
+              </button>
+              <InviteDriverModal mode="dispatcher" carriers={verifiedCarriers} />
+            </>
+          ) : (
+            <p className="text-xs text-[var(--color-muted)]">
+              Only super dispatchers can invite or add drivers.
+            </p>
+          )}
         </div>
       </div>
 
-      {formOpen ? (
+      {formOpen && canInvite ? (
         <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/40 p-5">
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block text-sm">
@@ -238,14 +246,16 @@ export function DispatcherDriversManage() {
                   <td className="px-4 py-3">{d.carrierCompanyName}</td>
                   <td className="px-4 py-3 text-[var(--color-muted)]">{d.notes || "—"}</td>
                   <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void removeDriver(d.id)}
-                      className="rounded p-1.5 text-[var(--color-muted)] hover:text-red-300"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {canInvite ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void removeDriver(d.id)}
+                        className="rounded p-1.5 text-[var(--color-muted)] hover:text-red-300"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    ) : null}
                   </td>
                 </tr>
               ))

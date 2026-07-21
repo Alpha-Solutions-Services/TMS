@@ -10,7 +10,7 @@ import clsx from "clsx";
 import { notifyAuthActivityClient } from "@/lib/auth/notify-client";
 import { createClient } from "@/lib/supabase/client";
 import { isSuperAdminEmail } from "@/lib/admin-allowlist";
-import { isAllowedDispatcherEmail } from "@/lib/dispatcher-allowlist";
+import { isSuperDispatcherEmail } from "@/lib/tms/roles";
 
 type Role = "dispatcher" | "carrier" | "driver";
 
@@ -50,7 +50,11 @@ export function FreightLoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(
-    urlError === "auth" ? "Google sign-in failed. Try again." : null,
+    urlError === "auth"
+      ? "Google sign-in failed. Try again."
+      : urlError === "terminated"
+        ? "Your dispatcher access has been terminated."
+        : null,
   );
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -106,22 +110,30 @@ export function FreightLoginForm() {
         .maybeSingle();
 
       const superAdmin = isSuperAdminEmail(emailSignedIn);
-      if (role === "dispatcher" && !superAdmin && !isAllowedDispatcherEmail(emailSignedIn)) {
-        await supabase.auth.signOut();
-        setError("Dispatcher access is restricted.");
-        return;
+      const superDispatcher = isSuperDispatcherEmail(emailSignedIn) || superAdmin;
+
+      if (role === "dispatcher" && !superDispatcher) {
+        const { data: tmsRow } = await supabase
+          .from("tms_users")
+          .select("role, active")
+          .eq("id", uid)
+          .maybeSingle();
+
+        if (!tmsRow || tmsRow.role !== "sub_dispatcher" || !tmsRow.active) {
+          await supabase.auth.signOut();
+          setError("Sub dispatcher access requires an invitation from a super dispatcher.");
+          return;
+        }
       }
-      if (
-        role === "dispatcher" &&
-        !superAdmin &&
-        isAllowedDispatcherEmail(emailSignedIn) &&
-        (!profile?.role || profile.role === "client")
-      ) {
+
+      if (role === "dispatcher") {
         const ensureRes = await fetch("/api/freight/dispatcher/ensure-profile", {
           method: "POST",
         });
         if (!ensureRes.ok) {
-          setError("Unable to provision dispatcher access.");
+          const body = (await ensureRes.json().catch(() => ({}))) as { error?: string };
+          await supabase.auth.signOut();
+          setError(body.error ?? "Unable to provision dispatcher access.");
           return;
         }
         const { data: ensuredProfile } = await supabase
@@ -145,7 +157,7 @@ export function FreightLoginForm() {
       }
 
       if (!profile?.role || profile.role !== role) {
-        if (superAdmin && role !== "driver") {
+        if (superDispatcher && role !== "driver") {
           const res = await fetch("/api/freight/superadmin/set-role", {
             method: "POST",
             headers: { "Content-Type": "application/json" },

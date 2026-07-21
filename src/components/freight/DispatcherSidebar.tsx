@@ -19,19 +19,27 @@ import { useDashboardMobileNavClose } from "@/components/layout/ResponsiveDashbo
 import { PortalClock } from "@/components/freight/PortalClock";
 
 const NAV = [
-  { href: "/dispatcher/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dispatcher/loads", label: "Loads", icon: Package },
-  { href: "/dispatcher/carriers", label: "Carriers", icon: Users },
-  { href: "/dispatcher/carrier-portal", label: "Carrier portal", icon: Users },
-  { href: "/dispatcher/invoices", label: "Invoices", icon: FileText },
-  { href: "/dispatcher/reports", label: "Reports", icon: BarChart3 },
-  { href: "/dispatcher/alerts", label: "Alerts", icon: AlertTriangle },
-  { href: "/dispatcher/drivers", label: "Drivers", icon: UserPlus },
-  { href: "/dispatcher/approvals", label: "Approvals", icon: ShieldCheck },
-  { href: "/dispatcher/team", label: "Team", icon: UsersRound },
+  { href: "/dispatcher/dashboard", label: "Dashboard", icon: LayoutDashboard, superOnly: false },
+  { href: "/dispatcher/loads", label: "Loads", icon: Package, superOnly: false },
+  { href: "/dispatcher/carriers", label: "Carriers", icon: Users, superOnly: false },
+  { href: "/dispatcher/carrier-portal", label: "Carrier portal", icon: Users, superOnly: false },
+  { href: "/dispatcher/invoices", label: "Invoices", icon: FileText, superOnly: false },
+  { href: "/dispatcher/reports", label: "Reports", icon: BarChart3, superOnly: false },
+  { href: "/dispatcher/alerts", label: "Alerts", icon: AlertTriangle, superOnly: false },
+  { href: "/dispatcher/drivers", label: "Drivers", icon: UserPlus, superOnly: false },
+  { href: "/dispatcher/approvals", label: "Approvals", icon: ShieldCheck, superOnly: true },
+  { href: "/dispatcher/team", label: "Team", icon: UsersRound, superOnly: true },
 ] as const;
 
-export function DispatcherSidebar({ email }: { email: string }) {
+export function DispatcherSidebar({
+  email,
+  isSuper,
+  roleLabel,
+}: {
+  email: string;
+  isSuper: boolean;
+  roleLabel: string;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const closeMobile = useDashboardMobileNavClose();
@@ -54,7 +62,7 @@ export function DispatcherSidebar({ email }: { email: string }) {
             <p className="truncate text-sm font-semibold text-[var(--color-text)]">
               Alpha Freight
             </p>
-            <p className="truncate text-xs text-[var(--color-muted)]">Dispatcher Super Admin</p>
+            <p className="truncate text-xs text-[var(--color-muted)]">{roleLabel}</p>
           </div>
         </div>
         <div className="mt-4">
@@ -63,7 +71,7 @@ export function DispatcherSidebar({ email }: { email: string }) {
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 p-3">
-        {NAV.map(({ href, label, icon: Icon }) => {
+        {NAV.filter((item) => isSuper || !item.superOnly).map(({ href, label, icon: Icon }) => {
           const active =
             pathname === href ||
             (href !== "/dispatcher/dashboard" && pathname.startsWith(href));
