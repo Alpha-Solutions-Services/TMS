@@ -4,7 +4,7 @@ import { z } from "zod";
 import { sendDriverAddedToCarrierEmail, sendDriverInvitationEmail } from "@/lib/freight/emails";
 import { PUBLIC_SITE_URL } from "@/lib/freight/constants";
 import { createClient } from "@/lib/supabase/server";
-import { resolveTmsRole } from "@/lib/tms/auth";
+import { requireCanInviteCarriersAndDrivers } from "@/lib/tms/auth";
 
 const schema = z.object({
   driverName: z.string().min(2),
@@ -55,13 +55,8 @@ export async function POST(req: NextRequest) {
           ? inviter.company_name.trim()
           : inviter.full_name ?? "Your carrier";
     } else if (inviter.role === "dispatcher") {
-      const tmsRole = await resolveTmsRole(user);
-      if (tmsRole !== "super_dispatcher") {
-        return NextResponse.json(
-          { error: "Only super dispatchers can invite drivers" },
-          { status: 403 },
-        );
-      }
+      const auth = await requireCanInviteCarriersAndDrivers();
+      if ("error" in auth) return auth.error;
       if (!body.carrierId) {
         return NextResponse.json({ error: "carrierId required" }, { status: 400 });
       }

@@ -2,6 +2,7 @@ import type { User } from "@supabase/supabase-js";
 
 export type TmsRole =
   | "super_dispatcher"
+  | "dispatcher"
   | "sub_dispatcher"
   | "carrier"
   | "driver"
@@ -28,12 +29,17 @@ export function isSuperDispatcherEmail(email: string | undefined | null): boolea
 }
 
 export function isDispatcherRole(role: TmsRole): boolean {
-  return role === "super_dispatcher" || role === "sub_dispatcher";
+  return role === "super_dispatcher" || role === "dispatcher" || role === "sub_dispatcher";
+}
+
+export function isFullDispatcherRole(role: TmsRole): boolean {
+  return role === "super_dispatcher" || role === "dispatcher";
 }
 
 export function roleHomePath(role: TmsRole): string {
   switch (role) {
     case "super_dispatcher":
+    case "dispatcher":
     case "sub_dispatcher":
       return "/dispatcher";
     case "carrier":

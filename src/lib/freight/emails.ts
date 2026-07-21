@@ -522,6 +522,101 @@ export async function sendLoadDocumentUploadedEmail(params: {
   });
 }
 
+export async function sendTeamInviteEmail(params: {
+  to: string;
+  inviteeName: string;
+  roleLabel: string;
+  inviterName: string;
+  loginUrl: string;
+}) {
+  const html = brandedEmailWrap(
+    "Team invitation",
+    `<p>Hi ${escapeHtml(params.inviteeName || "there")},</p>
+     <p><strong>${escapeHtml(params.inviterName)}</strong> added you to Alpha Freight TMS as <strong>${escapeHtml(params.roleLabel)}</strong>.</p>
+     <p><strong>Role rights:</strong></p>
+     <ul style="color:#edf2f8;line-height:1.6;">
+       <li><strong>Super Dispatcher</strong> — team, approvals, carriers, drivers, invoices</li>
+       <li><strong>Dispatcher</strong> — carriers, drivers, loads (no team management)</li>
+       <li><strong>Sub Dispatcher</strong> — book loads (super approval required)</li>
+     </ul>
+     ${cta("Sign in to TMS", params.loginUrl)}
+     <p style="font-size:13px;color:#6a8caf;">Questions? ${FREIGHT_SUPPORT_EMAIL}</p>`,
+  );
+  return sendTransactional({
+    to: params.to,
+    subject: `You've been added as ${params.roleLabel} — Alpha Freight TMS`,
+    html,
+    text: `You were added as ${params.roleLabel} on Alpha Freight TMS. Sign in: ${params.loginUrl}`,
+  });
+}
+
+export async function sendTeamAssignmentEmail(params: {
+  to: string;
+  dispatcherName: string;
+  roleLabel: string;
+  assigneeType: "carrier" | "driver";
+  assigneeName: string;
+  loginUrl: string;
+}) {
+  const kind = params.assigneeType === "carrier" ? "carrier" : "driver";
+  const html = brandedEmailWrap(
+    "New assignment",
+    `<p>Hi ${escapeHtml(params.dispatcherName || "there")},</p>
+     <p>You have been assigned as <strong>${escapeHtml(params.roleLabel)}</strong> for ${kind}:</p>
+     <p style="font-size:18px;font-weight:700;color:#38a3ff;">${escapeHtml(params.assigneeName)}</p>
+     <p>Sign in to manage loads, chat, and documents for this account. Contact details are visible to super dispatchers only.</p>
+     ${cta("Open TMS", params.loginUrl)}
+     <p style="font-size:13px;color:#6a8caf;">Questions? ${FREIGHT_SUPPORT_EMAIL}</p>`,
+  );
+  return sendTransactional({
+    to: params.to,
+    subject: `Assigned to ${kind}: ${params.assigneeName} — Alpha Freight TMS`,
+    html,
+    text: `You were assigned to ${kind} ${params.assigneeName}. Sign in: ${params.loginUrl}`,
+  });
+}
+
+export async function sendTeamTerminatedEmail(params: { to: string; name: string }) {
+  const html = brandedEmailWrap(
+    "Access update",
+    `<p>Hi ${escapeHtml(params.name || "there")},</p>
+     <p>Your Alpha Freight TMS dispatcher access has been terminated by a super dispatcher.</p>
+     <p style="font-size:13px;color:#6a8caf;">If this is unexpected, contact ${FREIGHT_SUPPORT_EMAIL}</p>`,
+  );
+  return sendTransactional({
+    to: params.to,
+    subject: "Alpha Freight TMS — dispatcher access terminated",
+    html,
+    text: "Your Alpha Freight TMS dispatcher access has been terminated.",
+  });
+}
+
+export async function sendInvoicePaymentReceivedEmail(params: {
+  to: string;
+  carrierName: string;
+  invoiceNumber: string;
+  amountReceived: number;
+  amountTotal: number;
+  paymentStatus: "partial" | "paid";
+}) {
+  const statusLabel = params.paymentStatus === "paid" ? "Paid in full" : "Partial payment received";
+  const html = brandedEmailWrap(
+    "Payment received",
+    `<p>Payment update for <strong>${escapeHtml(params.carrierName)}</strong></p>
+     <p style="margin-top:12px;"><strong>Invoice #${escapeHtml(params.invoiceNumber)}</strong></p>
+     <p style="font-size:18px;margin-top:8px;"><strong>${escapeHtml(statusLabel)}</strong></p>
+     <p>Received: <strong>${escapeHtml(formatMoneyUsd(params.amountReceived))}</strong> of ${escapeHtml(formatMoneyUsd(params.amountTotal))}</p>
+     ${cta("View invoices", `${PUBLIC_SITE_URL}/dispatcher/invoices`)}
+     <p style="font-size:13px;color:#6a8caf;">Recorded in TMS · all invoice statuses are saved.</p>`,
+  );
+  await sendTransactional({
+    to: params.to,
+    subject: `${statusLabel} — Invoice #${params.invoiceNumber} (${params.carrierName})`,
+    html,
+    text: `${statusLabel} for invoice #${params.invoiceNumber}: ${formatMoneyUsd(params.amountReceived)} of ${formatMoneyUsd(params.amountTotal)}.`,
+  });
+}
+
 function escapeHtml(s: string) {
   return s
     .replaceAll("&", "&amp;")

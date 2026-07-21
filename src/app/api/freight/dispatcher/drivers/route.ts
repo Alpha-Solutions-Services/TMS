@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
-import { requireSuperDispatcher } from "@/lib/tms/auth";
+import { requireCanInviteCarriersAndDrivers } from "@/lib/tms/auth";
 
 const driverSchema = z.object({
   driverName: z.string().min(2),
@@ -14,7 +14,7 @@ const driverSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const auth = await requireSuperDispatcher();
+  const auth = await requireCanInviteCarriersAndDrivers();
   if ("error" in auth) return auth.error;
 
   const admin = getServiceRoleClient();
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const auth = await requireSuperDispatcher();
+  const auth = await requireCanInviteCarriersAndDrivers();
   if ("error" in auth) return auth.error;
 
   const id = req.nextUrl.searchParams.get("id");

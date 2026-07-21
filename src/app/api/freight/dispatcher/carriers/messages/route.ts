@@ -9,7 +9,17 @@ import { getServiceRoleClient } from "@/lib/supabase/service-role";
 
 const postSchema = z.object({
   carrierProfileId: z.string().uuid(),
-  message: z.string().min(1).max(4000),
+  message: z.string().max(4000).optional(),
+  attachments: z
+    .array(
+      z.object({
+        name: z.string(),
+        url: z.string().url(),
+        mime: z.string(),
+      }),
+    )
+    .max(5)
+    .optional(),
 });
 
 async function requireDispatcher(req: NextRequest) {
@@ -57,7 +67,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await admin
     .from("dispatch_carrier_messages")
-    .select("id,created_at,sender_role,body,read_at")
+    .select("id,created_at,sender_role,body,attachments,read_at")
     .eq("carrier_profile_id", carrierId)
     .order("created_at", { ascending: true })
     .limit(100);
@@ -80,7 +90,11 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = postSchema.parse(await req.json());
-    const text = sanitizeText(body.message, 4000);
+    const text = sanitizeText(body.message ?? "", 4000);
+    const attachments = body.attachments ?? [];
+    if (!text && attachments.length === 0) {
+      return NextResponse.json({ error: "Message or attachment required" }, { status: 400 });
+    }
 
     const { data: carrier } = await admin
       .from("profiles")
@@ -97,7 +111,8 @@ export async function POST(req: NextRequest) {
       carrier_profile_id: body.carrierProfileId,
       sender_profile_id: auth.user.id,
       sender_role: "dispatcher",
-      body: text,
+      body: text || `[${attachments.length} attachment(s)]`,
+      attachments,
     });
 
     if (error) {

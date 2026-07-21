@@ -7,7 +7,7 @@ import { useDispatchDashboard } from "@/components/freight/useDispatchDashboard"
 import { createClient } from "@/lib/supabase/client";
 
 export function DispatcherDriversManage({ canInvite = false }: { canInvite?: boolean }) {
-  const { data, loading, refresh } = useDispatchDashboard();
+  const { data, loading, refresh, canViewContacts } = useDispatchDashboard();
   const [verifiedCarriers, setVerifiedCarriers] = useState<
     { id: string; company_name: string | null; full_name: string | null }[]
   >([]);
@@ -223,8 +223,8 @@ export function DispatcherDriversManage({ canInvite = false }: { canInvite?: boo
           <thead className="bg-[var(--color-surface)]/80 text-xs uppercase text-[var(--color-muted)]">
             <tr>
               <th className="px-4 py-3">Driver</th>
-              <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Phone</th>
+              {canViewContacts ? <th className="px-4 py-3">Email</th> : null}
+              {canViewContacts ? <th className="px-4 py-3">Phone</th> : null}
               <th className="px-4 py-3">Carrier</th>
               <th className="px-4 py-3">Notes</th>
               <th className="px-4 py-3" />
@@ -241,8 +241,8 @@ export function DispatcherDriversManage({ canInvite = false }: { canInvite?: boo
               data.driver_roster.map((d) => (
                 <tr key={d.id} className="hover:bg-[var(--color-accent-dim)]/20">
                   <td className="px-4 py-3 font-medium">{d.driverName}</td>
-                  <td className="px-4 py-3">{d.driverEmail || "—"}</td>
-                  <td className="px-4 py-3">{d.driverPhone || "—"}</td>
+                  {canViewContacts ? <td className="px-4 py-3">{d.driverEmail || "—"}</td> : null}
+                  {canViewContacts ? <td className="px-4 py-3">{d.driverPhone || "—"}</td> : null}
                   <td className="px-4 py-3">{d.carrierCompanyName}</td>
                   <td className="px-4 py-3 text-[var(--color-muted)]">{d.notes || "—"}</td>
                   <td className="px-4 py-3">

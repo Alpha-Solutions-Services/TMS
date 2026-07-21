@@ -119,9 +119,13 @@ export function FreightLoginForm() {
           .eq("id", uid)
           .maybeSingle();
 
-        if (!tmsRow || tmsRow.role !== "sub_dispatcher" || !tmsRow.active) {
+        const allowedRole =
+          tmsRow?.active &&
+          (tmsRow.role === "sub_dispatcher" || tmsRow.role === "dispatcher");
+
+        if (!allowedRole) {
           await supabase.auth.signOut();
-          setError("Sub dispatcher access requires an invitation from a super dispatcher.");
+          setError("Dispatcher access requires an invitation from a super dispatcher.");
           return;
         }
       }

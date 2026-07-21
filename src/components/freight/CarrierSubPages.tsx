@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Mail, MapPin, Phone, RefreshCw, Sparkles, Upload } from "lucide-react";
+import { FreightChatPanel } from "@/components/freight/FreightChatPanel";
 import { InviteDriverModal } from "@/components/freight/InviteDriverModal";
 import { DriverInvitationList } from "@/components/freight/DriverInvitationList";
 import {
@@ -337,8 +338,13 @@ export function CarrierCompliancePage() {
 
 export function CarrierChatPage() {
   const { data, loading, company } = useCarrierPage();
+  const [tab, setTab] = useState<"dispatch" | "loads">("loads");
+  const [loadThreads, setLoadThreads] = useState<
+    { id: string; load_id: string; title: string }[]
+  >([]);
+  const [activeLoadId, setActiveLoadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<
-    { id: string; created_at: string; sender_role: string; body: string }[]
+    { id: string; created_at: string; sender_role: string; body: string; attachments?: { name: string; url: string }[] }[]
   >([]);
   const [reply, setReply] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
@@ -347,10 +353,16 @@ export function CarrierChatPage() {
   useEffect(() => {
     void (async () => {
       const res = await fetch("/api/carrier/messages");
-      const json = (await res.json()) as {
-        messages?: { id: string; created_at: string; sender_role: string; body: string }[];
-      };
+      const json = (await res.json()) as { messages?: typeof messages };
       if (res.ok) setMessages(json.messages ?? []);
+    })();
+    void (async () => {
+      const res = await fetch("/api/freight/load-threads");
+      if (res.ok) {
+        const json = (await res.json()) as { threads?: { id: string; load_id: string; title: string }[] };
+        setLoadThreads(json.threads ?? []);
+        if (json.threads?.[0]) setActiveLoadId(json.threads[0].load_id);
+      }
     })();
   }, []);
 
@@ -379,8 +391,47 @@ export function CarrierChatPage() {
   }
 
   return (
-    <CarrierPageShell title="Dispatcher Chat" loading={loading && !data} companyName={company}>
+    <CarrierPageShell title="Chat" loading={loading && !data} companyName={company}>
       {data ? (
+        <div className="space-y-4">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setTab("loads")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${tab === "loads" ? "bg-[var(--color-accent)] text-[#05080f]" : "border border-[var(--color-border)]"}`}
+            >
+              Load chats
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("dispatch")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${tab === "dispatch" ? "bg-[var(--color-accent)] text-[#05080f]" : "border border-[var(--color-border)]"}`}
+            >
+              Dispatch
+            </button>
+          </div>
+
+          {tab === "loads" ? (
+            <div className="grid gap-4 lg:grid-cols-[200px_1fr]">
+              <div className="space-y-1 rounded-xl border border-[var(--color-border)] p-2">
+                {loadThreads.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setActiveLoadId(t.load_id)}
+                    className={`w-full rounded-lg px-2 py-2 text-left text-xs ${activeLoadId === t.load_id ? "bg-[var(--color-accent-dim)] text-[var(--color-accent)]" : ""}`}
+                  >
+                    {t.title}
+                  </button>
+                ))}
+              </div>
+              {activeLoadId ? (
+                <FreightChatPanel mode="load" loadId={activeLoadId} title="Load team chat" />
+              ) : (
+                <p className="text-sm text-[var(--color-muted)]">No load chats yet.</p>
+              )}
+            </div>
+          ) : (
         <div className="grid gap-4 lg:grid-cols-3">
           <CarrierGlassCard className="lg:col-span-2" glow>
             <div className="flex h-64 flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)]/50 p-4">
@@ -439,6 +490,8 @@ export function CarrierChatPage() {
               {data.dispatcher.phone}
             </p>
           </CarrierGlassCard>
+        </div>
+          )}
         </div>
       ) : null}
     </CarrierPageShell>

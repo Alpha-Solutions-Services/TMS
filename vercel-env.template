@@ -14,3 +14,7 @@ SMTP_SECURE=false
 SMTP_USER=
 SMTP_PASS=
 SMTP_FROM=Alpha Freight Network <no-reply@alphasolutions.software>
+
+# Groq AI (load paste parser + assistant)
+GROQ_API_KEY=
+GROQ_MODEL=llama-3.3-70b-versatile

@@ -28,7 +28,7 @@ export function DispatcherCarrierRoster({
   showAdd?: boolean;
   canManage?: boolean;
 }) {
-  const { data, loading, refresh } = useDispatchDashboard();
+  const { data, loading, refresh, canViewContacts } = useDispatchDashboard();
   const [formOpen, setFormOpen] = useState(showAdd);
   const [form, setForm] = useState(EMPTY_FORM);
   const [busy, setBusy] = useState(false);
@@ -179,10 +179,10 @@ export function DispatcherCarrierRoster({
               <th className="px-3 py-3">MC</th>
               <th className="px-3 py-3">MC Age</th>
               <th className="px-3 py-3">Name</th>
-              <th className="px-3 py-3">Number</th>
+              {canViewContacts ? <th className="px-3 py-3">Number</th> : null}
               <th className="px-3 py-3">Company</th>
               <th className="px-3 py-3">Truck</th>
-              <th className="px-3 py-3">Email</th>
+              {canViewContacts ? <th className="px-3 py-3">Email</th> : null}
               <th className="px-3 py-3">Loads</th>
               <th className="px-3 py-3">Status</th>
               <th className="px-3 py-3">Dispatch review</th>
@@ -204,10 +204,10 @@ export function DispatcherCarrierRoster({
                   <td className="px-3 py-2.5">{c.mc || "—"}</td>
                   <td className="px-3 py-2.5">{c.mcAge || "—"}</td>
                   <td className="px-3 py-2.5">{c.contactName || "—"}</td>
-                  <td className="px-3 py-2.5">{c.phone || "—"}</td>
+                  {canViewContacts ? <td className="px-3 py-2.5">{c.phone || "—"}</td> : null}
                   <td className="px-3 py-2.5 font-medium text-[var(--color-text)]">{c.companyName}</td>
                   <td className="px-3 py-2.5">{c.truck || "—"}</td>
-                  <td className="px-3 py-2.5">{c.email || "—"}</td>
+                  {canViewContacts ? <td className="px-3 py-2.5">{c.email || "—"}</td> : null}
                   <td className="px-3 py-2.5 tabular-nums text-[var(--color-accent)]">
                     {c.loadsBooked ?? 0}
                   </td>

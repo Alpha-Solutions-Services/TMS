@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { logFreightAction } from "@/lib/freight/audit-log";
+import { FREIGHT_TEAM_EMAIL } from "@/lib/freight/constants";
+import { sendInvoicePaymentReceivedEmail } from "@/lib/freight/emails";
 import {
   getNextInvoiceNumber,
   listSentInvoices,
@@ -74,10 +77,56 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const body = patchSchema.parse(await req.json());
+
+    const before = (await listSentInvoices()).find((inv) => inv.id === body.id);
     const updated = await updateSentInvoice(body);
     if (!updated) {
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
+
+    const statusChanged =
+      before &&
+      (before.paymentStatus !== updated.paymentStatus ||
+        before.amountReceived !== updated.amountReceived);
+
+    if (
+      statusChanged &&
+      (updated.paymentStatus === "paid" || updated.paymentStatus === "partial")
+    ) {
+      const recipients = new Set<string>();
+      const carrierEmail = updated.carrierEmail?.trim();
+      if (carrierEmail) recipients.add(carrierEmail);
+      const team = FREIGHT_TEAM_EMAIL?.trim();
+      if (team) recipients.add(team);
+
+      await Promise.all(
+        Array.from(recipients).map((to) =>
+          sendInvoicePaymentReceivedEmail({
+            to,
+            carrierName: updated.carrierName,
+            invoiceNumber: updated.invoiceNumber,
+            amountReceived: updated.amountReceived,
+            amountTotal: updated.amountTotal,
+            paymentStatus: updated.paymentStatus === "paid" ? "paid" : "partial",
+          }).catch(() => {}),
+        ),
+      );
+
+      await logFreightAction({
+        actorId: auth.user?.id,
+        actorEmail: auth.user?.email,
+        action: updated.paymentStatus === "paid" ? "invoice.paid" : "invoice.partial",
+        entityType: "dispatch_sent_invoice",
+        entityId: updated.id,
+        meta: {
+          invoiceNumber: updated.invoiceNumber,
+          carrierName: updated.carrierName,
+          amountReceived: updated.amountReceived,
+          amountTotal: updated.amountTotal,
+        },
+      });
+    }
+
     return NextResponse.json({ ok: true, invoice: updated });
   } catch (e) {
     if (e instanceof z.ZodError) {

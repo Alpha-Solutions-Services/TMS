@@ -49,13 +49,20 @@ export function DispatcherCarrierManage() {
     extendTrialDays: "7",
   });
 
+  const [canViewContacts, setCanViewContacts] = useState(true);
+
   const loadCarriers = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/dispatcher/carriers/manage");
-      const json = (await res.json()) as { carriers?: ManagedCarrier[]; error?: string };
+      const json = (await res.json()) as {
+        carriers?: ManagedCarrier[];
+        canViewContacts?: boolean;
+        error?: string;
+      };
       if (!res.ok) throw new Error(json.error ?? "Failed");
       setCarriers(json.carriers ?? []);
+      setCanViewContacts(json.canViewContacts !== false);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Could not load carriers");
     } finally {
@@ -211,17 +218,25 @@ export function DispatcherCarrierManage() {
           >
             {carriers.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.company_name || c.full_name || c.email}
+                {c.company_name || c.full_name || (canViewContacts ? c.email : "Carrier")}
               </option>
             ))}
           </select>
           {selected ? (
             <p className="mt-2 text-xs text-[var(--color-muted)]">
-              {selected.email} · {selected.carrier_status} ·{" "}
-              {selected.carrier_billing_mode === "free" ? (
-                <span className="text-emerald-400">Free access</span>
+              {canViewContacts ? (
+                <>
+                  {selected.email} · {selected.carrier_status} ·{" "}
+                  {selected.carrier_billing_mode === "free" ? (
+                    <span className="text-emerald-400">Free access</span>
+                  ) : (
+                    selected.carrier_subscription_status ?? "standard"
+                  )}
+                </>
               ) : (
-                selected.carrier_subscription_status ?? "standard"
+                <>
+                  {selected.company_name || selected.full_name} · {selected.carrier_status}
+                </>
               )}
             </p>
           ) : null}
@@ -233,7 +248,7 @@ export function DispatcherCarrierManage() {
               [
                 ["companyName", "Company name"],
                 ["fullName", "Contact name"],
-                ["phone", "Phone"],
+                ...(canViewContacts ? ([["phone", "Phone"]] as const) : []),
                 ["mcNumber", "MC #"],
                 ["dotNumber", "DOT #"],
               ] as const

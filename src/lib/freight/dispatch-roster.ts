@@ -108,6 +108,7 @@ export type DriverRosterEntry = {
   carrierCompanyName: string;
   carrierRosterId: string | null;
   carrierProfileId: string | null;
+  assignedDispatcherId: string | null;
   active: boolean;
   notes: string;
 };
@@ -135,6 +136,7 @@ export async function loadDriverRoster(): Promise<DriverRosterEntry[]> {
     carrier_company_name: string;
     carrier_roster_id: string | null;
     carrier_profile_id: string | null;
+    assigned_dispatcher_id: string | null;
     active: boolean;
     notes: string | null;
   }[]).map((row) => ({
@@ -145,6 +147,7 @@ export async function loadDriverRoster(): Promise<DriverRosterEntry[]> {
     carrierCompanyName: row.carrier_company_name,
     carrierRosterId: row.carrier_roster_id,
     carrierProfileId: row.carrier_profile_id,
+    assignedDispatcherId: row.assigned_dispatcher_id ?? null,
     active: row.active,
     notes: row.notes ?? "",
   }));

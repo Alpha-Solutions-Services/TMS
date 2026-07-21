@@ -4,6 +4,9 @@ import { sanitizeText } from "@/lib/freight/api-security";
 import { assertDispatcher } from "@/lib/freight/dispatch-roster";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
+import { canViewContactDetails, maskCarrierRow } from "@/lib/tms/contact-privacy";
+import { isSuperDispatcherEmail } from "@/lib/tms/roles";
+import { resolveTmsRole } from "@/lib/tms/auth";
 
 const patchSchema = z.object({
   carrierProfileId: z.string().uuid(),
@@ -17,6 +20,7 @@ const patchSchema = z.object({
   billingMode: z.enum(["standard", "free"]).optional(),
   billingNote: z.string().max(500).optional(),
   extendTrialDays: z.number().int().min(0).max(365).optional(),
+  assignedDispatcherId: z.string().uuid().nullable().optional(),
 });
 
 async function requireDispatcher() {
@@ -39,25 +43,39 @@ export async function GET() {
   const auth = await requireDispatcher();
   if ("error" in auth) return auth.error;
 
+  const role = await resolveTmsRole(auth.user);
+  const viewContacts = canViewContactDetails(role, auth.user.email);
+  const isSuper = isSuperDispatcherEmail(auth.user.email) || role === "super_dispatcher";
+
   const admin = getServiceRoleClient();
   if (!admin) {
     return NextResponse.json({ error: "Service role unavailable" }, { status: 500 });
   }
 
-  const { data, error } = await admin
+  let query = admin
     .from("profiles")
     .select(
-      "id,email,full_name,company_name,phone,mc_number,dot_number,company_address,carrier_status,carrier_subscription_status,carrier_trial_ends_at,carrier_billing_mode,carrier_billing_note,created_at",
+      "id,email,full_name,company_name,phone,mc_number,dot_number,company_address,carrier_status,carrier_subscription_status,carrier_trial_ends_at,carrier_billing_mode,carrier_billing_note,assigned_dispatcher_id,created_at",
     )
     .eq("role", "carrier")
     .order("company_name", { ascending: true });
+
+  if (!isSuper) {
+    query = query.eq("assigned_dispatcher_id", auth.user.id);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("[carriers/manage GET]", error);
     return NextResponse.json({ error: "Could not load carriers" }, { status: 500 });
   }
 
-  return NextResponse.json({ carriers: data ?? [] });
+  const carriers = (data ?? []).map((row) =>
+    maskCarrierRow(row as Record<string, unknown>, viewContacts),
+  );
+
+  return NextResponse.json({ carriers, canViewContacts: viewContacts });
 }
 
 export async function PATCH(req: NextRequest) {
@@ -99,6 +117,12 @@ export async function PATCH(req: NextRequest) {
       row.carrier_trial_ends_at = d.toISOString();
       row.carrier_subscription_status = "trialing";
       row.carrier_billing_mode = "standard";
+    }
+    if (body.assignedDispatcherId !== undefined) {
+      if (!isSuperDispatcherEmail(auth.user.email)) {
+        return NextResponse.json({ error: "Super dispatcher only" }, { status: 403 });
+      }
+      row.assigned_dispatcher_id = body.assignedDispatcherId;
     }
 
     if (Object.keys(row).length === 0) {

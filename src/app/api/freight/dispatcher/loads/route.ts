@@ -21,6 +21,7 @@ import {
   resolveLoadCarrierEmail,
 } from "@/lib/freight/load-notifications";
 import { resolveActiveMonthTab } from "@/lib/freight/dispatch-sheet-tabs";
+import { ensureLoadChatThread } from "@/lib/freight/load-chat-thread";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
 
@@ -322,6 +323,8 @@ export async function PATCH(req: NextRequest) {
         }).catch(() => {});
         carrierNotified = true;
       }
+
+      await ensureLoadChatThread(body.id, auth.user.id).catch(() => {});
     }
 
     return NextResponse.json({ ok: true, carrierNotified, dispatcherNotified });

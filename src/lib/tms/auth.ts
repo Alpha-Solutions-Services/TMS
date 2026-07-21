@@ -2,6 +2,7 @@ import type { User } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { getPortalUser } from "@/lib/portal/auth";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
+import { canInviteCarriersAndDrivers } from "@/lib/tms/permissions";
 import {
   isSuperDispatcherEmail,
   type TmsRole,
@@ -34,7 +35,7 @@ export async function resolveTmsRole(user: User | null): Promise<TmsRole> {
   return data.role as TmsRole;
 }
 
-export async function isActiveSubDispatcher(user: User | null): Promise<boolean> {
+export async function isActiveTmsDispatcher(user: User | null): Promise<boolean> {
   if (!user?.id || isSuperDispatcherEmail(user.email)) return false;
   const db = getServiceRoleClient();
   if (!db) return false;
@@ -43,13 +44,40 @@ export async function isActiveSubDispatcher(user: User | null): Promise<boolean>
     .select("role, active")
     .eq("id", user.id)
     .maybeSingle();
-  return data?.role === "sub_dispatcher" && data.active === true;
+  return (
+    (data?.role === "dispatcher" || data?.role === "sub_dispatcher") &&
+    data.active === true
+  );
+}
+
+/** @deprecated use isActiveTmsDispatcher */
+export async function isActiveSubDispatcher(user: User | null): Promise<boolean> {
+  return isActiveTmsDispatcher(user);
 }
 
 export async function canAccessDispatcherPortal(user: User | null): Promise<boolean> {
   if (!user?.email) return false;
   if (isSuperDispatcherEmail(user.email)) return true;
-  return isActiveSubDispatcher(user);
+  return isActiveTmsDispatcher(user);
+}
+
+export async function requireCanInviteCarriersAndDrivers(): Promise<
+  { user: User; role: TmsRole } | { error: NextResponse }
+> {
+  const user = await getPortalUser();
+  if (!user) {
+    return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+  const role = await resolveTmsRole(user);
+  if (!role || !canInviteCarriersAndDrivers(role)) {
+    return {
+      error: NextResponse.json(
+        { error: "Super dispatcher or dispatcher role required" },
+        { status: 403 },
+      ),
+    };
+  }
+  return { user, role };
 }
 
 export async function requireSuperDispatcher(): Promise<
@@ -104,7 +132,18 @@ export async function syncSubDispatcherProfile(
     .catch(() => {});
 }
 
-export async function revokeSubDispatcherAccess(userId: string): Promise<void> {
+export async function syncDispatcherTeamProfile(
+  userId: string,
+  email: string,
+  fullName?: string | null,
+): Promise<void> {
+  await syncSubDispatcherProfile(userId, email, fullName);
+}
+
+export async function revokeTeamMemberAccess(
+  userId: string,
+  role: "dispatcher" | "sub_dispatcher",
+): Promise<void> {
   const db = getServiceRoleClient();
   if (!db) return;
 
@@ -112,10 +151,14 @@ export async function revokeSubDispatcherAccess(userId: string): Promise<void> {
     .from("tms_users")
     .update({ active: false, updated_at: new Date().toISOString() })
     .eq("id", userId)
-    .eq("role", "sub_dispatcher");
+    .eq("role", role);
 
   await db.from("profiles").update({ role: "client" }).eq("id", userId);
   await db.auth.admin
     .updateUserById(userId, { user_metadata: { role: "client" } })
     .catch(() => {});
+}
+
+export async function revokeSubDispatcherAccess(userId: string): Promise<void> {
+  await revokeTeamMemberAccess(userId, "sub_dispatcher");
 }

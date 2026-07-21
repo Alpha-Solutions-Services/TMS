@@ -13,6 +13,7 @@ function readStoredTab(): string {
 
 export function useDispatchDashboard() {
   const [data, setData] = useState<DispatchDashboardData | null>(null);
+  const [canViewContacts, setCanViewContacts] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(readStoredTab);
@@ -31,8 +32,11 @@ export function useDispatchDashboard() {
           const body = (await res.json().catch(() => ({}))) as { error?: string };
           throw new Error(body.error ?? `Request failed (${res.status})`);
         }
-        const json = (await res.json()) as DispatchDashboardData;
+        const json = (await res.json()) as DispatchDashboardData & {
+          canViewContacts?: boolean;
+        };
         setData(json);
+        setCanViewContacts(json.canViewContacts !== false);
         if (json.sheet_meta.active_tab) {
           setActiveTab(json.sheet_meta.active_tab);
           localStorage.setItem(STORAGE_KEY, json.sheet_meta.active_tab);
@@ -56,5 +60,5 @@ export function useDispatchDashboard() {
     localStorage.setItem(STORAGE_KEY, tab);
   }
 
-  return { data, loading, error, refresh, activeTab, changeTab };
+  return { data, loading, error, refresh, activeTab, changeTab, canViewContacts };
 }

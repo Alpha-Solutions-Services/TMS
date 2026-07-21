@@ -5,7 +5,17 @@ import { createClient } from "@/lib/supabase/server";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
 
 const postSchema = z.object({
-  message: z.string().min(1).max(4000),
+  message: z.string().max(4000).optional(),
+  attachments: z
+    .array(
+      z.object({
+        name: z.string(),
+        url: z.string().url(),
+        mime: z.string(),
+      }),
+    )
+    .max(5)
+    .optional(),
 });
 
 export async function GET() {
@@ -32,7 +42,7 @@ export async function GET() {
 
   const { data, error } = await admin
     .from("dispatch_carrier_messages")
-    .select("id,created_at,sender_role,body")
+    .select("id,created_at,sender_role,body,attachments")
     .eq("carrier_profile_id", user.id)
     .order("created_at", { ascending: true })
     .limit(100);
@@ -69,13 +79,18 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = postSchema.parse(await req.json());
-    const text = sanitizeText(body.message, 4000);
+    const text = sanitizeText(body.message ?? "", 4000);
+    const attachments = body.attachments ?? [];
+    if (!text && attachments.length === 0) {
+      return NextResponse.json({ error: "Message or attachment required" }, { status: 400 });
+    }
 
     const { error } = await sb.from("dispatch_carrier_messages").insert({
       carrier_profile_id: user.id,
       sender_profile_id: user.id,
       sender_role: "carrier",
-      body: text,
+      body: text || `[${attachments.length} attachment(s)]`,
+      attachments,
     });
 
     if (error) {

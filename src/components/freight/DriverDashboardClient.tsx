@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Download, Loader2, RefreshCw, Upload } from "lucide-react";
+import { Download, Loader2, MessageSquare, RefreshCw, Upload } from "lucide-react";
 import { PortalClock } from "@/components/freight/PortalClock";
 
 type DriverLoad = {
@@ -143,6 +144,7 @@ export function DriverDashboardClient() {
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
+                  <p className="text-xs font-semibold uppercase text-[var(--color-accent)]">Assigned load</p>
                   <p className="text-lg font-semibold text-[var(--color-text)]">Load {load.load_number}</p>
                   <p className="mt-1 text-sm text-[var(--color-muted)]">
                     {load.pickup} → {load.delivery}
@@ -151,6 +153,14 @@ export function DriverDashboardClient() {
                     {load.broker} · {formatUsd(load.rate)} · {load.status}
                   </p>
                 </div>
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={`/driver/chat?load=${encodeURIComponent(load.id)}`}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent)] px-3 py-2 text-xs font-semibold text-[#05080f]"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    Chat dispatch & carrier
+                  </Link>
                 {load.documents.rate_con && load.document_urls.rate_con ? (
                   <a
                     href={load.document_urls.rate_con}
@@ -164,6 +174,7 @@ export function DriverDashboardClient() {
                 ) : (
                   <span className="text-xs text-[var(--color-muted)]">Rate con pending from dispatch</span>
                 )}
+                </div>
               </div>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-3">

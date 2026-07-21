@@ -28,7 +28,7 @@ const NAV = [
   { href: "/carrier/invoices", label: "Invoices", icon: FileText },
   { href: "/carrier/documents", label: "Documents", icon: Upload },
   { href: "/carrier/compliance", label: "Compliance", icon: ShieldCheck },
-  { href: "/carrier/chat", label: "Dispatcher Chat", icon: MessageSquare },
+  { href: "/carrier/chat", label: "Chat", icon: MessageSquare },
   { href: "/carrier/settings", label: "Settings", icon: Settings },
 ] as const;
 

@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { LoadPasteParser } from "@/components/freight/LoadPasteParser";
+import { FreightAiAssistant } from "@/components/freight/FreightAiAssistant";
 import type { DashboardLoad } from "@/lib/freight/dispatch-dashboard-types";
 import { computeBalance, computeDispatchFee } from "@/lib/freight/load-notifications";
 
@@ -189,6 +191,7 @@ export function LoadFormPanel({
   const [form, setForm] = useState<LoadFormValues>(() =>
     mode === "edit" && load ? loadToFormValues(load) : emptyLoadForm(defaultBookedBy),
   );
+  const [carrierPreview, setCarrierPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -257,6 +260,35 @@ export function LoadFormPanel({
           ? "SR# is assigned automatically. Saves to Supabase — carrier portal updates instantly. Emails carrier (if Email is set) + dispatch team."
           : "Saves to Supabase — reflected instantly on the carrier portal."}
       </p>
+
+      {mode === "create" ? (
+        <>
+          <LoadPasteParser
+            onApply={(fields, summary) => {
+              setForm((f) => ({ ...f, ...fields }));
+              if (summary) setCarrierPreview(summary);
+            }}
+          />
+          <div className="mb-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/40 p-3">
+            <p className="mb-2 text-xs font-semibold text-[var(--color-accent)]">Or upload RC / BOL (AI extract)</p>
+            <FreightAiAssistant
+              embedded
+              allowFiles
+              onLoadFieldsExtracted={(fields, summary) => {
+                setForm((f) => ({ ...f, ...fields }));
+                setCarrierPreview(summary);
+              }}
+            />
+          </div>
+        </>
+      ) : null}
+
+      {carrierPreview ? (
+        <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+          <p className="text-xs font-semibold uppercase text-emerald-300">Carrier summary (copy to chat)</p>
+          <pre className="mt-2 whitespace-pre-wrap text-sm text-[var(--color-text)]">{carrierPreview}</pre>
+        </div>
+      ) : null}
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {FIELD_ROWS.map(({ key, label, required, type }) => (

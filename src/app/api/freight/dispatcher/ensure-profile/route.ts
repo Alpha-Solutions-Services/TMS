@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import {
   canAccessDispatcherPortal,
-  isActiveSubDispatcher,
+  isActiveTmsDispatcher,
   isSuperDispatcherEmail,
   syncSubDispatcherProfile,
 } from "@/lib/tms/auth";
@@ -39,9 +39,9 @@ export async function POST() {
   }
 
   const superDispatcher = isSuperDispatcherEmail(user.email);
-  const activeSub = await isActiveSubDispatcher(user);
+  const activeTeam = await isActiveTmsDispatcher(user);
 
-  if (!superDispatcher && !activeSub) {
+  if (!superDispatcher && !activeTeam) {
     return NextResponse.json(
       { error: "Dispatcher access requires a super dispatcher invitation." },
       { status: 403 },

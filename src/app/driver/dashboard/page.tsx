@@ -6,9 +6,5 @@ export const metadata: Metadata = {
 };
 
 export default function DriverDashboardPage() {
-  return (
-    <main className="min-h-screen bg-[var(--color-bg)]">
-      <DriverDashboardClient />
-    </main>
-  );
+  return <DriverDashboardClient />;
 }
