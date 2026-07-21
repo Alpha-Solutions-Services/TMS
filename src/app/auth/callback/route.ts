@@ -23,7 +23,7 @@ function safeNextPath(raw: string | null | undefined): string | null {
   return null;
 }
 
-function readCookie(request: NextRequest, name: string): string | null {
+function readHintCookie(request: NextRequest, name: string): string | null {
   const raw = request.cookies.get(name)?.value;
   if (!raw) return null;
   try {
@@ -33,22 +33,26 @@ function readCookie(request: NextRequest, name: string): string | null {
   }
 }
 
-function loginError(origin: string, reason: string, cookies: CookieToSet[] = []) {
-  const res = NextResponse.redirect(
-    `${origin}/login?error=auth&reason=${encodeURIComponent(reason)}`,
-  );
+function applyCookies(res: NextResponse, cookies: CookieToSet[]) {
   for (const c of cookies) {
     res.cookies.set(c.name, c.value, c.options);
   }
-  // Clear oauth hint cookies
   res.cookies.set("tms_oauth_next", "", { path: "/", maxAge: 0 });
   res.cookies.set("tms_oauth_role", "", { path: "/", maxAge: 0 });
   return res;
 }
 
+function loginError(origin: string, reason: string, cookies: CookieToSet[] = []) {
+  return applyCookies(
+    NextResponse.redirect(
+      `${origin}/login?error=auth&reason=${encodeURIComponent(reason)}`,
+    ),
+    cookies,
+  );
+}
+
 /**
- * Server-side OAuth callback — exchanges PKCE using the code verifier cookie
- * set by createBrowserClient. Avoids client Strict Mode / storage races.
+ * Server OAuth callback — PKCE verifier is in cookies set by createBrowserClient.
  */
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -59,9 +63,9 @@ export async function GET(request: NextRequest) {
 
   const nextHint =
     safeNextPath(url.searchParams.get("next")) ||
-    safeNextPath(readCookie(request, "tms_oauth_next"));
+    safeNextPath(readHintCookie(request, "tms_oauth_next"));
   const intendedRole =
-    url.searchParams.get("role") || readCookie(request, "tms_oauth_role");
+    url.searchParams.get("role") || readHintCookie(request, "tms_oauth_role");
 
   if (oauthError) {
     return loginError(origin, oauthDesc || oauthError);
@@ -76,9 +80,21 @@ export async function GET(request: NextRequest) {
     return loginError(origin, "missing_supabase_env");
   }
 
+  // Debug aid: if verifier cookie is missing, surface a clearer reason.
+  const hasVerifier = request.cookies
+    .getAll()
+    .some((c) => /code-verifier|code_verifier/i.test(c.name));
+  if (!hasVerifier) {
+    return loginError(
+      origin,
+      "pkce_cookie_missing — clear site cookies for tms.alphasolutions.software, then try Continue with Google again (same browser tab).",
+    );
+  }
+
   const cookiesToSet: CookieToSet[] = [];
 
   const supabase = createServerClient(supabaseUrl, anon, {
+    cookieEncoding: "base64url",
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -103,18 +119,22 @@ export async function GET(request: NextRequest) {
     return loginError(origin, "session_missing_after_exchange", cookiesToSet);
   }
 
-  if (intendedRole === "dispatcher") {
-    const tmsRole = await resolveTmsRole(user);
-    if (tmsRole && isDispatcherRole(tmsRole) && (await canAccessDispatcherPortal(user))) {
-      const emailNorm = user.email?.trim().toLowerCase() ?? "";
-      if (emailNorm) {
-        await ensureDispatcherTmsUser({
-          userId: user.id,
-          email: emailNorm,
-          superDispatcher: tmsRole === "super_dispatcher",
-        });
-        await syncSubDispatcherProfile(user.id, emailNorm);
-      }
+  // Provision dispatcher when the account is on the dispatch team.
+  const tmsRole = await resolveTmsRole(user);
+  if (
+    (intendedRole === "dispatcher" || isDispatcherRole(tmsRole)) &&
+    tmsRole &&
+    isDispatcherRole(tmsRole) &&
+    (await canAccessDispatcherPortal(user))
+  ) {
+    const emailNorm = user.email?.trim().toLowerCase() ?? "";
+    if (emailNorm) {
+      await ensureDispatcherTmsUser({
+        userId: user.id,
+        email: emailNorm,
+        superDispatcher: tmsRole === "super_dispatcher",
+      });
+      await syncSubDispatcherProfile(user.id, emailNorm);
     }
   }
 
@@ -135,11 +155,5 @@ export async function GET(request: NextRequest) {
     dest = nextHint;
   }
 
-  const response = NextResponse.redirect(`${origin}${dest}`);
-  for (const c of cookiesToSet) {
-    response.cookies.set(c.name, c.value, c.options);
-  }
-  response.cookies.set("tms_oauth_next", "", { path: "/", maxAge: 0 });
-  response.cookies.set("tms_oauth_role", "", { path: "/", maxAge: 0 });
-  return response;
+  return applyCookies(NextResponse.redirect(`${origin}${dest}`), cookiesToSet);
 }

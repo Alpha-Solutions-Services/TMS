@@ -54,14 +54,27 @@ export function CarrierRegisterClient() {
       }
       const origin = window.location.origin;
       setTmsOAuthHints("/carrier/register", "carrier");
-      const { error: oauthError } = await sb.auth.signInWithOAuth({
+      const { data: oauthData, error: oauthError } = await sb.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: `${origin}/auth/callback`,
+          skipBrowserRedirect: true,
           queryParams: { prompt: "select_account" },
         },
       });
-      if (oauthError) setErr(oauthError.message);
+      if (oauthError) {
+        setErr(oauthError.message);
+        return;
+      }
+      if (!oauthData?.url) {
+        setErr("Google sign-in did not return a redirect URL.");
+        return;
+      }
+      if (!/code-verifier|code_verifier/i.test(document.cookie)) {
+        setErr("Sign-in cookie was blocked. Allow cookies, then try again.");
+        return;
+      }
+      window.location.assign(oauthData.url);
     } finally {
       setGoogleLoading(false);
     }

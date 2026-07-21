@@ -222,16 +222,33 @@ export function FreightLoginForm() {
       setTmsOAuthHints(nextPath, role);
       // Path-only redirectTo — keeps Google OAuth allowlist + PKCE cookies reliable.
       const redirectTo = `${origin}/auth/callback`;
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      const { data: oauthData, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo,
+          skipBrowserRedirect: true,
           queryParams: {
             prompt: "select_account",
           },
         },
       });
-      if (oauthError) setError(oauthError.message);
+      if (oauthError) {
+        setError(oauthError.message);
+        return;
+      }
+      if (!oauthData?.url) {
+        setError("Google sign-in did not return a redirect URL.");
+        return;
+      }
+      // Ensure PKCE verifier cookie was written before leaving the page.
+      const hasVerifier = /code-verifier|code_verifier/i.test(document.cookie);
+      if (!hasVerifier) {
+        setError(
+          "Sign-in cookie was blocked. Allow cookies for tms.alphasolutions.software, then try again.",
+        );
+        return;
+      }
+      window.location.assign(oauthData.url);
     } finally {
       setGoogleLoading(false);
     }

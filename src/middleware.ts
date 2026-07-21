@@ -13,6 +13,7 @@ export async function middleware(request: NextRequest) {
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   const supabase = createServerClient(url, anon, {
+    cookieEncoding: "base64url",
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -41,8 +42,8 @@ export const config = {
     "/carrier/:path*",
     "/driver/:path*",
     "/freight/:path*",
-    "/login",
-    // Do NOT run middleware on /auth/callback — it can break PKCE cookie exchange
+    // Do NOT run middleware on /login or /auth/callback —
+    // getUser() on /login can race with PKCE code-verifier cookies.
     "/api/:path*",
   ],
 };
