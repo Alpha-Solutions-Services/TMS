@@ -71,6 +71,11 @@ export function DispatcherInvoicesPage() {
   const friday = useMemo(() => getInvoiceFriday(now), [now]);
   const fridayLabel = formatInvoiceDate(friday);
 
+  const sentLoadCount = useMemo(
+    () => sentInvoices.reduce((n, inv) => n + (inv.lineItems?.length ?? 0), 0),
+    [sentInvoices],
+  );
+
   const billedKeys = useMemo(() => {
     const dbIds = new Set<string>();
     const loadNumbers = new Set<string>();
@@ -389,7 +394,7 @@ export function DispatcherInvoicesPage() {
               : "text-[var(--color-muted)] hover:text-[var(--color-text)]",
           )}
         >
-          Sent invoices ({sentInvoices.length})
+          Sent invoices ({sentInvoices.length} · {sentLoadCount} loads)
         </button>
       </div>
 
@@ -398,7 +403,7 @@ export function DispatcherInvoicesPage() {
           <div className="rounded-2xl border border-[var(--color-accent)]/30 bg-[var(--color-surface)]/50 p-5">
             <h2 className="text-sm font-semibold text-[var(--color-text)]">Generate & send invoices</h2>
             <p className="mt-1 text-xs text-[var(--color-muted)]">
-              Choose one payment method per batch — only that option appears on the PDF and email.
+              One invoice per carrier (multiple loads on the same PDF). Use a unique invoice # per carrier before send.
             </p>
 
             <div className="mt-4">
@@ -589,7 +594,10 @@ export function DispatcherInvoicesPage() {
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-[var(--color-muted)]">
-              Invoices emailed to carriers — mark paid, partial, unpaid, or remove the record.
+              One invoice PDF per carrier (all loads for that carrier on one invoice).{" "}
+              {sentLoadCount > 0
+                ? `${sentLoadCount} load line(s) billed across ${sentInvoices.length} carrier invoice(s).`
+                : "Mark paid, partial, unpaid, or remove the record."}
             </p>
             <button
               type="button"
@@ -609,6 +617,7 @@ export function DispatcherInvoicesPage() {
                 <tr>
                   <th className="px-4 py-3">Invoice #</th>
                   <th className="px-4 py-3">Sent</th>
+                  <th className="px-4 py-3">Loads</th>
                   <th className="px-4 py-3">Carrier</th>
                   <th className="px-4 py-3">Email</th>
                   <th className="px-4 py-3">Total</th>
@@ -620,13 +629,13 @@ export function DispatcherInvoicesPage() {
               <tbody className="divide-y divide-[var(--color-border)]">
                 {sentLoading && sentInvoices.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-10 text-center text-[var(--color-muted)]">
+                    <td colSpan={10} className="px-4 py-10 text-center text-[var(--color-muted)]">
                       Loading sent invoices…
                     </td>
                   </tr>
                 ) : sentInvoices.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-10 text-center text-[var(--color-muted)]">
+                    <td colSpan={10} className="px-4 py-10 text-center text-[var(--color-muted)]">
                       No sent invoices yet. Send an invoice from the Create tab.
                     </td>
                   </tr>
@@ -638,6 +647,9 @@ export function DispatcherInvoicesPage() {
                       </td>
                       <td className="px-4 py-3 text-[var(--color-muted)]">
                         {new Date(inv.sentAt).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 tabular-nums">
+                        {inv.lineItems?.length ?? 0}
                       </td>
                       <td className="px-4 py-3 font-medium text-[var(--color-text)]">
                         {inv.carrierName}

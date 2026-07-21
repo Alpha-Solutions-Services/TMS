@@ -399,43 +399,32 @@ export async function recordSentInvoice(params: {
 
   if (error) {
     if (error.code === "23505" || /duplicate|unique/i.test(error.message ?? "")) {
-      const { data: existing } = await db
+      const suffix = `-${sanitizeText(params.invoice.carrierName, 20)
+        .replace(/\s+/g, "")
+        .slice(0, 8)}`;
+      const altNumber = `${invoiceNumber}${suffix}`;
+      const { data: retryInsert, error: retryErr } = await db
         .from("dispatch_sent_invoices")
-        .select("id")
-        .ilike("invoice_number", invoiceNumber)
-        .is("deleted_at", null)
-        .maybeSingle();
+        .insert({ ...insertRow, invoice_number: altNumber })
+        .select("*")
+        .single();
 
-      if (existing?.id) {
-        const { data: updated, error: updErr } = await db
-          .from("dispatch_sent_invoices")
-          .update({
-            month_tab: insertRow.month_tab,
-            carrier_name: insertRow.carrier_name,
-            carrier_email: insertRow.carrier_email,
-            invoice_date: insertRow.invoice_date,
-            due_date: insertRow.due_date,
-            amount_total: insertRow.amount_total,
-            amount_received: 0,
-            payment_status: "unpaid",
-            payment_method: insertRow.payment_method,
-            sent_by: insertRow.sent_by,
-            sent_at: insertRow.sent_at,
-            line_items: insertRow.line_items,
-          })
-          .eq("id", existing.id)
-          .select("*")
-          .single();
-
-        if (!updErr && updated) {
-          const enriched = await enrichLineItemsWithDbIds(lineItems, {
-            monthTab: insertRow.month_tab,
-            carrierName: insertRow.carrier_name,
-          });
-          await markLoadsInvoiceSent(enriched);
-          return { record: rowToRecord(updated as Record<string, unknown>) };
-        }
+      if (!retryErr && retryInsert) {
+        let enriched = await enrichLineItemsWithDbIds(lineItems, {
+          monthTab: insertRow.month_tab,
+          carrierName: insertRow.carrier_name,
+        });
+        await markLoadsInvoiceSent(enriched);
+        return {
+          record: rowToRecord({ ...retryInsert, line_items: enriched } as Record<string, unknown>),
+        };
       }
+
+      console.error("[dispatch-sent-invoices-db] duplicate invoice_number:", invoiceNumber);
+      return {
+        record: null,
+        error: `Invoice #${invoiceNumber} already sent — use a different invoice number for ${params.invoice.carrierName}.`,
+      };
     }
 
     console.error("[dispatch-sent-invoices-db] insert failed:", error);

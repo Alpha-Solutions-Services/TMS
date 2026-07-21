@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { enforceAiRateLimit } from "@/lib/freight/ai-rate-limit";
+import {
+  extractLoadBoardLine,
+  formatCarrierReadyPost,
+  wantsLoadFormatting,
+} from "@/lib/freight/format-carrier-load";
 import { FREIGHT_AI_SYSTEM, getGroqClient, groqModel } from "@/lib/freight/groq-client";
+import { parseLoadBoardLine } from "@/lib/freight/parse-load-board";
 import { getPortalUser } from "@/lib/portal/auth";
 import { resolveTmsRole } from "@/lib/tms/auth";
 import { isDispatcherRole } from "@/lib/tms/roles";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
-
 const schema = z.object({
   message: z.string().min(1).max(4000),
   conversationId: z.string().uuid().optional().nullable(),
@@ -72,6 +77,36 @@ export async function POST(req: NextRequest) {
       .from("freight_ai_conversations")
       .update({ training_notes: body.trainingNotes.trim() || null })
       .eq("id", conversationId);
+  }
+
+  const loadSource =
+    extractLoadBoardLine(body.message) ||
+    (body.chatContext ? extractLoadBoardLine(body.chatContext) : null);
+  const parsedLoad = loadSource ? parseLoadBoardLine(loadSource) : null;
+  const formatRequest = wantsLoadFormatting(body.message);
+
+  if (parsedLoad && (formatRequest || extractLoadBoardLine(body.message))) {
+    const formatted = formatCarrierReadyPost(parsedLoad);
+    const reply = formatRequest
+      ? `Carrier-ready post (copy into chat):\n\n${formatted}`
+      : formatted;
+
+    await db.from("freight_ai_messages").insert({
+      conversation_id: conversationId,
+      role: "user",
+      content: body.message,
+    });
+    await db.from("freight_ai_messages").insert({
+      conversation_id: conversationId,
+      role: "assistant",
+      content: reply,
+    });
+    await db
+      .from("freight_ai_conversations")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", conversationId);
+
+    return NextResponse.json({ conversationId, reply, parsed: true });
   }
 
   await db.from("freight_ai_messages").insert({

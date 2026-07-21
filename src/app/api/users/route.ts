@@ -19,6 +19,7 @@ import {
   tmsDisplayName,
 } from "@/lib/tms/auth";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
+import { findAuthUserByEmail } from "@/lib/tms/find-auth-user";
 
 export const dynamic = "force-dynamic";
 
@@ -73,8 +74,7 @@ export async function POST(req: Request) {
   let authUserId: string;
   let invitedViaSupabase = false;
 
-  const { data: listData } = await db.auth.admin.listUsers();
-  let authUser = listData?.users?.find((u) => u.email?.toLowerCase() === emailNorm);
+  let authUser = await findAuthUserByEmail(emailNorm);
 
   if (!authUser) {
     const { data: existingTms } = await db
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
       .maybeSingle();
     if (existingTms?.id) {
       const { data: authData } = await db.auth.admin.getUserById(existingTms.id);
-      authUser = authData.user ?? undefined;
+      authUser = authData.user ?? null;
     }
   }
 

@@ -101,7 +101,7 @@ export function parseLoadBoardLine(raw: string): ParsedLoadFields | null {
   }
 
   const equip: string[] = [];
-  if (/\bSB\b/i.test(line)) equip.push("SB");
+  if (/\bSB\b/i.test(line)) equip.push("Step Deck (SB)");
   if (/\bFB\b/i.test(line)) equip.push("Flatbed");
   if (/\bR\b|reefer/i.test(line)) equip.push("Reefer");
   const weight = line.match(/(\d{1,5})\s*lbs/i);
@@ -118,7 +118,9 @@ export function parseLoadBoardLine(raw: string): ParsedLoadFields | null {
   ].filter(Boolean);
 
   fields.notes = [fields.notes, noteParts.join(" · ")].filter(Boolean).join(" · ").trim();
-  fields.truckTrailer = equip.filter((e) => !e.includes("lbs")).join(" · ");
+  fields.truckTrailer = equip
+    .filter((e) => !e.includes("lbs") && !e.includes("ft") && !/^(Full|Partial)$/i.test(e))
+    .join(" · ");
 
   if (!fields.loadDetails && !fields.rcInvoice) return null;
   return fields;

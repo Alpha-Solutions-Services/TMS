@@ -4,10 +4,10 @@ import { NextResponse } from "next/server";
 import {
   canAccessDispatcherPortal,
   ensureDispatcherTmsUser,
-  isActiveTmsDispatcher,
-  isSuperDispatcherEmail,
+  resolveTmsRole,
   syncSubDispatcherProfile,
 } from "@/lib/tms/auth";
+import { isDispatcherRole } from "@/lib/tms/roles";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
 
 export async function POST() {
@@ -47,16 +47,20 @@ export async function POST() {
   }
 
   const emailNorm = user.email.trim().toLowerCase();
-  const superDispatcher = isSuperDispatcherEmail(emailNorm);
-  const activeTeam = await isActiveTmsDispatcher(user);
+  const tmsRole = await resolveTmsRole(user);
+  const superDispatcher = tmsRole === "super_dispatcher";
 
-  if (!superDispatcher && !activeTeam) {
-    console.warn("[ensure-profile] Access denied — no team row", {
+  if (!tmsRole || !isDispatcherRole(tmsRole)) {
+    console.warn("[ensure-profile] Access denied — not dispatch team", {
       userId: user.id,
       email: emailNorm,
+      tmsRole,
     });
     return NextResponse.json(
-      { error: "Dispatcher access requires a super dispatcher invitation." },
+      {
+        error:
+          "Dispatcher access requires an invitation from a super dispatcher. If you were just invited, accept the email invite and set your password first.",
+      },
       { status: 403 },
     );
   }
@@ -86,72 +90,29 @@ export async function POST() {
       );
     }
 
-    if (superDispatcher) {
-      const { data: existing } = await admin
-        .from("profiles")
-        .select("id, role")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!existing) {
-        const { error } = await admin.from("profiles").insert({
-          id: user.id,
-          email: emailNorm,
-          role: "dispatcher",
-        });
-        if (error) {
-          console.error("[ensure-profile] profiles insert failed", {
-            userId: user.id,
-            message: error.message,
-          });
-          return NextResponse.json(
-            { error: "Unable to create dispatcher profile. Try again or contact support." },
-            { status: 500 },
-          );
-        }
-        console.info("[ensure-profile] Created profiles row for super dispatcher", {
-          userId: user.id,
-          email: emailNorm,
-        });
-      } else if (existing.role !== "dispatcher") {
-        const { error } = await admin
-          .from("profiles")
-          .update({ role: "dispatcher", email: emailNorm })
-          .eq("id", user.id);
-        if (error) {
-          console.error("[ensure-profile] profiles role update failed", {
-            userId: user.id,
-            message: error.message,
-          });
-          return NextResponse.json(
-            { error: "Unable to set dispatcher profile role." },
-            { status: 500 },
-          );
-        }
-        console.info("[ensure-profile] Updated profiles role for super dispatcher", {
-          userId: user.id,
-          email: emailNorm,
-        });
-      }
-    } else {
-      await syncSubDispatcherProfile(user.id, emailNorm);
-      console.info("[ensure-profile] Synced team dispatcher profile", {
+    const profileSync = await syncSubDispatcherProfile(user.id, emailNorm);
+    if (!profileSync.ok) {
+      console.error("[ensure-profile] profiles sync failed", {
         userId: user.id,
-        email: emailNorm,
-        role: tmsResult.role,
+        message: profileSync.error,
       });
+      return NextResponse.json(
+        { error: "Unable to create dispatcher profile. Try again or contact support." },
+        { status: 500 },
+      );
     }
 
-    await admin.auth.admin
-      .updateUserById(user.id, { user_metadata: { role: "dispatcher" } })
-      .catch((err: unknown) => {
-        console.warn("[ensure-profile] auth metadata update skipped", {
-          userId: user.id,
-          message: err instanceof Error ? err.message : String(err),
-        });
-      });
+    console.info("[ensure-profile] Provisioned dispatcher portal access", {
+      userId: user.id,
+      email: emailNorm,
+      role: tmsResult.role,
+    });
 
-    return NextResponse.json({ ok: true, role: tmsResult.role });
+    return NextResponse.json({
+      ok: true,
+      role: tmsResult.role,
+      portalRole: "dispatcher",
+    });
   } catch (err) {
     console.error("[ensure-profile] Unexpected error", {
       userId: user.id,

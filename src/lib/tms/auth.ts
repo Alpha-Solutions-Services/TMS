@@ -17,48 +17,73 @@ export {
 } from "@/lib/tms/roles";
 
 export async function resolveTmsRole(user: User | null): Promise<TmsRole> {
-  if (!user?.email) return null;
-
-  if (isSuperDispatcherEmail(user.email)) return "super_dispatcher";
+  if (!user?.id) return null;
 
   const db = getServiceRoleClient();
-  if (!db) return null;
+  const emailNorm = user.email?.trim().toLowerCase() ?? "";
 
-  const { data } = await db
-    .from("tms_users")
-    .select("role, active")
-    .eq("id", user.id)
-    .eq("active", true)
-    .maybeSingle();
+  if (db) {
+    const { data } = await db
+      .from("tms_users")
+      .select("role, active, email")
+      .eq("id", user.id)
+      .eq("active", true)
+      .maybeSingle();
 
-  if (!data?.role) return null;
-  return data.role as TmsRole;
+    if (data?.role) {
+      return data.role as TmsRole;
+    }
+
+    // Invite row may exist under email before auth id is linked (re-invite / duplicate signup).
+    if (emailNorm) {
+      const { data: byEmail } = await db
+        .from("tms_users")
+        .select("id, role, active, full_name")
+        .eq("email", emailNorm)
+        .eq("active", true)
+        .maybeSingle();
+
+      if (byEmail?.role) {
+        if (byEmail.id !== user.id) {
+          await db.from("tms_users").upsert(
+            {
+              id: user.id,
+              email: emailNorm,
+              full_name: byEmail.full_name,
+              role: byEmail.role,
+              active: true,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "id" },
+          );
+          await db
+            .from("tms_users")
+            .update({ active: false, updated_at: new Date().toISOString() })
+            .eq("id", byEmail.id);
+        }
+        return byEmail.role as TmsRole;
+      }
+    }
+  }
+
+  if (emailNorm && isSuperDispatcherEmail(emailNorm)) return "super_dispatcher";
+  return null;
 }
 
 export async function isActiveTmsDispatcher(user: User | null): Promise<boolean> {
-  if (!user?.id || isSuperDispatcherEmail(user.email)) return false;
-  const db = getServiceRoleClient();
-  if (!db) return false;
-  const { data } = await db
-    .from("tms_users")
-    .select("role, active")
-    .eq("id", user.id)
-    .maybeSingle();
-  return (
-    (data?.role === "dispatcher" || data?.role === "sub_dispatcher") &&
-    data.active === true
-  );
-}
-
-/** @deprecated use isActiveTmsDispatcher */
-export async function isActiveSubDispatcher(user: User | null): Promise<boolean> {
-  return isActiveTmsDispatcher(user);
+  if (!user?.id) return false;
+  const role = await resolveTmsRole(user);
+  return role === "dispatcher" || role === "sub_dispatcher";
 }
 
 export async function canAccessDispatcherPortal(user: User | null): Promise<boolean> {
-  if (!user?.email) return false;
-  if (isSuperDispatcherEmail(user.email)) return true;
-  return isActiveTmsDispatcher(user);
+  if (!user?.id) return false;
+  const role = await resolveTmsRole(user);
+  return (
+    role === "super_dispatcher" ||
+    role === "dispatcher" ||
+    role === "sub_dispatcher"
+  );
 }
 
 export async function requireCanInviteCarriersAndDrivers(): Promise<
@@ -98,9 +123,9 @@ export async function syncSubDispatcherProfile(
   userId: string,
   email: string,
   fullName?: string | null,
-): Promise<void> {
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const db = getServiceRoleClient();
-  if (!db) return;
+  if (!db) return { ok: false, error: "Database not configured" };
 
   const emailNorm = email.trim().toLowerCase();
   const { data: existing } = await db
@@ -110,14 +135,15 @@ export async function syncSubDispatcherProfile(
     .maybeSingle();
 
   if (!existing) {
-    await db.from("profiles").insert({
+    const { error } = await db.from("profiles").insert({
       id: userId,
       email: emailNorm,
       role: "dispatcher",
       full_name: fullName?.trim() || null,
     });
+    if (error) return { ok: false, error: error.message };
   } else {
-    await db
+    const { error } = await db
       .from("profiles")
       .update({
         role: "dispatcher",
@@ -125,19 +151,27 @@ export async function syncSubDispatcherProfile(
         email: emailNorm,
       })
       .eq("id", userId);
+    if (error) return { ok: false, error: error.message };
   }
 
   await db.auth.admin
     .updateUserById(userId, { user_metadata: { role: "dispatcher" } })
     .catch(() => {});
+
+  return { ok: true };
 }
 
 export async function syncDispatcherTeamProfile(
   userId: string,
   email: string,
   fullName?: string | null,
-): Promise<void> {
-  await syncSubDispatcherProfile(userId, email, fullName);
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  return syncSubDispatcherProfile(userId, email, fullName);
+}
+
+/** @deprecated use isActiveTmsDispatcher */
+export async function isActiveSubDispatcher(user: User | null): Promise<boolean> {
+  return isActiveTmsDispatcher(user);
 }
 
 export async function revokeTeamMemberAccess(

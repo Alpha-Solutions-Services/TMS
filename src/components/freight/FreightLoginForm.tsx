@@ -113,21 +113,28 @@ export function FreightLoginForm() {
       const superDispatcher = isSuperDispatcherEmail(emailSignedIn) || superAdmin;
 
       if (role === "dispatcher") {
-        const ensureRes = await fetch("/api/freight/dispatcher/ensure-profile", {
+        const ensureRes = await fetch("/api/dispatcher/ensure-profile", {
           method: "POST",
+          credentials: "include",
         });
+        const ensureBody = (await ensureRes.json().catch(() => ({}))) as {
+          error?: string;
+          ok?: boolean;
+          portalRole?: string;
+        };
         if (!ensureRes.ok) {
-          const body = (await ensureRes.json().catch(() => ({}))) as { error?: string };
           await supabase.auth.signOut();
-          setError(body.error ?? "Dispatcher access requires an invitation from a super dispatcher.");
+          setError(
+            ensureBody.error ??
+              "Dispatcher access requires an invitation from a super dispatcher.",
+          );
           return;
         }
-        const { data: ensuredProfile } = await supabase
-          .from("profiles")
-          .select("role, enrollment_status, carrier_status")
-          .eq("id", uid)
-          .maybeSingle();
-        profile = ensuredProfile;
+        profile = {
+          role: "dispatcher",
+          enrollment_status: profile?.enrollment_status ?? null,
+          carrier_status: profile?.carrier_status ?? null,
+        };
       }
 
       if (role === "carrier" && profile?.role === "client") {
@@ -193,6 +200,11 @@ export function FreightLoginForm() {
       }
       const origin = window.location.origin;
       const nextPath = next && next.startsWith("/") && !next.startsWith("//") ? next : undefined;
+      try {
+        sessionStorage.setItem("tms_oauth_next", nextPath ?? redirectTarget);
+      } catch {
+        /* ignore */
+      }
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
