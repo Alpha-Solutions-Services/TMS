@@ -1,4 +1,3 @@
-import type { User } from "@supabase/supabase-js";
 import type { TmsRole } from "@/lib/tms/roles";
 import { isSuperDispatcherEmail } from "@/lib/tms/roles";
 
@@ -15,6 +14,28 @@ export function roleRank(role: TmsRole): number {
       return 0;
   }
 }
+
+/** Regular dispatcher sidebar (super gets everything). */
+export const DISPATCHER_NAV_PATHS = [
+  "/dispatcher/dashboard",
+  "/dispatcher/loads",
+  "/dispatcher/chat",
+  "/dispatcher/carrier-portal",
+  "/dispatcher/invoices",
+  "/dispatcher/alerts",
+  "/dispatcher/drivers",
+] as const;
+
+/** Super-only nav (owner / full ops). */
+export const SUPER_DISPATCHER_ONLY_NAV_PATHS = [
+  "/dispatcher/carriers",
+  "/dispatcher/reports",
+  "/dispatcher/approvals",
+  "/dispatcher/team",
+  "/dispatcher/academy",
+  "/dispatcher/messages",
+  "/dispatcher/ai",
+] as const;
 
 export function canManageTeam(role: TmsRole): boolean {
   return role === "super_dispatcher";
@@ -46,7 +67,11 @@ export function canInviteCarriersAndDrivers(role: TmsRole): boolean {
 }
 
 export function canViewReports(role: TmsRole): boolean {
-  return role === "super_dispatcher" || role === "dispatcher";
+  return role === "super_dispatcher";
+}
+
+export function canManageCarriersRoster(role: TmsRole): boolean {
+  return role === "super_dispatcher";
 }
 
 export function canManageDrivers(role: TmsRole): boolean {
@@ -57,6 +82,20 @@ export function canAccessCarrierPortal(role: TmsRole): boolean {
   return role === "super_dispatcher" || role === "dispatcher";
 }
 
+export function canViewAlerts(role: TmsRole): boolean {
+  return role === "super_dispatcher" || role === "dispatcher";
+}
+
+/** Full dashboard with fleet, bookers, aging, etc. Super only. */
+export function canViewFullDashboard(role: TmsRole): boolean {
+  return role === "super_dispatcher";
+}
+
+/** Weekly earnings snapshot on dashboard. */
+export function canViewWeeklyDashboard(role: TmsRole): boolean {
+  return role === "super_dispatcher" || role === "dispatcher";
+}
+
 export function canAccessDispatcherNav(role: TmsRole): boolean {
   return roleRank(role) >= 1;
 }
@@ -64,12 +103,13 @@ export function canAccessDispatcherNav(role: TmsRole): boolean {
 /** Sidebar / route visibility by TMS role (not profiles.role). */
 export function canAccessDispatcherNavItem(role: TmsRole, href: string): boolean {
   if (!role) return false;
-  if (role === "super_dispatcher") return true;
 
   const path = href.split("?")[0];
 
+  if (role === "super_dispatcher") return true;
+
   if (role === "dispatcher") {
-    return path !== "/dispatcher/team" && path !== "/dispatcher/approvals";
+    return (DISPATCHER_NAV_PATHS as readonly string[]).includes(path);
   }
 
   if (role === "sub_dispatcher") {

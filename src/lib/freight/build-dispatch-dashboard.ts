@@ -16,8 +16,9 @@ import {
 import { loadCarrierRoster, loadDriverRoster } from "./dispatch-roster";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
-import { buildInvoiceAging } from "./dispatch-reports";
+import { fetchCarrierComplianceAlerts } from "./carrier-compliance-alerts";
 import { listSentInvoices } from "./dispatch-sent-invoices-db";
+import { buildInvoiceAging } from "./dispatch-reports";
 import { listMonthTabOptions, parseMonthTab, resolveActiveMonthTab } from "./dispatch-sheet-tabs";
 
 function mergeAvailableTabs(dbTabs: string[]): string[] {
@@ -87,12 +88,19 @@ function finalizeDashboard(
 }
 
 async function applyAvailableTabs(dashboard: DispatchDashboardData): Promise<DispatchDashboardData> {
-  const [dbTabs, sentInvoices] = await Promise.all([
+  const [dbTabs, sentInvoices, complianceAlerts] = await Promise.all([
     listDispatchMonthTabsFromDb(),
     listSentInvoices().catch(() => []),
+    fetchCarrierComplianceAlerts().catch(() => []),
   ]);
   dashboard.sheet_meta.available_tabs = mergeAvailableTabs(dbTabs);
   dashboard.invoice_aging = buildInvoiceAging(sentInvoices);
+  if (complianceAlerts.length) {
+    dashboard.alerts = [...complianceAlerts, ...dashboard.alerts.filter((a) => a.type !== "ok")];
+    if (dashboard.alerts.length === 0) {
+      dashboard.alerts = complianceAlerts;
+    }
+  }
   return dashboard;
 }
 

@@ -14,6 +14,9 @@ const EMPTY_FORM = {
   truck: "",
   email: "",
   address: "",
+  dotNumber: "",
+  insuranceExpiresAt: "",
+  w9OnFile: false,
   dispatchReview: "",
   status: "Active",
   salesReview: "",
@@ -43,6 +46,56 @@ export function DispatcherCarrierRoster({
 
   if (loading && !data) return null;
   if (!data) return null;
+
+  async function verifyMcWithFmcsa() {
+    if (!form.mc.trim()) {
+      setMsg("Enter MC # first.");
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/dispatcher/verify-carrier-mc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mcNumber: form.mc }),
+      });
+      const json = (await res.json()) as {
+        error?: string;
+        fallback?: boolean;
+        message?: string;
+        companyName?: string;
+        mailingAddress?: string;
+        dotNumber?: string;
+        active?: boolean;
+        statusSummary?: string;
+        fmcsaEmail?: string | null;
+        normalizedMc?: string;
+      };
+      if (!res.ok && !json.fallback) throw new Error(json.error ?? "FMCSA lookup failed");
+      if (json.fallback) {
+        setMsg(json.message ?? "FMCSA unavailable — enter details manually.");
+        return;
+      }
+      setForm((f) => ({
+        ...f,
+        mc: json.normalizedMc ?? f.mc,
+        companyName: json.companyName ?? f.companyName,
+        address: json.mailingAddress ?? f.address,
+        dotNumber: json.dotNumber ?? f.dotNumber,
+        email: json.fmcsaEmail ?? f.email,
+        status: json.active ? "Active" : "Inactive",
+        dispatchReview: json.statusSummary
+          ? `FMCSA: ${json.statusSummary}`
+          : f.dispatchReview,
+      }));
+      setMsg(json.active ? "FMCSA verified — fields filled." : "MC found but not active in FMCSA.");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "FMCSA verify failed");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function addCarrier() {
     if (!form.companyName.trim()) {
@@ -139,18 +192,39 @@ export function DispatcherCarrierRoster({
               ["salesReview", "Sales review"],
               ["salesAttention", "Sales attention"],
               ["documentLink", "Document link (Drive)"],
+              ["dotNumber", "DOT #"],
+              ["insuranceExpiresAt", "Insurance expires (YYYY-MM-DD)"],
             ] as const
           ).map(([key, label]) => (
             <label key={key} className="block text-sm">
               <span className="text-[var(--color-muted)]">{label}</span>
               <input
-                value={form[key]}
-                onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                type={key === "insuranceExpiresAt" ? "date" : "text"}
+                value={String(form[key as keyof typeof form] ?? "")}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, [key]: e.target.value }))
+                }
                 className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)]/60 px-3 py-2 text-[var(--color-text)]"
               />
             </label>
           ))}
-          <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-3">
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input
+              type="checkbox"
+              checked={form.w9OnFile}
+              onChange={(e) => setForm((f) => ({ ...f, w9OnFile: e.target.checked }))}
+            />
+            <span className="text-[var(--color-muted)]">W-9 on file</span>
+          </label>
+          <div className="flex flex-wrap items-end gap-2 sm:col-span-2 lg:col-span-3">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void verifyMcWithFmcsa()}
+              className="rounded-lg border border-[var(--color-accent)]/50 px-4 py-2 text-sm font-semibold text-[var(--color-accent)] disabled:opacity-50"
+            >
+              Verify MC (FMCSA)
+            </button>
             <button
               type="button"
               disabled={busy}

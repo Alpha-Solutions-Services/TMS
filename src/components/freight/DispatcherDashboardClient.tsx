@@ -17,6 +17,7 @@ import { DispatchLoadsTable } from "@/components/freight/DispatchLoadsTable";
 import { DispatchMonthSelector } from "@/components/freight/DispatchMonthSelector";
 import { InvoiceAgingPanel } from "@/components/freight/InvoiceAgingPanel";
 import { PortalClock } from "@/components/freight/PortalClock";
+import { SubDispatcherPerformancePanel } from "@/components/freight/SubDispatcherPerformancePanel";
 import { TopBookersPanel } from "@/components/freight/TopBookersPanel";
 import { useDispatchDashboard } from "@/components/freight/useDispatchDashboard";
 import type { SummaryCard } from "@/lib/freight/dispatch-dashboard-types";
@@ -71,7 +72,7 @@ const QUICK_ICONS: Record<string, typeof UserPlus> = {
   upload: UserPlus,
 };
 
-export function DispatcherDashboardClient() {
+export function DispatcherDashboardClient({ weeklyOnly = false }: { weeklyOnly?: boolean }) {
   const { data, loading, error, refresh, activeTab, changeTab } = useDispatchDashboard();
 
   if (loading && !data) {
@@ -99,6 +100,73 @@ export function DispatcherDashboardClient() {
   }
 
   if (!data) return null;
+
+  if (weeklyOnly) {
+    return (
+      <div className="space-y-6 p-4 pb-10 sm:p-6 lg:p-8">
+        <header>
+          <p className="text-xs uppercase tracking-[0.25em] text-[var(--color-accent)]">
+            {data.company.name}
+          </p>
+          <h1
+            className="mt-1 text-2xl font-bold text-[var(--color-text)] sm:text-3xl"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            This week
+          </h1>
+          <p className="mt-2 text-sm text-[var(--color-muted)]">
+            Your weekly earnings snapshot — full ops dashboard is super dispatcher only.
+          </p>
+        </header>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/50 p-5 shadow-[var(--glow-sm)]">
+            <p className="text-xs uppercase tracking-wider text-[var(--color-muted)]">
+              Revenue this week
+            </p>
+            <p className="mt-2 text-3xl font-bold tabular-nums text-emerald-400">
+              {formatUsd(data.footer_stats.revenue_this_week)}
+            </p>
+            <p className="mt-1 text-xs text-[var(--color-muted)]">RC invoice total (Mon–Sun)</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/50 p-5 shadow-[var(--glow-sm)]">
+            <p className="text-xs uppercase tracking-wider text-[var(--color-muted)]">
+              Commission this week
+            </p>
+            <p className="mt-2 text-3xl font-bold tabular-nums text-orange-300">
+              {formatUsd(data.footer_stats.commission_earned)}
+            </p>
+            <p className="mt-1 text-xs text-[var(--color-muted)]">Dispatch fee earned</p>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)]/40 p-5">
+          <h3 className="text-sm font-semibold text-[var(--color-text)]">Revenue trend</h3>
+          <p className="mt-1 text-xs text-[var(--color-muted)]">Daily RC invoice · this week</p>
+          <div className="mt-4">
+            <RevenueLineChart data={data.revenue_chart.data} />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/dispatcher/loads?action=book"
+            className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[#05080f] hover:opacity-90"
+          >
+            <Package className="h-4 w-4" />
+            Book a load
+          </Link>
+          <Link
+            href="/dispatcher/invoices"
+            className="inline-flex items-center gap-2 rounded-xl border border-[var(--color-border)] px-4 py-2 text-sm text-[var(--color-text)] hover:border-[var(--color-accent)]/40"
+          >
+            <FileText className="h-4 w-4" />
+            Invoices
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-4 pb-10 sm:p-6 lg:p-8">
@@ -216,6 +284,8 @@ export function DispatcherDashboardClient() {
           </div>
         </div>
       </div>
+
+      <SubDispatcherPerformancePanel monthTab={activeTab} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)]/40 p-5">

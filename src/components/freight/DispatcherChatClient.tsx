@@ -164,7 +164,8 @@ export function DispatcherChatClient() {
               carrierProfileId={activeCarrierId}
               title={activeCarrier?.companyName}
               enableAiAssist
-              emptyHint="Carrier chat — Ask Alpha AI about this carrier conversation."
+              enableCreateLoadFromRc
+              emptyHint="Carrier chat — upload RC to create a load, or use Ask Alpha AI to draft messages."
             />
           ) : tab === "groups" && activeGroupId ? (
             <FreightChatPanel

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { DispatcherDashboardClient } from "@/components/freight/DispatcherDashboardClient";
 import { getPortalUser } from "@/lib/portal/auth";
 import { resolveTmsRole } from "@/lib/tms/auth";
-import { dispatcherLandingPath } from "@/lib/tms/permissions";
+import { canViewFullDashboard, dispatcherLandingPath } from "@/lib/tms/permissions";
 
 export const metadata: Metadata = {
   title: "Dispatcher Dashboard — Alpha Freight",
@@ -16,5 +16,7 @@ export default async function DispatcherDashboardPage() {
   const role = await resolveTmsRole(user);
   if (role === "sub_dispatcher") redirect(dispatcherLandingPath(role));
 
-  return <DispatcherDashboardClient />;
+  return (
+    <DispatcherDashboardClient weeklyOnly={role === "dispatcher" && !canViewFullDashboard(role)} />
+  );
 }

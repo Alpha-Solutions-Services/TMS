@@ -7,6 +7,7 @@ import { DispatchMonthSelector } from "@/components/freight/DispatchMonthSelecto
 import { LoadAssignModal } from "@/components/freight/LoadAssignModal";
 import { LoadFormPanel } from "@/components/freight/LoadFormModal";
 import { PortalClock } from "@/components/freight/PortalClock";
+import { RcUploadPanel } from "@/components/freight/RcUploadPanel";
 import { useDispatchDashboard } from "@/components/freight/useDispatchDashboard";
 import type { DashboardLoad } from "@/lib/freight/dispatch-dashboard-types";
 
@@ -77,6 +78,16 @@ export function DispatcherLoadsPage() {
           ) : null}
         </div>
       </div>
+
+      {supabaseMode ? (
+        <RcUploadPanel
+          monthTab={activeTab}
+          onCreated={async (message) => {
+            setSaveMsg(message);
+            await refresh();
+          }}
+        />
+      ) : null}
 
       {!supabaseMode ? (
         <p className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">

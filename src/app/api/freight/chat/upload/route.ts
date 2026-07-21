@@ -14,13 +14,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "file required" }, { status: 400 });
   }
 
-  const attachment = await uploadChatAttachment(file, user.id);
-  if (!attachment) {
-    return NextResponse.json(
-      { error: "Upload failed — PDF or image, max 10MB" },
-      { status: 400 },
-    );
+  const result = await uploadChatAttachment(file, user.id);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: 400 });
   }
 
-  return NextResponse.json({ attachment });
+  return NextResponse.json({ attachment: result.attachment });
 }

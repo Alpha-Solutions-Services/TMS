@@ -6,7 +6,7 @@ import { DispatcherCarrierManage } from "@/components/freight/DispatcherCarrierM
 import { DispatcherCarrierRoster } from "@/components/freight/DispatcherCarrierRoster";
 import { getPortalUser } from "@/lib/portal/auth";
 import { resolveTmsRole } from "@/lib/tms/auth";
-import { canInviteCarriersAndDrivers } from "@/lib/tms/permissions";
+import { canManageCarriersRoster, dispatcherLandingPath } from "@/lib/tms/permissions";
 import { isDispatcherRole } from "@/lib/tms/roles";
 
 export const metadata: Metadata = {
@@ -62,8 +62,11 @@ export default async function DispatcherCarriersPage({
   if (!user || !isDispatcherRole(role)) {
     redirect("/login");
   }
+  if (!canManageCarriersRoster(role)) {
+    redirect(dispatcherLandingPath(role));
+  }
 
-  const canManage = canInviteCarriersAndDrivers(role);
+  const canManage = canManageCarriersRoster(role);
 
   return (
     <Suspense fallback={<p className="p-8 text-[var(--color-muted)]">Loading…</p>}>

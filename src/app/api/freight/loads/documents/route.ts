@@ -15,8 +15,9 @@ import { FREIGHT_TEAM_EMAIL, PUBLIC_SITE_URL } from "@/lib/freight/constants";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
 
+import { resolveUploadMime, MAX_UPLOAD_BYTES, maxUploadLabelMb } from "@/lib/freight/upload-mime";
+
 const ALLOWED_TYPES = new Set<LoadDocumentType>(["rate_con", "bol", "commodity", "pod"]);
-const MAX_BYTES = 10 * 1024 * 1024;
 
 async function resolveCarrierEmail(
   companyName: string,
@@ -199,8 +200,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "loadId, type, and file required" }, { status: 400 });
   }
 
-  if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: "File too large (max 10MB)" }, { status: 400 });
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return NextResponse.json(
+      { error: `File too large (max ${maxUploadLabelMb()}MB)` },
+      { status: 400 },
+    );
+  }
+
+  const resolvedMime = resolveUploadMime(file);
+  if (!resolvedMime) {
+    return NextResponse.json({ error: "Upload PDF or image (JPG, PNG, WEBP)" }, { status: 400 });
   }
 
   const admin = getServiceRoleClient();
@@ -244,7 +253,7 @@ export async function POST(req: NextRequest) {
     type: docType,
     file: buffer,
     filename: file.name,
-    contentType: file.type || "application/octet-stream",
+    contentType: resolvedMime,
   });
 
   if (!result) {

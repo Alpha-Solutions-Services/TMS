@@ -3,7 +3,7 @@ import { z } from "zod";
 import { assertDispatcher } from "@/lib/freight/dispatch-roster";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
-import { requireCanInviteCarriersAndDrivers } from "@/lib/tms/auth";
+import { requireSuperDispatcher } from "@/lib/tms/auth";
 
 const carrierSchema = z.object({
   mc: z.string().optional(),
@@ -14,6 +14,9 @@ const carrierSchema = z.object({
   truck: z.string().optional(),
   email: z.union([z.string().email(), z.literal("")]).optional(),
   address: z.string().optional(),
+  dotNumber: z.string().optional(),
+  insuranceExpiresAt: z.string().optional(),
+  w9OnFile: z.boolean().optional(),
   dispatchReview: z.string().optional(),
   status: z.string().optional(),
   salesReview: z.string().optional(),
@@ -38,7 +41,7 @@ async function requireDispatcher() {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireCanInviteCarriersAndDrivers();
+  const auth = await requireSuperDispatcher();
   if ("error" in auth) return auth.error;
 
   const admin = getServiceRoleClient();
@@ -60,6 +63,9 @@ export async function POST(req: NextRequest) {
         truck: body.truck || null,
         email: body.email || null,
         address: body.address || null,
+        dot_number: body.dotNumber || null,
+        insurance_expires_at: body.insuranceExpiresAt || null,
+        w9_on_file: body.w9OnFile ?? false,
         dispatch_review: body.dispatchReview || null,
         status: body.status || "Active",
         sales_review: body.salesReview || null,
@@ -85,7 +91,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const auth = await requireCanInviteCarriersAndDrivers();
+  const auth = await requireSuperDispatcher();
   if ("error" in auth) return auth.error;
 
   const id = req.nextUrl.searchParams.get("id");

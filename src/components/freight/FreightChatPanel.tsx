@@ -7,6 +7,8 @@ import {
   formatDocFieldsAsMessage,
   type DocAnalysis,
 } from "@/components/freight/ChatMessageBubble";
+import { isImageMime, isPdfMime, resolveUploadMime } from "@/lib/freight/upload-mime";
+import { createLoadFromRc } from "@/lib/freight/rc-to-load";
 import type { ChatAttachment, ChatMessage } from "@/lib/freight/chat-types";
 
 type ChatMode = "carrier" | "load" | "group";
@@ -28,8 +30,11 @@ export function FreightChatPanel({
   title,
   emptyHint,
   enableAiAssist = false,
+  enableCreateLoadFromRc = false,
+  monthTab,
   viewerRole = "dispatcher",
   onSendComplete,
+  onLoadCreated,
 }: {
   mode: ChatMode;
   carrierProfileId?: string;
@@ -38,8 +43,11 @@ export function FreightChatPanel({
   title?: string;
   emptyHint?: string;
   enableAiAssist?: boolean;
+  enableCreateLoadFromRc?: boolean;
+  monthTab?: string;
   viewerRole?: "dispatcher" | "carrier" | "driver";
   onSendComplete?: () => void;
+  onLoadCreated?: (message: string) => void;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -126,12 +134,15 @@ export function FreightChatPanel({
         const att = {
           ...json.attachment,
           docType:
-            file.type.includes("pdf") || file.name.toLowerCase().includes("rc")
+            isPdfMime(json.attachment.mime) ||
+            file.name.toLowerCase().includes("rc") ||
+            file.name.toLowerCase().endsWith(".pdf")
               ? ("rate_con" as const)
               : ("other" as const),
         };
         setPendingFiles((p) => [...p, att]);
-        if (enableAiAssist && (file.type.startsWith("image/") || file.type === "application/pdf")) {
+        const mime = resolveUploadMime(file) ?? json.attachment.mime;
+        if (enableAiAssist && (isImageMime(mime) || isPdfMime(mime))) {
           await parseUploadedDocument(file, att);
         }
       }
@@ -166,6 +177,27 @@ export function FreightChatPanel({
       setStatusMsg(e instanceof Error ? e.message : "AI enhance failed");
     } finally {
       setEnhancing(false);
+    }
+  }
+
+  async function createLoadFromRcDoc() {
+    if (!docAnalysis) return;
+    setBusy(true);
+    setStatusMsg(null);
+    try {
+      const result = await createLoadFromRc({
+        fields: docAnalysis.fields,
+        file: docAnalysis.file,
+        monthTab: monthTab ?? "",
+      });
+      if (!result.ok) throw new Error(result.error ?? "Could not create load");
+      setStatusMsg(result.message ?? "Load created from RC.");
+      setDocAnalysis(null);
+      onLoadCreated?.(result.message ?? "Load created.");
+    } catch (e) {
+      setStatusMsg(e instanceof Error ? e.message : "Create load failed");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -311,6 +343,18 @@ export function FreightChatPanel({
             >
               Insert into message
             </button>
+            {enableCreateLoadFromRc &&
+            docAnalysis.documentType === "rate_con" &&
+            !loadId ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void createLoadFromRcDoc()}
+                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+              >
+                Create load from RC
+              </button>
+            ) : null}
             {loadId && docAnalysis.documentType === "rate_con" ? (
               <button
                 type="button"
