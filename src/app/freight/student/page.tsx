@@ -56,7 +56,7 @@ export default function FreightStudentLandingPage() {
             Enroll &amp; unlock studio
           </Link>
           <Link
-            href="/freight/login"
+            href="/login"
             className="inline-flex min-w-[220px] items-center justify-center rounded-lg border border-[var(--color-border)] px-8 py-3 text-sm font-semibold text-[var(--color-text)]"
           >
             Student login

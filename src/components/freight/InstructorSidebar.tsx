@@ -27,7 +27,7 @@ export function InstructorSidebar({ email }: { email: string }) {
   async function signOut() {
     const supabase = createClient();
     if (supabase) await supabase.auth.signOut();
-    router.push("/freight/login");
+    router.push("/login");
     router.refresh();
   }
 

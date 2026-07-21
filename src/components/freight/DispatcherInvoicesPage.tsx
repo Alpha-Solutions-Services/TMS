@@ -148,7 +148,7 @@ export function DispatcherInvoicesPage() {
     setSentError(null);
     try {
       // Load all months so a send always appears on Sent (not hidden by wrong month filter).
-      const res = await fetch("/api/freight/dispatcher/invoices/sent?tab=all");
+      const res = await fetch("/api/dispatcher/invoices/sent?tab=all");
       const body = (await res.json()) as {
         error?: string;
         invoices?: SentInvoiceRecord[];
@@ -204,7 +204,7 @@ export function DispatcherInvoicesPage() {
     setSendSuccess(null);
     try {
       const carrierList = carriers?.length ? carriers : undefined;
-      const res = await fetch("/api/freight/dispatcher/invoices/generate", {
+      const res = await fetch("/api/dispatcher/invoices/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -248,7 +248,7 @@ export function DispatcherInvoicesPage() {
     setSendSuccess(null);
     try {
       const carrierList = carriers?.length ? carriers : undefined;
-      const res = await fetch("/api/freight/dispatcher/invoices/send", {
+      const res = await fetch("/api/dispatcher/invoices/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -306,7 +306,7 @@ export function DispatcherInvoicesPage() {
         }
       }
 
-      const res = await fetch("/api/freight/dispatcher/invoices/sent", {
+      const res = await fetch("/api/dispatcher/invoices/sent", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -324,7 +324,7 @@ export function DispatcherInvoicesPage() {
     if (!window.confirm("Remove this sent invoice record?")) return;
     setSentError(null);
     try {
-      const res = await fetch(`/api/freight/dispatcher/invoices/sent?id=${encodeURIComponent(id)}`, {
+      const res = await fetch(`/api/dispatcher/invoices/sent?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
       });
       const payload = (await res.json()) as { error?: string };

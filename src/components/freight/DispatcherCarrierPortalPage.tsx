@@ -57,7 +57,7 @@ export function DispatcherCarrierPortalPage() {
     setMsg(null);
     try {
       const res = await fetch(
-        `/api/freight/dispatcher/carrier-portal?companyName=${encodeURIComponent(companyName)}`,
+        `/api/dispatcher/carrier-portal?companyName=${encodeURIComponent(companyName)}`,
         { cache: "no-store" },
       );
       const json = (await res.json()) as { portalConfig?: CarrierPortalConfig; error?: string };
@@ -110,7 +110,7 @@ export function DispatcherCarrierPortalPage() {
         portalConfig.summary_overrides = kpiOverrides;
       }
 
-      const res = await fetch("/api/freight/dispatcher/carrier-portal", {
+      const res = await fetch("/api/dispatcher/carrier-portal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

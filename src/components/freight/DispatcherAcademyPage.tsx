@@ -30,7 +30,7 @@ export function DispatcherAcademyPage() {
     setError(null);
     try {
       const qs = filter === "all" ? "" : `?status=${encodeURIComponent(filter)}`;
-      const res = await fetch(`/api/freight/dispatcher/students${qs}`);
+      const res = await fetch(`/api/dispatcher/students${qs}`);
       const body = (await res.json()) as { error?: string; students?: AcademyStudentRow[] };
       if (!res.ok) throw new Error(body.error ?? "Could not load students");
       setStudents(body.students ?? []);
@@ -52,7 +52,7 @@ export function DispatcherAcademyPage() {
     setBusyId(student.id);
     setError(null);
     try {
-      const res = await fetch("/api/freight/dispatcher/students", {
+      const res = await fetch("/api/dispatcher/students", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

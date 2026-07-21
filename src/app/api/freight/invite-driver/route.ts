@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Could not create invite" }, { status: 500 });
     }
 
-    const inviteUrl = `${PUBLIC_SITE_URL}/freight/driver/accept-invite?token=${encodeURIComponent(token)}`;
+    const inviteUrl = `${PUBLIC_SITE_URL}/driver/accept-invite?token=${encodeURIComponent(token)}`;
     await sendDriverInvitationEmail(
       body.driverEmail.trim().toLowerCase(),
       body.driverName.trim(),

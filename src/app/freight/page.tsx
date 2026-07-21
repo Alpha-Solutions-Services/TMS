@@ -202,7 +202,7 @@ export default function FreightLandingPage() {
               Message on WhatsApp
             </a>
             <Link
-              href="/freight/login"
+              href="/login"
               className="inline-flex min-w-[220px] items-center justify-center rounded-lg border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 px-8 py-3.5 text-sm font-semibold text-[var(--color-accent)] transition-colors hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/15"
             >
               Freight Portal

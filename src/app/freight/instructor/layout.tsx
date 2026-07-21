@@ -10,12 +10,12 @@ export default async function InstructorLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
   const sb = await createClient();
-  if (!sb) redirect("/freight/login");
+  if (!sb) redirect("/login");
 
   const {
     data: { user },
   } = await sb.auth.getUser();
-  if (!user?.id) redirect("/freight/login");
+  if (!user?.id) redirect("/login");
 
   const { data: profile } = await sb
     .from("profiles")
@@ -24,7 +24,7 @@ export default async function InstructorLayout({
     .maybeSingle();
 
   if (profile?.role !== "instructor" && profile?.role !== "dispatcher") {
-    redirect("/freight/login?error=unauthorized_instructor");
+    redirect("/login?error=unauthorized_instructor");
   }
 
   return (

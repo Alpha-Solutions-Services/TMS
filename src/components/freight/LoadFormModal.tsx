@@ -213,7 +213,7 @@ export function LoadFormPanel({
     setMsg(null);
     try {
       const payload = formValuesToPayload(form, monthTab);
-      const res = await fetch("/api/freight/dispatcher/loads", {
+      const res = await fetch("/api/dispatcher/loads", {
         method: mode === "create" ? "POST" : "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(

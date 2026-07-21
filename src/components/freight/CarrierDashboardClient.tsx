@@ -38,10 +38,10 @@ function formatUsd(n: number, fraction = 0) {
 }
 
 const QUICK_ACTIONS = [
-  { label: "Upload POD", icon: Upload, href: "/freight/carrier/documents?action=pod" },
-  { label: "Send Location", icon: MapPin, href: "/freight/carrier/trucks" },
-  { label: "Contact Dispatcher", icon: MessageSquare, href: "/freight/carrier/chat" },
-  { label: "View Documents", icon: FileDown, href: "/freight/carrier/documents" },
+  { label: "Upload POD", icon: Upload, href: "/carrier/documents?action=pod" },
+  { label: "Send Location", icon: MapPin, href: "/carrier/trucks" },
+  { label: "Contact Dispatcher", icon: MessageSquare, href: "/carrier/chat" },
+  { label: "View Documents", icon: FileDown, href: "/carrier/documents" },
 ] as const;
 
 export function CarrierDashboardClient() {
@@ -159,7 +159,7 @@ export function CarrierDashboardClient() {
                   rolling
                 </p>
                 <Link
-                  href="/freight/carrier/trucks"
+                  href="/carrier/trucks"
                   className="mt-4 inline-flex w-fit items-center gap-2 rounded-xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[#05080f]"
                 >
                   <Truck className="h-4 w-4" />
@@ -317,7 +317,7 @@ export function CarrierDashboardClient() {
               </li>
             </ul>
             <Link
-              href="/freight/carrier/compliance"
+              href="/carrier/compliance"
               className="mt-4 inline-block text-xs text-[var(--color-accent)] hover:underline"
             >
               View all compliance →

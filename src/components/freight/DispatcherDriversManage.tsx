@@ -68,7 +68,7 @@ export function DispatcherDriversManage() {
     );
 
     try {
-      const res = await fetch("/api/freight/dispatcher/drivers", {
+      const res = await fetch("/api/dispatcher/drivers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -108,7 +108,7 @@ export function DispatcherDriversManage() {
     if (!confirm("Remove this driver from the roster?")) return;
     setBusy(true);
     try {
-      const res = await fetch(`/api/freight/dispatcher/drivers?id=${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/dispatcher/drivers?id=${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Delete failed");
       await refresh();
     } catch {

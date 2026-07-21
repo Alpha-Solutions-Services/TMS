@@ -69,7 +69,7 @@ export async function sendDriverInvitationEmail(
 }
 
 export async function sendCarrierApprovedEmail(to: string, carrierName: string) {
-  const loginUrl = `${PUBLIC_SITE_URL}/freight/login`;
+  const loginUrl = `${PUBLIC_SITE_URL}/login`;
   const html = brandedEmailWrap(
     "Account approved",
     `<p>Hi ${escapeHtml(carrierName)},</p>
@@ -121,7 +121,7 @@ export async function sendCarrierPendingEmail(
        <li><strong>MC:</strong> ${escapeHtml(mcNumber)}</li>
        <li><strong>Reviewer queue:</strong> Dispatcher dashboard · Carriers · Pending Approval</li>
      </ul>
-     ${cta("Review in dashboard", `${PUBLIC_SITE_URL}/freight/dispatcher/carriers`)}`,
+     ${cta("Review in dashboard", `${PUBLIC_SITE_URL}/dispatcher/carriers`)}`,
   );
   await sendTransactional({
     to: FREIGHT_TEAM_EMAIL,
@@ -295,7 +295,7 @@ export async function sendLoadAddedEmail(params: {
        <li><strong>Broker:</strong> ${escapeHtml(params.broker || "—")}</li>
        <li><strong>Pickup:</strong> ${escapeHtml(params.pickup || "—")}</li>
      </ul>
-     ${cta("View in Carrier Portal", `${PUBLIC_SITE_URL}/freight/carrier/loads`)}`,
+     ${cta("View in Carrier Portal", `${PUBLIC_SITE_URL}/carrier/loads`)}`,
   );
   await sendTransactional({
     to: params.to,
@@ -339,7 +339,7 @@ export async function sendLoadUpdatedEmail(params: {
        <li><strong>Broker:</strong> ${escapeHtml(params.broker || "—")}</li>
        <li><strong>Pickup:</strong> ${escapeHtml(params.pickup || "—")}</li>
      </ul>
-     ${cta("View in Carrier Portal", `${PUBLIC_SITE_URL}/freight/carrier/loads`)}`,
+     ${cta("View in Carrier Portal", `${PUBLIC_SITE_URL}/carrier/loads`)}`,
   );
   await sendTransactional({
     to: params.to,
@@ -359,7 +359,7 @@ export async function sendDriverAddedToCarrierEmail(params: {
     "Driver added",
     `<p>Hi ${escapeHtml(params.carrierName)},</p>
      <p>Driver <strong>${escapeHtml(params.driverName)}</strong> (${escapeHtml(params.driverEmail)}) has been added to your fleet.</p>
-     ${cta("Manage drivers", `${PUBLIC_SITE_URL}/freight/carrier/drivers`)}`,
+     ${cta("Manage drivers", `${PUBLIC_SITE_URL}/carrier/drivers`)}`,
   );
   await sendTransactional({
     to: params.to,
@@ -380,7 +380,7 @@ export async function sendFridayInvoiceReminderEmail(params: {
     `<p>Hi ${escapeHtml(params.dispatcherName)},</p>
      <p><strong>Today is Friday</strong> — carrier dispatch invoices should be sent today only.</p>
      <p>You have <strong>${params.invoiceCount}</strong> carrier invoice(s) ready · due ${escapeHtml(params.dueDateLabel)}.</p>
-     ${cta("Send invoices now", `${PUBLIC_SITE_URL}/freight/dispatcher/invoices?action=generate`)}
+     ${cta("Send invoices now", `${PUBLIC_SITE_URL}/dispatcher/invoices?action=generate`)}
      <p style="font-size:13px;color:#6a8caf;">Invoices are issued on Fridays only. Paid loads are excluded automatically.</p>`,
   );
   await sendTransactional({
@@ -444,13 +444,13 @@ export async function sendPortalConfigUpdatedEmail(params: {
     "Portal updated",
     `<p>Hi ${escapeHtml(params.carrierName)},</p>
      <p>Your carrier portal display was updated by dispatch (${escapeHtml(params.dispatcherName)}).</p>
-     ${cta("View carrier portal", `${PUBLIC_SITE_URL}/freight/carrier/dashboard`)}`,
+     ${cta("View carrier portal", `${PUBLIC_SITE_URL}/carrier/dashboard`)}`,
   );
   await sendTransactional({
     to: params.to,
     subject: "Your carrier portal was updated",
     html,
-    text: `Portal updated for ${params.carrierName}. View: ${PUBLIC_SITE_URL}/freight/carrier/dashboard`,
+    text: `Portal updated for ${params.carrierName}. View: ${PUBLIC_SITE_URL}/carrier/dashboard`,
   });
 }
 
@@ -469,13 +469,13 @@ export async function sendLoadAssignedToDriverEmail(params: {
        <li><strong>Pickup:</strong> ${escapeHtml(params.pickup || "—")}</li>
        <li><strong>Delivery:</strong> ${escapeHtml(params.delivery || "—")}</li>
      </ul>
-     ${cta("Open driver portal", `${PUBLIC_SITE_URL}/freight/driver/dashboard`)}`,
+     ${cta("Open driver portal", `${PUBLIC_SITE_URL}/driver/dashboard`)}`,
   );
   await sendTransactional({
     to: params.to,
     subject: `Load assigned — ${params.loadNumber}`,
     html,
-    text: `Load ${params.loadNumber} assigned. Pickup: ${params.pickup}. Driver portal: ${PUBLIC_SITE_URL}/freight/driver/dashboard`,
+    text: `Load ${params.loadNumber} assigned. Pickup: ${params.pickup}. Driver portal: ${PUBLIC_SITE_URL}/driver/dashboard`,
   });
 }
 
@@ -489,7 +489,7 @@ export async function sendLoadDriverAssignedCarrierEmail(params: {
     "Driver assigned to load",
     `<p>Hi ${escapeHtml(params.carrierName)},</p>
      <p>Driver <strong>${escapeHtml(params.driverName)}</strong> was assigned to load <strong>#${escapeHtml(params.loadNumber)}</strong>.</p>
-     ${cta("View loads", `${PUBLIC_SITE_URL}/freight/carrier/loads`)}`,
+     ${cta("View loads", `${PUBLIC_SITE_URL}/carrier/loads`)}`,
   );
   await sendTransactional({
     to: params.to,

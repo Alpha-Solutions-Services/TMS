@@ -56,7 +56,7 @@ export function CarrierRegisterClient() {
         provider: "google",
         options: {
           redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(
-            "/freight/carrier/register"
+            "/carrier/register"
           )}&freight=1&role=carrier`,
         },
       });
@@ -137,7 +137,7 @@ export function CarrierRegisterClient() {
         else setErr(data.error || "Registration failed");
         return;
       }
-      router.replace("/freight/carrier/pending");
+      router.replace("/carrier/pending");
       router.refresh();
     } catch {
       setErr("Could not submit");
@@ -203,7 +203,7 @@ export function CarrierRegisterClient() {
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             Verify MC number
           </button>
-          <Link href="/freight/login" className="mt-6 block text-center text-xs text-[var(--color-muted)] underline">
+          <Link href="/login" className="mt-6 block text-center text-xs text-[var(--color-muted)] underline">
             Already registered? Carrier login →
           </Link>
         </div>

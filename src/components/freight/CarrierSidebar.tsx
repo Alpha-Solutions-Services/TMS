@@ -20,16 +20,16 @@ import { useDashboardMobileNavClose } from "@/components/layout/ResponsiveDashbo
 import { PortalClock } from "@/components/freight/PortalClock";
 
 const NAV = [
-  { href: "/freight/carrier/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/freight/carrier/loads", label: "Loads", icon: Package },
-  { href: "/freight/carrier/trucks", label: "Trucks", icon: Truck },
-  { href: "/freight/carrier/drivers", label: "Drivers", icon: Users },
-  { href: "/freight/carrier/payments", label: "Payments", icon: CreditCard },
-  { href: "/freight/carrier/invoices", label: "Invoices", icon: FileText },
-  { href: "/freight/carrier/documents", label: "Documents", icon: Upload },
-  { href: "/freight/carrier/compliance", label: "Compliance", icon: ShieldCheck },
-  { href: "/freight/carrier/chat", label: "Dispatcher Chat", icon: MessageSquare },
-  { href: "/freight/carrier/settings", label: "Settings", icon: Settings },
+  { href: "/carrier/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/carrier/loads", label: "Loads", icon: Package },
+  { href: "/carrier/trucks", label: "Trucks", icon: Truck },
+  { href: "/carrier/drivers", label: "Drivers", icon: Users },
+  { href: "/carrier/payments", label: "Payments", icon: CreditCard },
+  { href: "/carrier/invoices", label: "Invoices", icon: FileText },
+  { href: "/carrier/documents", label: "Documents", icon: Upload },
+  { href: "/carrier/compliance", label: "Compliance", icon: ShieldCheck },
+  { href: "/carrier/chat", label: "Dispatcher Chat", icon: MessageSquare },
+  { href: "/carrier/settings", label: "Settings", icon: Settings },
 ] as const;
 
 export function CarrierSidebar({ email, companyName }: { email: string; companyName?: string }) {
@@ -40,7 +40,7 @@ export function CarrierSidebar({ email, companyName }: { email: string; companyN
   async function signOut() {
     const supabase = createClient();
     if (supabase) await supabase.auth.signOut();
-    router.push("/freight/login");
+    router.push("/login");
     router.refresh();
   }
 
@@ -69,7 +69,7 @@ export function CarrierSidebar({ email, companyName }: { email: string; companyN
         {NAV.map(({ href, label, icon: Icon }) => {
           const active =
             pathname === href ||
-            (href !== "/freight/carrier/dashboard" && pathname.startsWith(href));
+            (href !== "/carrier/dashboard" && pathname.startsWith(href));
           return (
             <Link
               key={href}

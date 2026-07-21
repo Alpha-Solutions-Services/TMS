@@ -440,10 +440,10 @@ export function buildDashboardFromRows(
     carriers: Array.from(carriersMap.values()),
     invoices,
     quick_actions: [
-      { name: "Add Carrier", icon: "user-plus", href: "/freight/dispatcher/carriers?action=add" },
-      { name: "Book Load", icon: "truck", href: "/freight/dispatcher/loads?action=book" },
-      { name: "Generate Invoice", icon: "file", href: "/freight/dispatcher/invoices?action=generate" },
-      { name: "Manage Drivers", icon: "upload", href: "/freight/dispatcher/drivers" },
+      { name: "Add Carrier", icon: "user-plus", href: "/dispatcher/carriers?action=add" },
+      { name: "Book Load", icon: "truck", href: "/dispatcher/loads?action=book" },
+      { name: "Generate Invoice", icon: "file", href: "/dispatcher/invoices?action=generate" },
+      { name: "Manage Drivers", icon: "upload", href: "/dispatcher/drivers" },
     ],
     top_bookers: buildTopBookers(
       loads.map((l) => ({

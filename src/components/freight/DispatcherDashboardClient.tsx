@@ -199,7 +199,7 @@ export function DispatcherDashboardClient() {
             ))}
           </ul>
           <Link
-            href="/freight/dispatcher/alerts"
+            href="/dispatcher/alerts"
             className="mt-4 inline-block text-xs text-[var(--color-accent)] hover:underline"
           >
             View all alerts →
@@ -234,7 +234,7 @@ export function DispatcherDashboardClient() {
             <p className="text-xs text-[var(--color-muted)]">From Dispatch Sheet</p>
           </div>
           <Link
-            href="/freight/dispatcher/loads"
+            href="/dispatcher/loads"
             className="text-xs text-[var(--color-accent)] hover:underline"
           >
             Full load board →
@@ -248,7 +248,7 @@ export function DispatcherDashboardClient() {
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-sm font-semibold text-[var(--color-text)]">Outstanding invoices</h3>
             <Link
-              href="/freight/dispatcher/reports"
+              href="/dispatcher/reports"
               className="text-xs text-[var(--color-accent)] hover:underline"
             >
               Reports →
@@ -355,7 +355,7 @@ export function DispatcherDashboardClient() {
           </span>
         </div>
         <Link
-          href="/freight/dispatcher/invoices?action=generate"
+          href="/dispatcher/invoices?action=generate"
           className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[#05080f] hover:opacity-90"
         >
           <FileText className="h-4 w-4" />

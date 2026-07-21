@@ -2,21 +2,16 @@
 
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import {
-  ClipboardList,
-  Truck,
-  IdCard,
-  GraduationCap,
-  BookOpen,
-} from "lucide-react";
+import { ClipboardList, Truck, IdCard } from "lucide-react";
 import { useMemo, useState } from "react";
 import { notifyAuthActivityClient } from "@/lib/auth/notify-client";
 import { createClient } from "@/lib/supabase/client";
 import { isSuperAdminEmail } from "@/lib/admin-allowlist";
 import { isAllowedDispatcherEmail } from "@/lib/dispatcher-allowlist";
 
-type Role = "dispatcher" | "carrier" | "driver" | "student" | "instructor";
+type Role = "dispatcher" | "carrier" | "driver";
 
 const cards: {
   id: Role;
@@ -46,7 +41,7 @@ const cards: {
       <p className="mt-4 text-xs text-[var(--color-muted)]">
         New carrier?{" "}
         <Link
-          href="/freight/carrier/register"
+          href="/carrier/register"
           className="font-semibold text-[var(--color-accent)] hover:underline"
         >
           Register with MC Number
@@ -67,33 +62,6 @@ const cards: {
       </p>
     ),
   },
-  {
-    id: "student",
-    title: "Student",
-    description: "Learn professional freight dispatching",
-    sub: "Enrollment required — courses from $49/mo · lifetime savings",
-    icon: <GraduationCap className="h-9 w-9 text-[var(--color-accent)]" />,
-    cta: "Login as Student",
-    footer: (
-      <p className="mt-4 text-xs text-[var(--color-muted)]">
-        Not enrolled yet?{" "}
-        <Link
-          href="/freight/student/enroll"
-          className="font-semibold text-[var(--color-accent)] hover:underline"
-        >
-          Enroll now
-        </Link>
-      </p>
-    ),
-  },
-  {
-    id: "instructor",
-    title: "Instructor",
-    description: "Coordinate students and module progress",
-    sub: "Staff login for Alpha Freight Academy instructors",
-    icon: <BookOpen className="h-9 w-9 text-[var(--color-accent)]" />,
-    cta: "Login as Instructor",
-  },
 ];
 
 export function FreightLoginForm() {
@@ -112,17 +80,13 @@ export function FreightLoginForm() {
   const redirectTarget = useMemo(() => {
     switch (role) {
       case "dispatcher":
-        return "/freight/dispatcher/dashboard";
+        return "/dispatcher/dashboard";
       case "carrier":
-        return "/freight/carrier/dashboard";
+        return "/carrier/dashboard";
       case "driver":
-        return "/freight/driver/dashboard";
-      case "student":
-        return "/freight/student/dashboard";
-      case "instructor":
-        return "/freight/instructor/dashboard";
+        return "/driver/dashboard";
       default:
-        return "/freight/login";
+        return "/login";
     }
   }, [role]);
 
@@ -196,15 +160,7 @@ export function FreightLoginForm() {
 
       if (role === "carrier" && profile?.role === "client") {
         notifyAuthActivityClient("login");
-        router.replace("/freight/carrier/register");
-        router.refresh();
-        setLoading(false);
-        return;
-      }
-
-      if (role === "student" && profile?.role === "client") {
-        notifyAuthActivityClient("login");
-        router.replace("/freight/student/enroll");
+        router.replace("/carrier/register");
         router.refresh();
         setLoading(false);
         return;
@@ -212,7 +168,7 @@ export function FreightLoginForm() {
 
       if (role === "driver" && profile?.role === "client") {
         setError(
-          "This account isn’t set up as a driver yet. Open the invitation link from your email and finish signup with the same email and password.",
+          "This account isn't set up as a driver yet. Open the invitation link from your email and finish signup with the same email and password.",
         );
         setLoading(false);
         return;
@@ -220,7 +176,6 @@ export function FreightLoginForm() {
 
       if (!profile?.role || profile.role !== role) {
         if (superAdmin && role !== "driver") {
-          // Super admins can switch between freight roles (except driver invite-only).
           const res = await fetch("/api/freight/superadmin/set-role", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -242,17 +197,11 @@ export function FreightLoginForm() {
 
       let dest = next || redirectTarget;
 
-      if (role === "student") {
-        if (profile?.enrollment_status === "paid") dest = "/freight/student/dashboard";
-        else if (profile?.enrollment_status === "refunded") dest = "/freight/student/enrollment-ended";
-        else dest = "/freight/student/enroll";
-      }
-
       if (role === "carrier") {
-        if (profile?.carrier_status === "verified") dest = "/freight/carrier/dashboard";
-        else if (profile?.carrier_status === "rejected") dest = "/freight/carrier/rejected";
-        else if (profile?.carrier_status === "suspended") dest = "/freight/carrier/suspended";
-        else dest = "/freight/carrier/pending";
+        if (profile?.carrier_status === "verified") dest = "/carrier/dashboard";
+        else if (profile?.carrier_status === "rejected") dest = "/carrier/rejected";
+        else if (profile?.carrier_status === "suspended") dest = "/carrier/suspended";
+        else dest = "/carrier/pending";
       }
 
       notifyAuthActivityClient("login");
@@ -282,7 +231,7 @@ export function FreightLoginForm() {
         provider: "google",
         options: {
           redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(
-            nextPath ?? "/freight/login"
+            nextPath ?? "/login"
           )}&freight=1&role=${encodeURIComponent(role)}`,
         },
       });
@@ -293,20 +242,27 @@ export function FreightLoginForm() {
   }
 
   return (
-    <div className="mx-auto mt-12 max-w-6xl px-4 pb-24 pt-10 sm:px-6 lg:px-8">
+    <div className="mx-auto mt-12 max-w-5xl px-4 pb-24 pt-10 sm:px-6 lg:px-8">
       <div className="mb-12 text-center">
+        <Image
+          src="/afn-logo.png"
+          alt="Alpha Freight Network"
+          width={72}
+          height={72}
+          className="mx-auto mb-4 rounded-full"
+        />
         <h1
           className="text-3xl font-bold text-[var(--color-text)] sm:text-4xl"
           style={{ fontFamily: "var(--font-display), sans-serif" }}
         >
-          Alpha Freight login
+          Alpha Freight Network TMS
         </h1>
         <p className="mx-auto mt-3 max-w-2xl text-sm text-[var(--color-muted)]">
-          Secure access by role — pick the lane that matches your account.
+          tms.alphasolutions.software — secure access by role
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-3">
         {cards.map((c) => (
           <button
             key={c.id}

@@ -78,7 +78,7 @@ async function notifyDocumentUpload(params: {
     await notify(
       carrierEmail,
       ctx.companyName,
-      `${PUBLIC_SITE_URL}/freight/carrier/loads`,
+      `${PUBLIC_SITE_URL}/carrier/loads`,
       "View in carrier portal",
     );
   }
@@ -87,7 +87,7 @@ async function notifyDocumentUpload(params: {
     await notify(
       driverEmail,
       driverName,
-      `${PUBLIC_SITE_URL}/freight/driver/dashboard`,
+      `${PUBLIC_SITE_URL}/driver/dashboard`,
       "Open driver portal",
     );
   }
@@ -97,7 +97,7 @@ async function notifyDocumentUpload(params: {
       await notify(
         FREIGHT_TEAM_EMAIL,
         "Dispatch team",
-        `${PUBLIC_SITE_URL}/freight/dispatcher/loads`,
+        `${PUBLIC_SITE_URL}/dispatcher/loads`,
         "View load board",
       );
     }

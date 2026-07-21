@@ -23,7 +23,7 @@ export default function CarrierRejectedPage() {
           .
         </p>
         <FreightSignOutLink />
-        <Link href="/freight/login" className="mt-4 block text-xs text-[var(--color-muted)] underline">
+        <Link href="/login" className="mt-4 block text-xs text-[var(--color-muted)] underline">
           Return to login chooser
         </Link>
       </div>

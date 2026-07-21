@@ -24,7 +24,7 @@ export function LoadAssignModal({
   useEffect(() => {
     async function loadDrivers() {
       const res = await fetch(
-        `/api/freight/dispatcher/carrier-drivers?companyName=${encodeURIComponent(load.carrier)}`,
+        `/api/dispatcher/carrier-drivers?companyName=${encodeURIComponent(load.carrier)}`,
         { cache: "no-store" },
       );
       const json = (await res.json()) as { drivers?: DriverOption[] };
@@ -42,7 +42,7 @@ export function LoadAssignModal({
     setBusy(true);
     setMsg(null);
     try {
-      const patchRes = await fetch("/api/freight/dispatcher/loads", {
+      const patchRes = await fetch("/api/dispatcher/loads", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

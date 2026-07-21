@@ -52,7 +52,7 @@ export function DispatcherCarrierManage() {
   const loadCarriers = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/freight/dispatcher/carriers/manage");
+      const res = await fetch("/api/dispatcher/carriers/manage");
       const json = (await res.json()) as { carriers?: ManagedCarrier[]; error?: string };
       if (!res.ok) throw new Error(json.error ?? "Failed");
       setCarriers(json.carriers ?? []);
@@ -66,7 +66,7 @@ export function DispatcherCarrierManage() {
   const loadMessages = useCallback(async (carrierId: string) => {
     if (!carrierId) return;
     const res = await fetch(
-      `/api/freight/dispatcher/carriers/messages?carrierProfileId=${encodeURIComponent(carrierId)}`,
+      `/api/dispatcher/carriers/messages?carrierProfileId=${encodeURIComponent(carrierId)}`,
     );
     const json = (await res.json()) as { messages?: Message[] };
     setMessages(json.messages ?? []);
@@ -105,7 +105,7 @@ export function DispatcherCarrierManage() {
     setBusy(true);
     setMsg(null);
     try {
-      const res = await fetch("/api/freight/dispatcher/carriers/manage", {
+      const res = await fetch("/api/dispatcher/carriers/manage", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -138,7 +138,7 @@ export function DispatcherCarrierManage() {
     setMsg(null);
     try {
       const days = Number.parseInt(form.extendTrialDays, 10) || 7;
-      const res = await fetch("/api/freight/dispatcher/carriers/manage", {
+      const res = await fetch("/api/dispatcher/carriers/manage", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -163,7 +163,7 @@ export function DispatcherCarrierManage() {
     setBusy(true);
     setMsg(null);
     try {
-      const res = await fetch("/api/freight/dispatcher/carriers/messages", {
+      const res = await fetch("/api/dispatcher/carriers/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ carrierProfileId: selectedId, message: chatText.trim() }),

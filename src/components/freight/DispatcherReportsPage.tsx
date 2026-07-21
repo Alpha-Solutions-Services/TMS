@@ -35,7 +35,7 @@ export function DispatcherReportsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/freight/dispatcher/reports", { cache: "no-store" });
+      const res = await fetch("/api/dispatcher/reports", { cache: "no-store" });
       const body = (await res.json()) as DispatcherReportsData & { error?: string };
       if (!res.ok) throw new Error(body.error ?? "Could not load reports");
       setData(body);
@@ -147,7 +147,7 @@ export function DispatcherReportsPage() {
             Received:{" "}
             <strong className="text-emerald-400">{formatUsd(invoices.receivedTotal)}</strong>
           </p>
-          <Link href="/freight/dispatcher/invoices?tab=sent" className="text-[var(--color-accent)] hover:underline">
+          <Link href="/dispatcher/invoices?tab=sent" className="text-[var(--color-accent)] hover:underline">
             Open sent invoices →
           </Link>
         </div>
@@ -184,7 +184,7 @@ export function DispatcherReportsPage() {
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-sm font-semibold text-[var(--color-text)]">Academy payments</h3>
             <Link
-              href="/freight/dispatcher/academy"
+              href="/dispatcher/academy"
               className="text-xs text-[var(--color-accent)] hover:underline"
             >
               Academy →

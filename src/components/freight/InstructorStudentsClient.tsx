@@ -16,7 +16,7 @@ export function InstructorStudentsClient() {
   const [busy, setBusy] = useState(false);
 
   const loadStudents = useCallback(async () => {
-    const res = await fetch("/api/freight/dispatcher/students?status=paid");
+    const res = await fetch("/api/dispatcher/students?status=paid");
     const body = (await res.json()) as { students?: AcademyStudentRow[]; error?: string };
     if (!res.ok) {
       setError(body.error ?? "Could not load students");

@@ -28,7 +28,7 @@ function CarrierRow({
     setBusy(true);
     setErr(null);
     try {
-      const res = await fetch("/api/freight/dispatcher/carrier-application", {
+      const res = await fetch("/api/dispatcher/carrier-application", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

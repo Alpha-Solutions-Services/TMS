@@ -24,7 +24,7 @@ export function useDispatchDashboard() {
       setError(null);
       try {
         const qs = monthTab ? `?tab=${encodeURIComponent(monthTab)}` : "";
-        const res = await fetch(`/api/freight/dispatcher/dashboard${qs}`, {
+        const res = await fetch(`/api/dispatcher/dashboard${qs}`, {
           cache: "no-store",
         });
         if (!res.ok) {

@@ -54,7 +54,7 @@ export function DriverDashboardClient() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/freight/driver/dashboard", { cache: "no-store" });
+      const res = await fetch("/api/driver/dashboard", { cache: "no-store" });
       const json = (await res.json()) as DriverDashboardPayload & { error?: string };
       if (!res.ok) throw new Error(json.error ?? "Failed to load");
       setData(json);

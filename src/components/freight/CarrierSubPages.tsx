@@ -346,7 +346,7 @@ export function CarrierChatPage() {
 
   useEffect(() => {
     void (async () => {
-      const res = await fetch("/api/freight/carrier/messages");
+      const res = await fetch("/api/carrier/messages");
       const json = (await res.json()) as {
         messages?: { id: string; created_at: string; sender_role: string; body: string }[];
       };
@@ -359,7 +359,7 @@ export function CarrierChatPage() {
     setChatBusy(true);
     setChatMsg(null);
     try {
-      const res = await fetch("/api/freight/carrier/messages", {
+      const res = await fetch("/api/carrier/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: reply.trim() }),
@@ -367,7 +367,7 @@ export function CarrierChatPage() {
       const json = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(json.error ?? "Send failed");
       setReply("");
-      const refresh = await fetch("/api/freight/carrier/messages");
+      const refresh = await fetch("/api/carrier/messages");
       const body = (await refresh.json()) as { messages?: typeof messages };
       setMessages(body.messages ?? []);
       setChatMsg("Message sent to dispatch.");

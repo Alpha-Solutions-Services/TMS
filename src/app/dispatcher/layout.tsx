@@ -1,35 +1,30 @@
+import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
+import { DispatcherSidebar } from "@/components/freight/DispatcherSidebar";
 import { ResponsiveDashboardShell } from "@/components/layout/ResponsiveDashboardShell";
-import { TmsSidebar } from "@/components/tms/TmsSidebar";
-import { getPortalUser, portalDisplayName } from "@/lib/portal/auth";
-import { isDispatcherRole, resolveTmsRole } from "@/lib/tms/auth";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function DispatcherLayout({
   children,
-}: {
-  children: React.ReactNode;
-}) {
-  const user = await getPortalUser();
-  if (!user) redirect("/login");
+}: Readonly<{ children: ReactNode }>) {
+  const sb = await createClient();
+  if (!sb) redirect("/login");
 
-  const role = await resolveTmsRole(user);
-  if (!isDispatcherRole(role)) redirect("/");
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  if (!user?.id) redirect("/login");
+
+  const email = user.email ?? "Dispatcher";
 
   return (
     <ResponsiveDashboardShell
       mobileTitle="Dispatcher"
-      sidebar={
-        <TmsSidebar
-          email={user.email}
-          displayName={portalDisplayName(user)}
-          role={role!}
-          portal="dispatcher"
-        />
-      }
+      sidebar={<DispatcherSidebar email={email} />}
     >
-      {children}
+      <main className="min-h-[calc(100vh-5rem)] bg-[var(--color-bg)]">{children}</main>
     </ResponsiveDashboardShell>
   );
 }

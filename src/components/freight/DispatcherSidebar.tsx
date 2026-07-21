@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   BarChart3,
   FileText,
-  GraduationCap,
   LayoutDashboard,
   Package,
   ShieldCheck,
@@ -20,15 +19,14 @@ import { useDashboardMobileNavClose } from "@/components/layout/ResponsiveDashbo
 import { PortalClock } from "@/components/freight/PortalClock";
 
 const NAV = [
-  { href: "/freight/dispatcher/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/freight/dispatcher/loads", label: "Loads", icon: Package },
-  { href: "/freight/dispatcher/carriers", label: "Carriers", icon: Users },
-  { href: "/freight/dispatcher/carrier-portal", label: "Carrier portal", icon: Users },
-  { href: "/freight/dispatcher/invoices", label: "Invoices", icon: FileText },
-  { href: "/freight/dispatcher/academy", label: "Academy", icon: GraduationCap },
-  { href: "/freight/dispatcher/reports", label: "Reports", icon: BarChart3 },
-  { href: "/freight/dispatcher/alerts", label: "Alerts", icon: AlertTriangle },
-  { href: "/freight/dispatcher/drivers", label: "Drivers", icon: UserPlus },
+  { href: "/dispatcher/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dispatcher/loads", label: "Loads", icon: Package },
+  { href: "/dispatcher/carriers", label: "Carriers", icon: Users },
+  { href: "/dispatcher/carrier-portal", label: "Carrier portal", icon: Users },
+  { href: "/dispatcher/invoices", label: "Invoices", icon: FileText },
+  { href: "/dispatcher/reports", label: "Reports", icon: BarChart3 },
+  { href: "/dispatcher/alerts", label: "Alerts", icon: AlertTriangle },
+  { href: "/dispatcher/drivers", label: "Drivers", icon: UserPlus },
   { href: "/dispatcher/approvals", label: "Approvals", icon: ShieldCheck },
   { href: "/dispatcher/team", label: "Team", icon: UsersRound },
 ] as const;
@@ -68,7 +66,7 @@ export function DispatcherSidebar({ email }: { email: string }) {
         {NAV.map(({ href, label, icon: Icon }) => {
           const active =
             pathname === href ||
-            (href !== "/freight/dispatcher/dashboard" && pathname.startsWith(href));
+            (href !== "/dispatcher/dashboard" && pathname.startsWith(href));
           return (
             <Link
               key={href}

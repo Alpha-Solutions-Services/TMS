@@ -46,7 +46,7 @@ export function DispatcherCarrierRoster({ showAdd = false }: { showAdd?: boolean
     setBusy(true);
     setMsg(null);
     try {
-      const res = await fetch("/api/freight/dispatcher/carriers", {
+      const res = await fetch("/api/dispatcher/carriers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
@@ -69,7 +69,7 @@ export function DispatcherCarrierRoster({ showAdd = false }: { showAdd?: boolean
       if (!confirm("Remove this carrier from the dispatcher roster?")) return;
       setBusy(true);
       try {
-        const res = await fetch(`/api/freight/dispatcher/carriers?id=${id}`, {
+        const res = await fetch(`/api/dispatcher/carriers?id=${id}`, {
           method: "DELETE",
         });
         if (!res.ok) throw new Error("Delete failed");

@@ -10,6 +10,18 @@ const nextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      { source: "/freight/login", destination: "/login", permanent: true },
+      { source: "/freight/dispatcher/:path*", destination: "/dispatcher/:path*", permanent: true },
+      { source: "/freight/carrier/:path*", destination: "/carrier/:path*", permanent: true },
+      { source: "/freight/driver/:path*", destination: "/driver/:path*", permanent: true },
+      { source: "/freight/student/:path*", destination: "/login", permanent: true },
+      { source: "/freight/instructor/:path*", destination: "/login", permanent: true },
+      { source: "/freight/dispatch-training", destination: "/login", permanent: true },
+      { source: "/freight", destination: "/login", permanent: true },
+    ];
+  },
   async headers() {
     return [
       {

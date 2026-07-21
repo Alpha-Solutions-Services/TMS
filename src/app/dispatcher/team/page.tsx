@@ -8,6 +8,6 @@ export const dynamic = "force-dynamic";
 export default async function TeamPage() {
   const user = await getPortalUser();
   const role = await resolveTmsRole(user);
-  if (role !== "super_dispatcher") redirect("/dispatcher");
+  if (role !== "super_dispatcher") redirect("/dispatcher/dashboard");
   return <TeamManagementClient />;
 }

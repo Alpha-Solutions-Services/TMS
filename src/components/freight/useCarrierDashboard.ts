@@ -12,7 +12,7 @@ export function useCarrierDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/freight/carrier/dashboard", { cache: "no-store" });
+      const res = await fetch("/api/carrier/dashboard", { cache: "no-store" });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? `Failed (${res.status})`);

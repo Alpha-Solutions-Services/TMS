@@ -21,7 +21,7 @@ export function DispatcherLoadsPage() {
 
   async function removeLoad(id: string) {
     if (!window.confirm("Remove this load? Carrier will be notified if Email is on the load.")) return;
-    const res = await fetch(`/api/freight/dispatcher/loads?id=${encodeURIComponent(id)}`, {
+    const res = await fetch(`/api/dispatcher/loads?id=${encodeURIComponent(id)}`, {
       method: "DELETE",
     });
     if (!res.ok) {

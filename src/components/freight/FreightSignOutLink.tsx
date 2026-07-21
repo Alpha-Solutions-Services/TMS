@@ -8,7 +8,7 @@ export function FreightSignOutLink() {
   async function signOut() {
     const sb = createClient();
     await sb?.auth.signOut();
-    router.replace("/freight/login");
+    router.replace("/login");
     router.refresh();
   }
   return (

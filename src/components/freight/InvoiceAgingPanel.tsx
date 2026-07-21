@@ -75,14 +75,14 @@ export function InvoiceAgingPanel({ aging, compact, className }: Props) {
 
       {!compact ? (
         <Link
-          href="/freight/dispatcher/invoices?tab=sent"
+          href="/dispatcher/invoices?tab=sent"
           className="mt-4 inline-block text-xs text-[var(--color-accent)] hover:underline"
         >
           Manage sent invoices →
         </Link>
       ) : (
         <Link
-          href="/freight/dispatcher/reports"
+          href="/dispatcher/reports"
           className="mt-3 inline-block text-xs text-[var(--color-accent)] hover:underline"
         >
           Full MIS reports →

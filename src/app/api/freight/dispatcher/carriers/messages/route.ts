@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
       carrierName,
       dispatcherName: auth.displayName,
       message: text,
-      portalUrl: `${PUBLIC_SITE_URL}/freight/carrier/chat`,
+      portalUrl: `${PUBLIC_SITE_URL}/carrier/chat`,
     }).catch(() => {});
 
     return NextResponse.json({ ok: true });
