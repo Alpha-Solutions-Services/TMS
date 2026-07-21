@@ -31,9 +31,9 @@ export async function uploadLoadDocument(params: {
   file: Buffer;
   filename: string;
   contentType: string;
-}): Promise<{ path: string } | null> {
+}): Promise<{ path: string } | { error: string }> {
   const admin = getServiceRoleClient();
-  if (!admin) return null;
+  if (!admin) return { error: "Storage not configured" };
 
   await ensureStorageBucket(LOAD_DOCUMENTS_BUCKET);
 
@@ -57,18 +57,38 @@ export async function uploadLoadDocument(params: {
 
   if (uploadError) {
     console.error("[load-documents] upload failed:", uploadError);
-    return null;
+    return { error: uploadError.message || "Storage upload failed" };
   }
 
   const column = documentColumnForType(params.type);
-  const { error: updateError } = await admin
+
+  const { data: updated, error: updateError } = await admin
     .from("dispatch_loads")
     .update({ [column]: path })
-    .eq("id", params.loadId);
+    .eq("id", params.loadId)
+    .is("deleted_at", null)
+    .select("id")
+    .maybeSingle();
 
-  if (updateError) {
+  if (updateError || !updated?.id) {
     console.error("[load-documents] path update failed:", updateError);
-    return null;
+    const { data: rpcOk, error: rpcError } = await admin.rpc(
+      "set_dispatch_load_document_path",
+      {
+        p_load_id: params.loadId,
+        p_type: params.type,
+        p_path: path,
+      },
+    );
+    if (rpcError || rpcOk !== true) {
+      console.error("[load-documents] rpc path update failed:", rpcError);
+      return {
+        error:
+          updateError?.message ||
+          rpcError?.message ||
+          "Could not save document path on load",
+      };
+    }
   }
 
   return { path };

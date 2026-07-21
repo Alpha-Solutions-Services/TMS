@@ -522,6 +522,32 @@ export async function sendLoadDocumentUploadedEmail(params: {
   });
 }
 
+export async function sendLoadChatMessageEmail(params: {
+  to: string;
+  recipientName: string;
+  loadNumber: string;
+  senderName: string;
+  senderRole: string;
+  messagePreview: string;
+  portalUrl: string;
+  portalLabel: string;
+}) {
+  const preview = params.messagePreview.slice(0, 500);
+  const html = brandedEmailWrap(
+    "Load chat message",
+    `<p>Hi ${escapeHtml(params.recipientName)},</p>
+     <p><strong>${escapeHtml(params.senderName)}</strong> (${escapeHtml(params.senderRole)}) sent a message on load <strong>#${escapeHtml(params.loadNumber)}</strong>:</p>
+     <blockquote style="margin:16px 0;padding:12px 16px;border-left:3px solid #38a3ff;background:#0b1220;color:#d7e6f7;">${escapeHtml(preview)}</blockquote>
+     ${cta(params.portalLabel, params.portalUrl)}`,
+  );
+  return sendTransactional({
+    to: params.to,
+    subject: `Load #${params.loadNumber} chat — new message`,
+    html,
+    text: `New message on load #${params.loadNumber} from ${params.senderName}: ${preview}\n${params.portalUrl}`,
+  });
+}
+
 export async function sendTeamInviteEmail(params: {
   to: string;
   inviteeName: string;

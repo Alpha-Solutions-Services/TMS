@@ -23,7 +23,7 @@ import {
   resolveLoadCarrierEmail,
 } from "@/lib/freight/load-notifications";
 import { resolveActiveMonthTab } from "@/lib/freight/dispatch-sheet-tabs";
-import { ensureLoadChatThread } from "@/lib/freight/load-chat-thread";
+import { ensureLoadChatThread, syncLoadChatMembers } from "@/lib/freight/load-chat-thread";
 import { createClient } from "@/lib/supabase/server";
 import { listSuperDispatcherEmails } from "@/lib/tms/auth";
 import { requiresSuperApproval } from "@/lib/tms/permissions";
@@ -399,6 +399,7 @@ export async function PATCH(req: NextRequest) {
       }
 
       await ensureLoadChatThread(body.id, auth.user.id).catch(() => {});
+      await syncLoadChatMembers(body.id).catch(() => {});
     }
 
     return NextResponse.json({ ok: true, carrierNotified, dispatcherNotified });

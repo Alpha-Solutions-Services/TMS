@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { logFreightAction } from "@/lib/freight/audit-log";
 import type { ChatAttachment } from "@/lib/freight/chat-types";
-import { ensureLoadChatThread } from "@/lib/freight/load-chat-thread";
+import { PUBLIC_SITE_URL } from "@/lib/freight/constants";
+import { sendLoadChatMessageEmail } from "@/lib/freight/emails";
+import {
+  ensureLoadChatThread,
+  resolveLoadChatNotifyEmails,
+  syncLoadChatMembers,
+} from "@/lib/freight/load-chat-thread";
+import { resolveProfileName } from "@/lib/freight/load-documents";
 import { getPortalUser } from "@/lib/portal/auth";
 import { resolveTmsRole } from "@/lib/tms/auth";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
@@ -128,11 +135,21 @@ export async function POST(
     return NextResponse.json({ error: "Could not open chat" }, { status: 500 });
   }
 
+  await syncLoadChatMembers(params.loadId);
+
   if (!(await isThreadMember(db, threadId, user.id))) {
-    return NextResponse.json({ error: "Not a participant" }, { status: 403 });
+    // Auto-add sender if they are dispatch/carrier/driver on this load
+    await db.from("freight_thread_members").upsert(
+      { thread_id: threadId, user_id: user.id, role: "member" },
+      { onConflict: "thread_id,user_id" },
+    );
+    if (!(await isThreadMember(db, threadId, user.id))) {
+      return NextResponse.json({ error: "Not a participant" }, { status: 403 });
+    }
   }
 
   const senderRole = await resolveSenderRole(user.id);
+  const messageBody = text || `[${attachments.length} attachment(s)]`;
 
   const { data: msg, error } = await db
     .from("freight_thread_messages")
@@ -140,7 +157,7 @@ export async function POST(
       thread_id: threadId,
       sender_id: user.id,
       sender_role: senderRole,
-      body: text || `[${attachments.length} attachment(s)]`,
+      body: messageBody,
       attachments,
     })
     .select("id, created_at")
@@ -163,6 +180,55 @@ export async function POST(
     entityId: params.loadId,
     meta: { attachments: attachments.length },
   });
+
+  // Email carrier + driver (skip the sender's own inbox when possible)
+  try {
+    const notify = await resolveLoadChatNotifyEmails(params.loadId);
+    const senderName =
+      (await resolveProfileName(user.id)) || user.email || "Team member";
+    const senderEmail = user.email?.trim().toLowerCase() ?? "";
+    const roleLabel =
+      senderRole === "driver"
+        ? "driver"
+        : senderRole === "carrier"
+          ? "carrier"
+          : "dispatch";
+
+    const recipients: { to: string; name: string; url: string; label: string }[] = [];
+    if (notify.carrierEmail && notify.carrierEmail.toLowerCase() !== senderEmail) {
+      recipients.push({
+        to: notify.carrierEmail,
+        name: "Carrier",
+        url: `${PUBLIC_SITE_URL}/carrier/chat`,
+        label: "Open carrier chat",
+      });
+    }
+    if (notify.driverEmail && notify.driverEmail.toLowerCase() !== senderEmail) {
+      recipients.push({
+        to: notify.driverEmail,
+        name: "Driver",
+        url: `${PUBLIC_SITE_URL}/driver/chat?load=${encodeURIComponent(params.loadId)}`,
+        label: "Open load chat",
+      });
+    }
+
+    await Promise.all(
+      recipients.map((r) =>
+        sendLoadChatMessageEmail({
+          to: r.to,
+          recipientName: r.name,
+          loadNumber: notify.loadNumber,
+          senderName,
+          senderRole: roleLabel,
+          messagePreview: messageBody,
+          portalUrl: r.url,
+          portalLabel: r.label,
+        }).catch(() => {}),
+      ),
+    );
+  } catch (e) {
+    console.error("[load-chat] notify email failed", e);
+  }
 
   return NextResponse.json({ ok: true, message: msg, threadId });
 }

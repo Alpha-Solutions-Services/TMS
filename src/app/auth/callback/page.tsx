@@ -49,12 +49,13 @@ function AuthCallbackInner() {
         return;
       }
 
-      // Invite / magic-link tokens arrive in the URL hash.
+      // Invite / magic-link / recovery tokens arrive in the URL hash.
       const hash = typeof window !== "undefined" ? window.location.hash.slice(1) : "";
       if (hash) {
         const hashParams = new URLSearchParams(hash);
         const accessToken = hashParams.get("access_token");
         const refreshToken = hashParams.get("refresh_token");
+        const type = hashParams.get("type");
         if (accessToken && refreshToken) {
           const { error } = await supabase.auth.setSession({
             access_token: accessToken,
@@ -64,6 +65,10 @@ function AuthCallbackInner() {
             window.location.replace(
               `/login?error=auth&reason=${encodeURIComponent(error.message)}`,
             );
+            return;
+          }
+          if (type === "recovery") {
+            window.location.replace("/auth/update-password");
             return;
           }
         }

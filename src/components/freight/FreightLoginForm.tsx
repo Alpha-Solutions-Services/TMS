@@ -8,6 +8,7 @@ import { ClipboardList, Truck, IdCard } from "lucide-react";
 import { useMemo, useState } from "react";
 import clsx from "clsx";
 import { notifyAuthActivityClient } from "@/lib/auth/notify-client";
+import { MfaChallengeForm } from "@/components/freight/MfaChallengeForm";
 import { createClient } from "@/lib/supabase/client";
 import { isSuperAdminEmail } from "@/lib/admin-allowlist";
 import { isSuperDispatcherEmail } from "@/lib/tms/roles";
@@ -58,6 +59,8 @@ export function FreightLoginForm() {
   );
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [mfaPending, setMfaPending] = useState(false);
+  const [pendingDest, setPendingDest] = useState("/login");
 
   const redirectTarget = useMemo(() => {
     switch (role) {
@@ -71,6 +74,104 @@ export function FreightLoginForm() {
         return "/login";
     }
   }, [role]);
+
+  async function finishTo(dest: string) {
+    notifyAuthActivityClient("login");
+    router.replace(dest);
+    router.refresh();
+  }
+
+  async function resolveDestinationAfterAuth(supabase: NonNullable<ReturnType<typeof createClient>>) {
+    const { data } = await supabase.auth.getUser();
+    const uid = data.user?.id;
+    const emailSignedIn = data.user?.email ?? "";
+    if (!uid) {
+      setError("Sign-in failed. Try again.");
+      return null;
+    }
+
+    let { data: profile } = await supabase
+      .from("profiles")
+      .select("role, enrollment_status, carrier_status")
+      .eq("id", uid)
+      .maybeSingle();
+
+    const superAdmin = isSuperAdminEmail(emailSignedIn);
+    const superDispatcher = isSuperDispatcherEmail(emailSignedIn) || superAdmin;
+    let tmsTeamRole: string | undefined;
+
+    if (role === "dispatcher") {
+      const ensureRes = await fetch("/api/dispatcher/ensure-profile", {
+        method: "POST",
+        credentials: "include",
+      });
+      const ensureBody = (await ensureRes.json().catch(() => ({}))) as {
+        error?: string;
+        ok?: boolean;
+        portalRole?: string;
+        role?: string;
+      };
+      tmsTeamRole = ensureBody.role;
+      if (!ensureRes.ok) {
+        await supabase.auth.signOut();
+        setError(
+          ensureBody.error ??
+            "Dispatcher access requires an invitation from a super dispatcher.",
+        );
+        return null;
+      }
+      profile = {
+        role: "dispatcher",
+        enrollment_status: profile?.enrollment_status ?? null,
+        carrier_status: profile?.carrier_status ?? null,
+      };
+    }
+
+    if (role === "carrier" && profile?.role === "client") {
+      await finishTo("/carrier/register");
+      return null;
+    }
+
+    if (role === "driver" && profile?.role === "client") {
+      setError("Use your driver invite link to finish setup first.");
+      return null;
+    }
+
+    if (!profile?.role || profile.role !== role) {
+      if (superDispatcher && role !== "driver") {
+        const res = await fetch("/api/freight/superadmin/set-role", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setError(body?.error || "Unable to switch role.");
+          return null;
+        }
+      } else {
+        await supabase.auth.signOut();
+        setError(`This account is not a ${role}. Select the correct role above.`);
+        return null;
+      }
+    }
+
+    let dest = next || redirectTarget;
+
+    if (role === "dispatcher") {
+      if (tmsTeamRole === "sub_dispatcher") dest = "/dispatcher/loads";
+      else if (!next) dest = "/dispatcher/dashboard";
+    }
+
+    if (role === "carrier") {
+      if (profile?.carrier_status === "verified") dest = "/carrier/dashboard";
+      else if (profile?.carrier_status === "rejected") dest = "/carrier/rejected";
+      else if (profile?.carrier_status === "suspended") dest = "/carrier/suspended";
+      else dest = "/carrier/pending";
+    }
+
+    return dest;
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -102,99 +203,22 @@ export function FreightLoginForm() {
         return;
       }
 
-      const { data } = await supabase.auth.getUser();
-      const uid = data.user?.id;
-      const emailSignedIn = data.user?.email ?? "";
-      if (!uid) {
-        setError("Sign-in failed. Try again.");
+      const aal = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (
+        !aal.error &&
+        aal.data &&
+        aal.data.nextLevel === "aal2" &&
+        aal.data.currentLevel !== "aal2"
+      ) {
+        const dest = await resolveDestinationAfterAuth(supabase);
+        if (!dest) return;
+        setPendingDest(dest);
+        setMfaPending(true);
         return;
       }
 
-      let { data: profile } = await supabase
-        .from("profiles")
-        .select("role, enrollment_status, carrier_status")
-        .eq("id", uid)
-        .maybeSingle();
-
-      const superAdmin = isSuperAdminEmail(emailSignedIn);
-      const superDispatcher = isSuperDispatcherEmail(emailSignedIn) || superAdmin;
-      let tmsTeamRole: string | undefined;
-
-      if (role === "dispatcher") {
-        const ensureRes = await fetch("/api/dispatcher/ensure-profile", {
-          method: "POST",
-          credentials: "include",
-        });
-        const ensureBody = (await ensureRes.json().catch(() => ({}))) as {
-          error?: string;
-          ok?: boolean;
-          portalRole?: string;
-          role?: string;
-        };
-        tmsTeamRole = ensureBody.role;
-        if (!ensureRes.ok) {
-          await supabase.auth.signOut();
-          setError(
-            ensureBody.error ??
-              "Dispatcher access requires an invitation from a super dispatcher.",
-          );
-          return;
-        }
-        profile = {
-          role: "dispatcher",
-          enrollment_status: profile?.enrollment_status ?? null,
-          carrier_status: profile?.carrier_status ?? null,
-        };
-      }
-
-      if (role === "carrier" && profile?.role === "client") {
-        notifyAuthActivityClient("login");
-        router.replace("/carrier/register");
-        router.refresh();
-        return;
-      }
-
-      if (role === "driver" && profile?.role === "client") {
-        setError("Use your driver invite link to finish setup first.");
-        return;
-      }
-
-      if (!profile?.role || profile.role !== role) {
-        if (superDispatcher && role !== "driver") {
-          const res = await fetch("/api/freight/superadmin/set-role", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ role }),
-          });
-          const body = await res.json().catch(() => ({}));
-          if (!res.ok) {
-            setError(body?.error || "Unable to switch role.");
-            return;
-          }
-        } else {
-          await supabase.auth.signOut();
-          setError(`This account is not a ${role}. Select the correct role above.`);
-          return;
-        }
-      }
-
-      let dest = next || redirectTarget;
-
-      if (role === "dispatcher") {
-        if (tmsTeamRole === "sub_dispatcher") dest = "/dispatcher/loads";
-        else if (!next) dest = "/dispatcher/dashboard";
-      }
-
-      if (role === "carrier") {
-        if (profile?.carrier_status === "verified") dest = "/carrier/dashboard";
-        else if (profile?.carrier_status === "rejected") dest = "/carrier/rejected";
-        else if (profile?.carrier_status === "suspended") dest = "/carrier/suspended";
-        else dest = "/carrier/pending";
-      }
-
-      notifyAuthActivityClient("login");
-      router.replace(dest);
-      router.refresh();
+      const dest = await resolveDestinationAfterAuth(supabase);
+      if (dest) await finishTo(dest);
     } finally {
       setLoading(false);
     }
@@ -313,6 +337,16 @@ export function FreightLoginForm() {
         </p>
 
         <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/50 p-4 shadow-[var(--glow-sm)]">
+          {mfaPending ? (
+            <MfaChallengeForm
+              onVerified={() => finishTo(pendingDest)}
+              onCancel={() => {
+                setMfaPending(false);
+                void createClient()?.auth.signOut();
+              }}
+            />
+          ) : (
+            <>
           <button
             type="button"
             onClick={() => void signInWithGoogle()}
@@ -352,6 +386,14 @@ export function FreightLoginForm() {
               placeholder="Password"
               className="dispatch-field w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-sm"
             />
+            <div className="flex justify-end">
+              <Link
+                href="/forgot-password"
+                className="text-[11px] text-[var(--color-accent)] hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
             <button
               type="submit"
               disabled={loading || googleLoading}
@@ -360,7 +402,16 @@ export function FreightLoginForm() {
               {loading ? "Signing in…" : `Sign in as ${activeRole.label}`}
             </button>
           </form>
+            </>
+          )}
         </div>
+        <p className="mt-3 text-center text-[11px] text-[var(--color-muted)]">
+          Enable 2FA anytime at{" "}
+          <Link href="/security" className="text-[var(--color-accent)] hover:underline">
+            /security
+          </Link>{" "}
+          after signing in.
+        </p>
       </div>
     </div>
   );

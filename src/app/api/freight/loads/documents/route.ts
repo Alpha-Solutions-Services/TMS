@@ -170,7 +170,7 @@ export async function GET(req: NextRequest) {
 }
 
 function normalizeCarrierMatch(
-  profile: { carrier_id?: string | null; company_name?: string | null },
+  profile: { carrier_id?: string | null; company_name?: string | null; email?: string | null },
   loadCompany: string,
 ) {
   return (
@@ -217,7 +217,7 @@ export async function POST(req: NextRequest) {
 
   const { data: load } = await admin
     .from("dispatch_loads")
-    .select("id, company_name, carrier_profile_id, assigned_driver_profile_id")
+    .select("id, company_name, carrier_profile_id, assigned_driver_profile_id, email")
     .eq("id", loadId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -225,17 +225,25 @@ export async function POST(req: NextRequest) {
   if (!load) return NextResponse.json({ error: "Load not found" }, { status: 404 });
 
   const isDispatcher = await assertDispatcher(user);
-  const { data: profile } = await sb
+  const { data: profile } = await admin
     .from("profiles")
-    .select("role, full_name, company_name, carrier_id")
+    .select("role, full_name, company_name, carrier_id, email")
     .eq("id", user.id)
     .maybeSingle();
 
   const isDriver =
     profile?.role === "driver" && load.assigned_driver_profile_id === user.id;
+  const isCarrier =
+    profile?.role === "carrier" &&
+    (load.carrier_profile_id === user.id ||
+      normalizeCarrierMatch(profile, load.company_name as string) ||
+      (typeof load.email === "string" &&
+        profile.email &&
+        String(load.email).toLowerCase() === String(profile.email).toLowerCase()));
 
   const driverDocTypes: LoadDocumentType[] = ["bol", "commodity", "pod"];
   const dispatcherDocTypes: LoadDocumentType[] = ["rate_con", "bol", "commodity", "pod"];
+  const carrierDocTypes: LoadDocumentType[] = ["bol", "commodity", "pod"];
 
   if (isDispatcher && !dispatcherDocTypes.includes(docType)) {
     return NextResponse.json({ error: "Invalid document type" }, { status: 400 });
@@ -243,7 +251,10 @@ export async function POST(req: NextRequest) {
   if (isDriver && !driverDocTypes.includes(docType)) {
     return NextResponse.json({ error: "Drivers can upload BOL, commodity, and POD only" }, { status: 403 });
   }
-  if (!isDispatcher && !isDriver) {
+  if (isCarrier && !carrierDocTypes.includes(docType)) {
+    return NextResponse.json({ error: "Carriers can upload BOL, commodity, and POD only" }, { status: 403 });
+  }
+  if (!isDispatcher && !isDriver && !isCarrier) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -256,8 +267,8 @@ export async function POST(req: NextRequest) {
     contentType: resolvedMime,
   });
 
-  if (!result) {
-    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+  if ("error" in result) {
+    return NextResponse.json({ error: result.error }, { status: 500 });
   }
 
   const uploaderLabel =

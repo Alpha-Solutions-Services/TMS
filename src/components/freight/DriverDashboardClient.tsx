@@ -50,6 +50,7 @@ export function DriverDashboardClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -80,9 +81,12 @@ export function DriverDashboardClient() {
       const res = await fetch("/api/freight/loads/documents", { method: "POST", body: form });
       const json = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(json.error ?? "Upload failed");
+      setMsg(`${type.toUpperCase()} uploaded.`);
       await refresh();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Upload failed");
+      const message = e instanceof Error ? e.message : "Upload failed";
+      setMsg(message);
+      alert(message);
     } finally {
       setUploading(null);
     }
@@ -130,6 +134,12 @@ export function DriverDashboardClient() {
           </button>
         </div>
       </header>
+
+      {msg ? (
+        <p className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/50 px-3 py-2 text-xs text-[var(--color-muted)]">
+          {msg}
+        </p>
+      ) : null}
 
       {data.loads.length === 0 ? (
         <div className="rounded-2xl border border-[var(--color-border)] px-4 py-10 text-center text-[var(--color-muted)]">
