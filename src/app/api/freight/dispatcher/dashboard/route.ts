@@ -21,7 +21,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!(await assertDispatcher(user.id))) {
+  if (!(await assertDispatcher(user))) {
     return NextResponse.json({ error: "Dispatcher only" }, { status: 403 });
   }
 

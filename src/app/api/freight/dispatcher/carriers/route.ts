@@ -33,7 +33,7 @@ async function requireDispatcher() {
   } = await sb.auth.getUser();
   if (!user?.id) return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
 
-  if (!(await assertDispatcher(user.id))) {
+  if (!(await assertDispatcher(user))) {
     return { error: NextResponse.json({ error: "Dispatcher only" }, { status: 403 }) };
   }
 

@@ -4,7 +4,7 @@ import { DispatcherSidebar } from "@/components/freight/DispatcherSidebar";
 import { DispatcherRouteGuard } from "@/components/freight/DispatcherRouteGuard";
 import { ResponsiveDashboardShell } from "@/components/layout/ResponsiveDashboardShell";
 import { createClient } from "@/lib/supabase/server";
-import { canAccessDispatcherPortal, resolveTmsRole } from "@/lib/tms/auth";
+import { canAccessDispatcherPortal, ensureDispatcherTmsUser, resolveTmsRole } from "@/lib/tms/auth";
 import { displayRoleLabel } from "@/lib/tms/permissions";
 import { isDispatcherRole } from "@/lib/tms/roles";
 
@@ -28,6 +28,14 @@ export default async function DispatcherLayout({
   const tmsRole = await resolveTmsRole(user);
   const email = user.email ?? "Dispatcher";
   const roleLabel = displayRoleLabel(tmsRole, email);
+
+  if (tmsRole === "super_dispatcher" && user.email) {
+    void ensureDispatcherTmsUser({
+      userId: user.id,
+      email: user.email,
+      superDispatcher: true,
+    });
+  }
 
   if (!isDispatcherRole(tmsRole)) {
     redirect("/login");

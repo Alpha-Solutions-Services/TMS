@@ -141,7 +141,7 @@ export async function GET(req: NextRequest) {
     .eq("id", user.id)
     .maybeSingle();
 
-  const isDispatcher = profile && (await assertDispatcher(user.id));
+  const isDispatcher = profile && (await assertDispatcher(user));
   const isDriver =
     profile?.role === "driver" && load.assigned_driver_profile_id === user.id;
   const isCarrier =
@@ -224,7 +224,7 @@ export async function POST(req: NextRequest) {
 
   if (!load) return NextResponse.json({ error: "Load not found" }, { status: 404 });
 
-  const isDispatcher = await assertDispatcher(user.id);
+  const isDispatcher = await assertDispatcher(user);
   const { data: profile } = await sb
     .from("profiles")
     .select("role, full_name, company_name, carrier_id")

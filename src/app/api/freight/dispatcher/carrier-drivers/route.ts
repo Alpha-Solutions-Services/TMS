@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   } = await sb.auth.getUser();
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!(await assertDispatcher(user.id))) {
+  if (!(await assertDispatcher(user))) {
     return NextResponse.json({ error: "Dispatcher only" }, { status: 403 });
   }
 

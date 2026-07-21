@@ -1,6 +1,11 @@
+import type { User } from "@supabase/supabase-js";
 import type { CarrierRosterEntry } from "./carrier-sheet";
 import { fetchCarrierSheetCsv, parseCarrierCsv } from "./carrier-sheet";
+import { resolveTmsRole } from "@/lib/tms/auth";
+import { isDispatcherRole } from "@/lib/tms/roles";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
+
+type DispatcherUser = Pick<User, "id"> & { email?: string | null };
 
 type DbCarrier = {
   id: string;
@@ -153,39 +158,16 @@ export async function loadDriverRoster(): Promise<DriverRosterEntry[]> {
   }));
 }
 
-export async function assertDispatcher(userId: string): Promise<boolean> {
-  const sb = getServiceRoleClient();
-  if (!sb) return false;
-
-  const { data } = await sb
-    .from("tms_users")
-    .select("role, active")
-    .eq("id", userId)
-    .eq("active", true)
-    .maybeSingle();
-
-  const role = data?.role;
-  return (
-    role === "super_dispatcher" ||
-    role === "dispatcher" ||
-    role === "sub_dispatcher"
-  );
+/** Same role resolution as portal layout — includes env-based super dispatchers. */
+export async function assertDispatcher(user: DispatcherUser): Promise<boolean> {
+  const role = await resolveTmsRole(user as User);
+  return isDispatcherRole(role);
 }
 
-export async function resolveDispatcherTmsRole(userId: string): Promise<
-  "super_dispatcher" | "dispatcher" | "sub_dispatcher" | null
-> {
-  const sb = getServiceRoleClient();
-  if (!sb) return null;
-
-  const { data } = await sb
-    .from("tms_users")
-    .select("role, active")
-    .eq("id", userId)
-    .eq("active", true)
-    .maybeSingle();
-
-  const role = data?.role;
+export async function resolveDispatcherTmsRole(
+  user: DispatcherUser,
+): Promise<"super_dispatcher" | "dispatcher" | "sub_dispatcher" | null> {
+  const role = await resolveTmsRole(user as User);
   if (
     role === "super_dispatcher" ||
     role === "dispatcher" ||

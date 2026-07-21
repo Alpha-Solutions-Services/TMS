@@ -79,11 +79,11 @@ async function requireDispatcher(req: NextRequest) {
   } = await sb.auth.getUser();
   if (!user?.id) return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
 
-  if (!(await assertDispatcher(user.id))) {
+  if (!(await assertDispatcher(user))) {
     return { error: NextResponse.json({ error: "Dispatcher only" }, { status: 403 }) };
   }
 
-  const role = (await resolveDispatcherTmsRole(user.id)) as TmsRole;
+  const role = (await resolveDispatcherTmsRole(user)) as TmsRole;
 
   return { user, role };
 }
