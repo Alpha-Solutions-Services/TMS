@@ -73,7 +73,16 @@ export function DispatcherAcceptInviteClient({ token }: { token: string }) {
 
       const sb = createClient();
       if (data.email && sb) {
-        await sb.auth.signInWithPassword({ email: data.email, password });
+        const { error: signErr } = await sb.auth.signInWithPassword({
+          email: data.email,
+          password,
+        });
+        if (signErr) {
+          setErr(
+            "Account created — sign in at tms.alphasolutions.software/login with your new password.",
+          );
+          return;
+        }
       }
       router.replace("/dispatcher/dashboard");
       router.refresh();

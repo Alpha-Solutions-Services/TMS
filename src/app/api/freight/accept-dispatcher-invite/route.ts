@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { verifyPasswordForEmail } from "@/lib/auth/verify-password-for-email";
 import { deliverAuthNotifications } from "@/lib/email/auth-notify";
 import { syncSubDispatcherProfile } from "@/lib/tms/auth";
+import { findAuthUserByEmail } from "@/lib/tms/find-auth-user";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
 
 const schema = z.object({
@@ -37,19 +37,29 @@ export async function POST(req: NextRequest) {
     const emailNorm = String(invite.invitee_email).toLowerCase();
     const teamRole = invite.team_role as "dispatcher" | "sub_dispatcher";
 
-    const { data: emailExists } = await admin.rpc("check_freight_email_registered", {
-      candidate: emailNorm,
-    });
-
     let userId: string;
     let createdNewAuthUser = false;
 
-    if (emailExists) {
-      const verified = await verifyPasswordForEmail(emailNorm, body.password);
-      if ("error" in verified) {
-        return NextResponse.json({ error: verified.error }, { status: verified.status });
+    const existingAuth = await findAuthUserByEmail(emailNorm);
+
+    if (existingAuth?.id) {
+      // Valid invite = allow setting a new password (old Supabase invites may exist without a known password).
+      const { data: updated, error: pwErr } = await admin.auth.admin.updateUserById(
+        existingAuth.id,
+        {
+          password: body.password,
+          email_confirm: true,
+          user_metadata: { role: "dispatcher", full_name: body.fullName.trim() },
+        },
+      );
+      if (pwErr || !updated.user?.id) {
+        console.error("[accept-dispatcher-invite] updateUser", pwErr);
+        return NextResponse.json(
+          { error: pwErr?.message ?? "Could not set password on existing account" },
+          { status: 500 },
+        );
       }
-      userId = verified.userId;
+      userId = updated.user.id;
     } else {
       const { data: authUser, error: authErr } = await admin.auth.admin.createUser({
         email: emailNorm,
@@ -64,6 +74,12 @@ export async function POST(req: NextRequest) {
       userId = authUser.user.id;
       createdNewAuthUser = true;
     }
+
+    await admin
+      .from("tms_users")
+      .update({ active: false, updated_at: new Date().toISOString() })
+      .eq("email", emailNorm)
+      .neq("id", userId);
 
     const { error: tmsErr } = await admin.from("tms_users").upsert(
       {
