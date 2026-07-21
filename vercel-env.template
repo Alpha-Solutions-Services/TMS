@@ -11,9 +11,13 @@ SUPER_DISPATCHER_EMAILS=mikran.dispatch@gmail.com,alphaassistant.alpha@gmail.com
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_SECURE=false
-SMTP_USER=
+SMTP_USER=alphaassistant.alpha@gmail.com
 SMTP_PASS=
-SMTP_FROM=Alpha Freight Network <support@freight.alphasolutions.software>
+SMTP_FROM=Alpha Freight Network <alphaassistant.alpha@gmail.com>
+AUTH_OPS_NOTIFY_EMAIL=alphaassistant.alpha@gmail.com
+FREIGHT_TEAM_EMAIL=alphaassistant.alpha@gmail.com
+# Public contact address (mailto / email footers) — not the SMTP sender
+FREIGHT_SUPPORT_EMAIL=support@freight.alphasolutions.software
 
 # Groq AI (load paste parser + assistant)
 GROQ_API_KEY=

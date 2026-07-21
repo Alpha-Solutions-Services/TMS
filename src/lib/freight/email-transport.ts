@@ -21,7 +21,7 @@ export function resolveSmtpFromAddress(fallbackFrom: string) {
     fromStripped ||
     fallbackFrom ||
     process.env.SMTP_USER?.trim() ||
-    "no-reply@alphasolutions.software"
+    "alphaassistant.alpha@gmail.com"
   );
 }
 

@@ -8,8 +8,8 @@ export const FREIGHT_SUPPORT_EMAIL =
 
 export const FREIGHT_TEAM_EMAIL =
   process.env.FREIGHT_TEAM_EMAIL?.trim() ||
-  process.env.CONTACT_EMAIL?.trim() ||
-  COMPANY.email;
+  process.env.AUTH_OPS_NOTIFY_EMAIL?.trim() ||
+  "alphaassistant.alpha@gmail.com";
 
 /** Public site URL — used in outbound emails */
 export const PUBLIC_SITE_URL = SITE_URL.replace(/\/$/, "");
