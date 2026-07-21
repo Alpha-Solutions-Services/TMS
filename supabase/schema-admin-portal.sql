@@ -1,4 +1,6 @@
--- Base admin/portal schema (idempotent). Prefer this if tables do not exist yet.
+-- Run in Supabase SQL Editor (once). Service role is used from Next API for contact + admin writes.
+
+-- ─── Contact form (website inquiries) ─────────────────────────────────────
 create table if not exists public.contact_inquiries (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now(),
@@ -15,9 +17,14 @@ create table if not exists public.contact_inquiries (
 
 create index if not exists contact_inquiries_created_at_idx
   on public.contact_inquiries (created_at desc);
+create index if not exists contact_inquiries_status_idx
+  on public.contact_inquiries (status);
 
 alter table public.contact_inquiries enable row level security;
 
+-- No policies: only service role / dashboard can access (never expose service key to browser).
+
+-- ─── Admin ↔ client direct messages ────────────────────────────────────────
 create table if not exists public.dm_threads (
   id uuid primary key default gen_random_uuid(),
   client_user_id uuid not null references auth.users (id) on delete cascade,
@@ -32,7 +39,7 @@ create table if not exists public.dm_messages (
   thread_id uuid not null references public.dm_threads (id) on delete cascade,
   sender_id uuid not null references auth.users (id) on delete cascade,
   is_admin boolean not null default false,
-  body text not null default '',
+  body text not null,
   created_at timestamptz not null default now()
 );
 
@@ -42,19 +49,20 @@ create index if not exists dm_messages_thread_created_idx
 alter table public.dm_threads enable row level security;
 alter table public.dm_messages enable row level security;
 
-drop policy if exists "dm_threads_select_own" on public.dm_threads;
+-- Clients: own thread
 create policy "dm_threads_select_own"
-  on public.dm_threads for select using (auth.uid() = client_user_id);
+  on public.dm_threads for select
+  using (auth.uid() = client_user_id);
 
-drop policy if exists "dm_threads_insert_own" on public.dm_threads;
 create policy "dm_threads_insert_own"
-  on public.dm_threads for insert with check (auth.uid() = client_user_id);
+  on public.dm_threads for insert
+  with check (auth.uid() = client_user_id);
 
-drop policy if exists "dm_threads_update_own" on public.dm_threads;
 create policy "dm_threads_update_own"
-  on public.dm_threads for update using (auth.uid() = client_user_id);
+  on public.dm_threads for update
+  using (auth.uid() = client_user_id);
 
-drop policy if exists "dm_messages_select_own_thread" on public.dm_messages;
+-- Clients: messages in own thread
 create policy "dm_messages_select_own_thread"
   on public.dm_messages for select
   using (
@@ -64,7 +72,6 @@ create policy "dm_messages_select_own_thread"
     )
   );
 
-drop policy if exists "dm_messages_insert_as_client" on public.dm_messages;
 create policy "dm_messages_insert_as_client"
   on public.dm_messages for insert
   with check (
@@ -76,13 +83,18 @@ create policy "dm_messages_insert_as_client"
     )
   );
 
+-- ─── Optional: lightweight page views for admin stats ──────────────────────
 create table if not exists public.page_views (
   id uuid primary key default gen_random_uuid(),
   path text not null,
   created_at timestamptz not null default now()
 );
 
+create index if not exists page_views_created_at_idx
+  on public.page_views (created_at desc);
+
 alter table public.page_views enable row level security;
+-- No policies: only service role (Next API) inserts/selects page_views.
 
 grant usage on schema public to anon, authenticated;
 grant insert, select, update on public.dm_threads to authenticated;

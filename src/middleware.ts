@@ -40,6 +40,7 @@ export const config = {
     "/dispatcher/:path*",
     "/carrier/:path*",
     "/driver/:path*",
+    "/freight/:path*",
     "/login",
     // Do NOT run middleware on /auth/callback — it can break PKCE cookie exchange
     "/api/:path*",
