@@ -51,7 +51,7 @@ export function FreightLoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(
     urlError === "auth"
-      ? "Google sign-in failed. Try again."
+      ? "Sign-in failed. Sub-dispatchers must use the invite link from email (expires in 7 days), then sign in at tms.alphasolutions.software/login."
       : urlError === "terminated"
         ? "Your dispatcher access has been terminated."
         : null,

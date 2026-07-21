@@ -37,7 +37,7 @@ export function DriverChatClient() {
   const active = threads.find((t) => t.load_id === activeLoadId);
 
   return (
-    <div className="flex h-[calc(100vh-0px)] flex-col p-4 md:p-6">
+    <div className="flex h-[calc(100dvh-5rem)] flex-col p-4 md:p-6">
       <h1 className="mb-4 text-xl font-bold text-[var(--color-text)]">Load chat</h1>
       <p className="mb-4 text-sm text-[var(--color-muted)]">
         Chat with dispatch and carrier for your assigned loads · send BOL, POD, photos
@@ -67,6 +67,7 @@ export function DriverChatClient() {
             mode="load"
             loadId={activeLoadId}
             title={active?.title}
+            viewerRole="driver"
             emptyHint="Message dispatch and carrier. Attach BOL or POD when delivered."
           />
         ) : (

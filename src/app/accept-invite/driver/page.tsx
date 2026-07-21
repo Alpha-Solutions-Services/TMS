@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function AcceptDriverInvitePage({
+export default async function AcceptDriverInvitePublicPage({
   searchParams,
 }: {
   searchParams?: Promise<{ token?: string }> | { token?: string };
@@ -15,7 +15,7 @@ export default async function AcceptDriverInvitePage({
   const sp = await resolveSearchParams(searchParams);
   const token = sp?.token?.trim() ?? "";
   return (
-    <main className="mx-auto max-w-xl px-4 pb-28 pt-20">
+    <main className="mx-auto flex min-h-[100dvh] max-w-xl items-center px-4 py-8">
       <DriverAcceptInviteClient token={token} />
     </main>
   );

@@ -7,7 +7,7 @@ import {
 } from "@/lib/freight/rate-limit";
 
 export async function enforceAiRateLimit(
-  route: "chat" | "parse-load" | "parse-document",
+  route: "chat" | "parse-load" | "parse-document" | "enhance",
 ): Promise<{ userId: string } | NextResponse> {
   const user = await getPortalUser();
   if (!user?.id) {

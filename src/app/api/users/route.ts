@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import crypto from "node:crypto";
 import { z } from "zod";
 import { logFreightAction } from "@/lib/freight/audit-log";
+import { PUBLIC_SITE_URL } from "@/lib/freight/constants";
 import {
   sendTeamInviteEmail,
   sendTeamTerminatedEmail,
@@ -19,7 +21,6 @@ import {
   tmsDisplayName,
 } from "@/lib/tms/auth";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
-import { findAuthUserByEmail } from "@/lib/tms/find-auth-user";
 
 export const dynamic = "force-dynamic";
 
@@ -71,71 +72,40 @@ export async function POST(req: Request) {
   const db = getServiceRoleClient();
   if (!db) return NextResponse.json({ error: "DB not configured" }, { status: 503 });
 
-  let authUserId: string;
-  let invitedViaSupabase = false;
+  // Revoke any pending invite for this email and issue a fresh 7-day token (driver-style flow).
+  await db
+    .from("dispatcher_invitations")
+    .update({ status: "revoked" })
+    .eq("invitee_email", emailNorm)
+    .eq("status", "pending");
 
-  let authUser = await findAuthUserByEmail(emailNorm);
+  const token = crypto.randomBytes(24).toString("hex");
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  if (!authUser) {
-    const { data: existingTms } = await db
-      .from("tms_users")
-      .select("id")
-      .eq("email", emailNorm)
-      .maybeSingle();
-    if (existingTms?.id) {
-      const { data: authData } = await db.auth.admin.getUserById(existingTms.id);
-      authUser = authData.user ?? null;
-    }
-  }
+  const { error: inviteErr } = await db.from("dispatcher_invitations").insert({
+    invited_by: auth.user.id,
+    invitee_email: emailNorm,
+    invitee_name: body.full_name?.trim() || null,
+    team_role: teamRole,
+    token,
+    status: "pending",
+    expires_at: expiresAt,
+  });
 
-  if (!authUser) {
-    const { data: invited, error: inviteErr } = await db.auth.admin.inviteUserByEmail(
-      emailNorm,
+  if (inviteErr) {
+    console.error("[users/invite] dispatcher_invitations", inviteErr);
+    return NextResponse.json(
       {
-        data: {
-          full_name: body.full_name?.trim() || null,
-          role: teamRole,
-        },
-        redirectTo: tmsLoginUrl(),
+        error:
+          inviteErr.message.includes("does not exist")
+            ? "Run supabase/dispatcher-invitations.sql in Supabase first."
+            : inviteErr.message,
       },
+      { status: 500 },
     );
-
-    if (inviteErr || !invited.user?.id) {
-      return NextResponse.json(
-        {
-          error:
-            inviteErr?.message ??
-            "Could not send invite email. Check Supabase Auth email settings or SMTP.",
-        },
-        { status: 500 },
-      );
-    }
-    authUser = invited.user;
-    authUserId = invited.user.id;
-    invitedViaSupabase = true;
-  } else {
-    authUserId = authUser.id;
   }
 
-  const { data, error } = await db
-    .from("tms_users")
-    .upsert(
-      {
-        id: authUserId,
-        email: emailNorm,
-        full_name: body.full_name?.trim() || null,
-        role: teamRole,
-        active: true,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "id" },
-    )
-    .select()
-    .single();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  await syncSubDispatcherProfile(authUserId, emailNorm, body.full_name);
+  const inviteUrl = `${PUBLIC_SITE_URL}/accept-invite/dispatcher?token=${encodeURIComponent(token)}`;
 
   const roleLabel = inviteRoleLabel(teamRole);
   const emailResult = await sendTeamInviteEmail({
@@ -143,26 +113,27 @@ export async function POST(req: Request) {
     inviteeName: body.full_name?.trim() || emailNorm,
     roleLabel,
     inviterName: tmsDisplayName(auth.user),
-    loginUrl: tmsLoginUrl(),
+    inviteUrl,
   });
 
   await logFreightAction({
     actorId: auth.user.id,
     actorEmail: auth.user.email,
     action: "team.invite",
-    entityType: "tms_user",
-    entityId: authUserId,
-    meta: { email: emailNorm, role: teamRole, invitedViaSupabase },
+    entityType: "dispatcher_invitation",
+    entityId: token,
+    meta: { email: emailNorm, role: teamRole, expiresAt },
   });
 
   return NextResponse.json({
-    user: data,
-    emailSent: emailResult.ok || invitedViaSupabase,
-    emailError:
-      emailResult.ok || invitedViaSupabase
-        ? undefined
-        : emailResult.error ?? "SMTP not configured — set SMTP_* on Vercel",
-    supabaseInviteSent: invitedViaSupabase,
+    ok: true,
+    inviteUrl,
+    emailSent: emailResult.ok,
+    emailError: emailResult.ok
+      ? undefined
+      : emailResult.error ?? "SMTP not configured — set SMTP_* on Vercel",
+    expiresAt,
+    loginUrl: tmsLoginUrl(),
   });
 }
 

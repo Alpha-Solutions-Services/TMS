@@ -527,20 +527,21 @@ export async function sendTeamInviteEmail(params: {
   inviteeName: string;
   roleLabel: string;
   inviterName: string;
-  loginUrl: string;
+  inviteUrl: string;
 }) {
   const html = brandedEmailWrap(
     "Team invitation",
     `<p>Hi ${escapeHtml(params.inviteeName || "there")},</p>
-     <p><strong>${escapeHtml(params.inviterName)}</strong> added you to Alpha Freight TMS as <strong>${escapeHtml(params.roleLabel)}</strong>.</p>
-     ${cta("Sign in to TMS", params.loginUrl)}
+     <p><strong>${escapeHtml(params.inviterName)}</strong> invited you to Alpha Freight TMS as <strong>${escapeHtml(params.roleLabel)}</strong>.</p>
+     <p style="font-size:13px;color:#6a8caf;">This link expires in 7 days. Set your password once — then sign in anytime at the TMS login page.</p>
+     ${cta("Accept invitation", params.inviteUrl)}
      <p style="font-size:13px;color:#6a8caf;">Questions? ${FREIGHT_SUPPORT_EMAIL}</p>`,
   );
   return sendTransactional({
     to: params.to,
-    subject: `You've been added as ${params.roleLabel} — Alpha Freight TMS`,
+    subject: `Accept your ${params.roleLabel} invite — Alpha Freight TMS`,
     html,
-    text: `You were added as ${params.roleLabel} on Alpha Freight TMS. Sign in: ${params.loginUrl}`,
+    text: `You were invited as ${params.roleLabel} on Alpha Freight TMS. Accept (expires in 7 days): ${params.inviteUrl}`,
   });
 }
 

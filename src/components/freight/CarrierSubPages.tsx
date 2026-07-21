@@ -412,8 +412,8 @@ export function CarrierChatPage() {
           </div>
 
           {tab === "loads" ? (
-            <div className="grid gap-4 lg:grid-cols-[200px_1fr]">
-              <div className="space-y-1 rounded-xl border border-[var(--color-border)] p-2">
+            <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[200px_1fr]" style={{ minHeight: "calc(100dvh - 14rem)" }}>
+              <div className="space-y-1 overflow-y-auto rounded-xl border border-[var(--color-border)] p-2">
                 {loadThreads.map((t) => (
                   <button
                     key={t.id}
@@ -426,50 +426,63 @@ export function CarrierChatPage() {
                 ))}
               </div>
               {activeLoadId ? (
-                <FreightChatPanel mode="load" loadId={activeLoadId} title="Load team chat" />
+                <FreightChatPanel
+                  mode="load"
+                  loadId={activeLoadId}
+                  title="Load team chat"
+                  viewerRole="carrier"
+                />
               ) : (
                 <p className="text-sm text-[var(--color-muted)]">No load chats yet.</p>
               )}
             </div>
           ) : (
-        <div className="grid gap-4 lg:grid-cols-3">
-          <CarrierGlassCard className="lg:col-span-2" glow>
-            <div className="flex h-64 flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)]/50 p-4">
-              <div className="flex-1 overflow-y-auto space-y-2">
+        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-3" style={{ minHeight: "calc(100dvh - 14rem)" }}>
+          <CarrierGlassCard className="flex min-h-0 flex-col lg:col-span-2" glow>
+            <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-[var(--color-border)] bg-[#0a1018] p-2">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-2">
                 {messages.length === 0 ? (
                   <p className="text-sm text-[var(--color-muted)]">
                     Messages from your dispatcher appear here. You also get email when dispatch writes you.
                   </p>
                 ) : (
-                  messages.map((m) => (
+                  messages.map((m) => {
+                    const own = m.sender_role === "carrier";
+                    return (
                     <div
                       key={m.id}
-                      className={
-                        m.sender_role === "dispatcher"
-                          ? "rounded-lg bg-[var(--color-accent-dim)] px-3 py-2 text-sm"
-                          : "ml-8 rounded-lg bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-muted)]"
-                      }
+                      className={`flex w-full ${own ? "justify-end" : "justify-start"}`}
                     >
+                      <div
+                        className={
+                          own
+                            ? "max-w-[85%] rounded-2xl rounded-br-md bg-[#005c4b] px-3 py-2 text-sm text-white"
+                            : "max-w-[85%] rounded-2xl rounded-bl-md bg-[var(--color-surface)] px-3 py-2 text-sm"
+                        }
+                      >
                       <p className="text-[10px] uppercase opacity-70">
-                        {m.sender_role} · {new Date(m.created_at).toLocaleString()}
+                        {m.sender_role} · {new Date(m.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                       </p>
                       <p className="mt-1 whitespace-pre-wrap">{m.body}</p>
+                      </div>
                     </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
-              <div className="mt-3 flex gap-2">
+              <div className="mt-2 flex shrink-0 gap-2 border-t border-[var(--color-border)] pt-2">
                 <input
                   value={reply}
                   onChange={(e) => setReply(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && void sendReply()}
                   placeholder="Reply to dispatch…"
-                  className="dispatch-field flex-1 rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm"
+                  className="dispatch-field flex-1 rounded-2xl border border-[var(--color-border)] px-4 py-2.5 text-sm"
                 />
                 <button
                   type="button"
                   disabled={chatBusy || !reply.trim()}
                   onClick={() => void sendReply()}
-                  className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[#05080f] disabled:opacity-50"
+                  className="rounded-full bg-[#005c4b] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
                 >
                   Send
                 </button>

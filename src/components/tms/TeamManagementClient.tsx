@@ -88,10 +88,9 @@ export function TeamManagementClient() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed");
       const emailNote = data.emailSent
-        ? " Invitation email sent."
+        ? " Invite email sent (7-day link)."
         : ` Warning: email not sent${data.emailError ? ` (${data.emailError})` : ""}. Check SMTP on Vercel.`;
-      const supaNote = data.supabaseInviteSent ? " Supabase signup invite also sent." : "";
-      setMsg(`Invited ${email} as ${roleLabel(inviteRole)}.${emailNote}${supaNote}`);
+      setMsg(`Invited ${email} as ${roleLabel(inviteRole)}.${emailNote}`);
       setEmail("");
       setFullName("");
       void refresh();
