@@ -10,6 +10,13 @@ const nextConfig = {
       },
     ],
   },
+  async rewrites() {
+    return [
+      { source: "/api/dispatcher/:path*", destination: "/api/freight/dispatcher/:path*" },
+      { source: "/api/carrier/:path*", destination: "/api/freight/carrier/:path*" },
+      { source: "/api/driver/:path*", destination: "/api/freight/driver/:path*" },
+    ];
+  },
   async redirects() {
     return [
       { source: "/freight/login", destination: "/login", permanent: true },
