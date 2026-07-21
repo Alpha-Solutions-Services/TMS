@@ -1,0 +1,16 @@
+# Vercel env vars — paste into Project → Settings → Environment Variables
+
+NEXT_PUBLIC_TMS_URL=https://tms.alphasolutions.software
+NEXT_PUBLIC_SITE_URL=https://www.alphasolutions.software
+NEXT_PUBLIC_SUPABASE_URL=<same as Portal>
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<same as Portal>
+SUPABASE_SERVICE_ROLE_KEY=<same as Portal>
+SUPER_DISPATCHER_EMAILS=mikran.dispatch@gmail.com,alphaassistant.alpha@gmail.com,muhammadmikran.alpha@gmail.com
+
+# Optional (Phase 2 notifications)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM=Alpha Freight Network <no-reply@alphasolutions.software>

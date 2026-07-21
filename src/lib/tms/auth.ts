@@ -16,7 +16,7 @@ function getSuperDispatcherAllowlist(): string[] {
   const raw =
     process.env.SUPER_DISPATCHER_EMAILS?.trim() ||
     process.env.SUPER_ADMIN_EMAILS?.trim() ||
-    "";
+    "mikran.dispatch@gmail.com,alphaassistant.alpha@gmail.com,muhammadmikran.alpha@gmail.com";
   return raw
     .split(",")
     .map((s) => normalize(s))

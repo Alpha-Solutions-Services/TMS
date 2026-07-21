@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-import { LayoutDashboard, Truck, LogOut, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Truck, LogOut, ShieldCheck, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useDashboardMobileNavClose } from "@/components/layout/ResponsiveDashboardShell";
 
@@ -27,7 +27,10 @@ export function TmsSidebar({
       ? [
           { href: "/dispatcher", label: "Load Board", icon: LayoutDashboard },
           ...(role === "super_dispatcher"
-            ? [{ href: "/dispatcher/approvals", label: "Approvals", icon: ShieldCheck }]
+            ? [
+                { href: "/dispatcher/approvals", label: "Approvals", icon: ShieldCheck },
+                { href: "/dispatcher/team", label: "Team", icon: Users },
+              ]
             : []),
         ]
       : portal === "carrier"

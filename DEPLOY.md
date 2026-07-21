@@ -33,6 +33,10 @@ Local dev: `npm run dev` → http://localhost:3002
    - `http://localhost:3002/auth/callback`
 3. Seed users in `tms_users` (or rely on `SUPER_DISPATCHER_EMAILS` for super dispatchers)
 
+**Super dispatchers (env):** `mikran.dispatch@gmail.com`, `alphaassistant.alpha@gmail.com`, `muhammadmikran.alpha@gmail.com`
+
+Add sub dispatchers and additional supers via **Dispatcher → Team** after they sign up once.
+
 Example seed (replace UUID with auth.users id):
 
 ```sql
