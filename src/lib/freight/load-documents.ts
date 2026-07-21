@@ -1,4 +1,5 @@
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
+import { ensureStorageBucket } from "./ensure-storage-bucket";
 
 export const LOAD_DOCUMENTS_BUCKET = "freight-load-documents";
 
@@ -34,13 +35,25 @@ export async function uploadLoadDocument(params: {
   const admin = getServiceRoleClient();
   if (!admin) return null;
 
+  await ensureStorageBucket(LOAD_DOCUMENTS_BUCKET);
+
   const path = buildDocumentStoragePath(params.loadId, params.type, params.filename);
-  const { error: uploadError } = await admin.storage
+  let { error: uploadError } = await admin.storage
     .from(LOAD_DOCUMENTS_BUCKET)
     .upload(path, params.file, {
       contentType: params.contentType,
       upsert: true,
     });
+
+  if (uploadError && /bucket not found/i.test(uploadError.message)) {
+    await ensureStorageBucket(LOAD_DOCUMENTS_BUCKET);
+    ({ error: uploadError } = await admin.storage
+      .from(LOAD_DOCUMENTS_BUCKET)
+      .upload(path, params.file, {
+        contentType: params.contentType,
+        upsert: true,
+      }));
+  }
 
   if (uploadError) {
     console.error("[load-documents] upload failed:", uploadError);

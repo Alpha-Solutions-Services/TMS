@@ -1,5 +1,6 @@
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
 import type { ChatAttachment } from "./chat-types";
+import { ensureStorageBucket } from "./ensure-storage-bucket";
 import {
   MAX_UPLOAD_BYTES,
   maxUploadLabelMb,
@@ -36,20 +37,30 @@ export async function uploadChatAttachment(
     return { ok: false, error: "Storage not configured" };
   }
 
+  await ensureStorageBucket(BUCKET);
+
   const safeName = file.name.replace(/[^\w.\-() ]+/g, "_").slice(0, 120);
   const path = `${userId}/${Date.now()}-${safeName}`;
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const { error } = await db.storage.from(BUCKET).upload(path, buffer, {
+  let { error } = await db.storage.from(BUCKET).upload(path, buffer, {
     contentType: mime,
     upsert: false,
   });
+
+  if (error && /bucket not found/i.test(error.message)) {
+    await ensureStorageBucket(BUCKET);
+    ({ error } = await db.storage.from(BUCKET).upload(path, buffer, {
+      contentType: mime,
+      upsert: false,
+    }));
+  }
 
   if (error) {
     console.error("[chat-attachments] upload failed:", error);
     return {
       ok: false,
-      error: error.message.includes("Bucket not found")
+      error: /bucket not found/i.test(error.message)
         ? "Storage bucket missing — contact support"
         : "Storage upload failed",
     };

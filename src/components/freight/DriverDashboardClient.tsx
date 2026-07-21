@@ -111,11 +111,11 @@ export function DriverDashboardClient() {
   if (!data) return null;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6 lg:p-8">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+    <div className="space-y-4 p-3 pb-8 sm:space-y-6 sm:p-6 lg:p-8">
+      <header className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
+        <div className="min-w-0">
           <p className="text-xs uppercase tracking-wider text-[var(--color-accent)]">Driver cockpit</p>
-          <h1 className="mt-1 text-2xl font-bold text-[var(--color-text)]">{data.driver.name}</h1>
+          <h1 className="mt-1 truncate text-xl font-bold text-[var(--color-text)] sm:text-2xl">{data.driver.name}</h1>
           <p className="mt-1 text-sm text-[var(--color-muted)]">{data.driver.company}</p>
         </div>
         <div className="flex items-center gap-2">

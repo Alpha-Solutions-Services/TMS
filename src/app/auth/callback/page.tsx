@@ -27,13 +27,17 @@ function AuthCallbackInner() {
       const oauthDesc = searchParams.get("error_description");
       const code = searchParams.get("code");
       const freight = searchParams.get("freight");
-      const role = searchParams.get("role");
+      const roleParam = searchParams.get("role");
 
       let next = safeNextPath(searchParams.get("next"));
+      let intendedRole = roleParam;
       try {
         const stored = sessionStorage.getItem("tms_oauth_next");
         if (stored) next = safeNextPath(stored);
+        const storedRole = sessionStorage.getItem("tms_oauth_role");
+        if (storedRole) intendedRole = storedRole;
         sessionStorage.removeItem("tms_oauth_next");
+        sessionStorage.removeItem("tms_oauth_role");
       } catch {
         /* ignore */
       }
@@ -81,19 +85,45 @@ function AuthCallbackInner() {
         }
       }
 
-      if (freight === "1" && role === "dispatcher") {
-        const ensureRes = await fetch("/api/dispatcher/ensure-profile", {
-          method: "POST",
-          credentials: "include",
-        });
-        if (!ensureRes.ok) {
-          const body = (await ensureRes.json().catch(() => ({}))) as { error?: string };
-          window.location.replace(
-            `/login?error=auth&reason=${encodeURIComponent(body.error ?? "dispatcher_provision_failed")}`,
-          );
-          return;
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user?.id) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role, carrier_status")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (freight === "1" && intendedRole === "dispatcher") {
+          const ensureRes = await fetch("/api/dispatcher/ensure-profile", {
+            method: "POST",
+            credentials: "include",
+          });
+          if (!ensureRes.ok) {
+            const body = (await ensureRes.json().catch(() => ({}))) as { error?: string };
+            window.location.replace(
+              `/login?error=auth&reason=${encodeURIComponent(body.error ?? "dispatcher_provision_failed")}`,
+            );
+            return;
+          }
+          if (!next.startsWith("/dispatcher")) next = "/dispatcher/dashboard";
+        } else if (intendedRole === "carrier" || profile?.role === "carrier") {
+          if (profile?.role !== "carrier") {
+            window.location.replace(
+              "/login?error=auth&reason=" +
+                encodeURIComponent("This Google account is not a registered carrier."),
+            );
+            return;
+          }
+          if (profile.carrier_status === "verified") next = "/carrier/dashboard";
+          else if (profile.carrier_status === "rejected") next = "/carrier/rejected";
+          else if (profile.carrier_status === "suspended") next = "/carrier/suspended";
+          else next = "/carrier/pending";
+        } else if (profile?.role === "driver") {
+          next = "/driver/dashboard";
         }
-        if (!next.startsWith("/dispatcher")) next = "/dispatcher/dashboard";
       }
 
       if (cancelled) return;

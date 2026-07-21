@@ -91,7 +91,14 @@ export function FreightLoginForm() {
       });
 
       if (signErr) {
-        setError(signErr.message || "Unable to sign in");
+        const msg = signErr.message || "Unable to sign in";
+        if (/invalid login credentials|invalid_credentials/i.test(msg) && role === "carrier") {
+          setError(
+            "Password login failed. This carrier account uses Google — select Carrier, then Continue with Google.",
+          );
+        } else {
+          setError(msg);
+        }
         return;
       }
 
@@ -207,18 +214,18 @@ export function FreightLoginForm() {
         return;
       }
       const origin = window.location.origin;
-      const nextPath = next && next.startsWith("/") && !next.startsWith("//") ? next : undefined;
+      const nextPath =
+        next && next.startsWith("/") && !next.startsWith("//") ? next : redirectTarget;
       try {
-        sessionStorage.setItem("tms_oauth_next", nextPath ?? redirectTarget);
+        sessionStorage.setItem("tms_oauth_next", nextPath);
+        sessionStorage.setItem("tms_oauth_role", role);
       } catch {
         /* ignore */
       }
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(
-            nextPath ?? "/login",
-          )}&freight=1&role=${encodeURIComponent(role)}`,
+          redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}&freight=1&role=${encodeURIComponent(role)}`,
         },
       });
       if (oauthError) setError(oauthError.message);
@@ -300,6 +307,7 @@ export function FreightLoginForm() {
               <Link href="/carrier/register" className="text-[var(--color-accent)] hover:underline">
                 Register
               </Link>
+              . Google accounts (like Gmail carriers) must use Continue with Google.
             </>
           ) : null}
         </p>

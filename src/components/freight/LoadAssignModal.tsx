@@ -23,11 +23,17 @@ export function LoadAssignModal({
 
   useEffect(() => {
     async function loadDrivers() {
-      const res = await fetch(
-        `/api/dispatcher/carrier-drivers?companyName=${encodeURIComponent(load.carrier)}`,
-        { cache: "no-store" },
-      );
-      const json = (await res.json()) as { drivers?: DriverOption[] };
+      const qs = new URLSearchParams({ all: "1" });
+      if (load.carrier) qs.set("companyName", load.carrier);
+      const res = await fetch(`/api/dispatcher/carrier-drivers?${qs.toString()}`, {
+        cache: "no-store",
+      });
+      const json = (await res.json()) as { drivers?: DriverOption[]; error?: string };
+      if (!res.ok) {
+        setMsg(json.error ?? "Could not load drivers");
+        setDrivers([]);
+        return;
+      }
       setDrivers(json.drivers ?? []);
       if (json.drivers?.[0]) setDriverId(json.drivers[0].id);
     }
@@ -37,6 +43,10 @@ export function LoadAssignModal({
   async function save() {
     if (!load.db_id) {
       setMsg("Load must be saved in Supabase first.");
+      return;
+    }
+    if (!driverId) {
+      setMsg("Select a driver to assign.");
       return;
     }
     setBusy(true);
@@ -105,8 +115,14 @@ export function LoadAssignModal({
           ))}
         </select>
         {drivers.length === 0 ? (
-          <p className="mt-2 text-xs text-amber-300">No drivers found for this carrier.</p>
-        ) : null}
+          <p className="mt-2 text-xs text-amber-300">
+            No drivers in the system yet. Invite a driver from Drivers, then assign.
+          </p>
+        ) : (
+          <p className="mt-2 text-xs text-[var(--color-muted)]">
+            Matching carrier drivers appear first; all drivers are listed so you can always assign.
+          </p>
+        )}
 
         <label className="mt-5 block text-xs text-[var(--color-muted)]">
           Rate confirmation (sent to driver)

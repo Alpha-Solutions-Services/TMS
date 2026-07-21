@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { DriverSidebar } from "@/components/freight/DriverSidebar";
+import { ResponsiveDashboardShell } from "@/components/layout/ResponsiveDashboardShell";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -25,12 +26,16 @@ export default async function DriverLayout({ children }: Readonly<{ children: Re
   }
 
   return (
-    <div className="flex min-h-screen bg-[var(--color-bg)]">
-      <DriverSidebar
-        name={(profile.full_name as string) || "Driver"}
-        email={user.email ?? ""}
-      />
-      <div className="min-w-0 flex-1">{children}</div>
-    </div>
+    <ResponsiveDashboardShell
+      mobileTitle="Driver"
+      sidebar={
+        <DriverSidebar
+          name={(profile.full_name as string) || "Driver"}
+          email={user.email ?? ""}
+        />
+      }
+    >
+      <main className="min-h-[calc(100dvh-5rem)] bg-[var(--color-bg)]">{children}</main>
+    </ResponsiveDashboardShell>
   );
 }
