@@ -90,18 +90,29 @@ function AuthCallbackInner() {
         }
       }
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      // Always resolve from the real profile — carriers must never be forced through
+      // dispatcher ensure-profile just because the login role toggle was wrong.
+      const destRes = await fetch("/api/auth/resolve-destination", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const destBody = (await destRes.json().catch(() => ({}))) as {
+        path?: string;
+        role?: string;
+        error?: string;
+      };
 
-      if (user?.id) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role, carrier_status")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        if (freight === "1" && intendedRole === "dispatcher") {
+      if (destRes.ok && destBody.path && destBody.path !== "/login") {
+        // Only provision dispatcher when the account actually is dispatch team
+        // (or user explicitly chose dispatcher and is not already a carrier/driver).
+        if (
+          freight === "1" &&
+          intendedRole === "dispatcher" &&
+          destBody.role !== "carrier" &&
+          destBody.role !== "driver" &&
+          !String(destBody.path).startsWith("/carrier") &&
+          !String(destBody.path).startsWith("/driver")
+        ) {
           const ensureRes = await fetch("/api/dispatcher/ensure-profile", {
             method: "POST",
             credentials: "include",
@@ -113,27 +124,39 @@ function AuthCallbackInner() {
             );
             return;
           }
-          if (!next.startsWith("/dispatcher")) next = "/dispatcher/dashboard";
-        } else if (intendedRole === "carrier" || profile?.role === "carrier") {
-          if (profile?.role !== "carrier") {
-            window.location.replace(
-              "/login?error=auth&reason=" +
-                encodeURIComponent("This Google account is not a registered carrier."),
-            );
-            return;
-          }
-          if (profile.carrier_status === "verified") next = "/carrier/dashboard";
-          else if (profile.carrier_status === "rejected") next = "/carrier/rejected";
-          else if (profile.carrier_status === "suspended") next = "/carrier/suspended";
-          else next = "/carrier/pending";
-        } else if (profile?.role === "driver") {
-          next = "/driver/dashboard";
         }
+
+        if (cancelled) return;
+        setMessage("Success — redirecting…");
+        window.location.replace(destBody.path);
+        return;
+      }
+
+      // Fallback: intended carrier with no profile yet → registration
+      if (intendedRole === "carrier") {
+        if (cancelled) return;
+        window.location.replace("/carrier/register");
+        return;
+      }
+
+      if (freight === "1" && intendedRole === "dispatcher") {
+        const ensureRes = await fetch("/api/dispatcher/ensure-profile", {
+          method: "POST",
+          credentials: "include",
+        });
+        if (!ensureRes.ok) {
+          const body = (await ensureRes.json().catch(() => ({}))) as { error?: string };
+          window.location.replace(
+            `/login?error=auth&reason=${encodeURIComponent(body.error ?? "dispatcher_provision_failed")}`,
+          );
+          return;
+        }
+        if (!next.startsWith("/dispatcher")) next = "/dispatcher/dashboard";
       }
 
       if (cancelled) return;
       setMessage("Success — redirecting…");
-      window.location.replace(next);
+      window.location.replace(next.startsWith("/") ? next : "/login");
     }
 
     void finish();

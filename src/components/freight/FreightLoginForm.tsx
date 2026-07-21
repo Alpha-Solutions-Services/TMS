@@ -47,16 +47,18 @@ export function FreightLoginForm() {
   const next = sp?.get("next") ?? "";
   const urlError = sp?.get("error");
 
-  const [role, setRole] = useState<Role>("dispatcher");
+  const [role, setRole] = useState<Role>("carrier");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(
-    urlError === "auth"
-      ? "Sign-in failed. Sub-dispatchers must use the invite link from email (expires in 7 days), then sign in at tms.alphasolutions.software/login."
-      : urlError === "terminated"
-        ? "Your dispatcher access has been terminated."
-        : null,
-  );
+  const [error, setError] = useState<string | null>(() => {
+    if (urlError === "auth") {
+      const reason = sp?.get("reason");
+      if (reason) return decodeURIComponent(reason);
+      return "Sign-in failed. Carriers: select Carrier, then Continue with Google. Dispatchers: use your invite link if you were invited.";
+    }
+    if (urlError === "terminated") return "Your dispatcher access has been terminated.";
+    return null;
+  });
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [mfaPending, setMfaPending] = useState(false);
@@ -331,7 +333,8 @@ export function FreightLoginForm() {
               <Link href="/carrier/register" className="text-[var(--color-accent)] hover:underline">
                 Register
               </Link>
-              . Google accounts (like Gmail carriers) must use Continue with Google.
+              . Use <strong>Continue with Google (Carrier)</strong> — password login will not work for
+              Google-only carrier accounts.
             </>
           ) : null}
         </p>
@@ -354,7 +357,11 @@ export function FreightLoginForm() {
             className="dispatch-field mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--color-border)] py-2.5 text-sm font-medium transition-colors hover:border-[var(--color-accent)] disabled:opacity-40"
           >
             <GoogleGlyph className="h-4 w-4 shrink-0" />
-            {googleLoading ? "Redirecting…" : "Continue with Google"}
+            {googleLoading
+              ? "Redirecting…"
+              : role === "carrier"
+                ? "Continue with Google (Carrier)"
+                : "Continue with Google"}
           </button>
 
           <div className="mb-3 flex items-center gap-2 text-[10px] uppercase tracking-wider text-[var(--color-muted)]">
