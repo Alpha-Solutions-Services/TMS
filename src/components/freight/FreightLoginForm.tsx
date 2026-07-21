@@ -10,8 +10,6 @@ import clsx from "clsx";
 import { notifyAuthActivityClient } from "@/lib/auth/notify-client";
 import { MfaChallengeForm } from "@/components/freight/MfaChallengeForm";
 import { createClient } from "@/lib/supabase/client";
-import { isSuperAdminEmail } from "@/lib/admin-allowlist";
-import { isSuperDispatcherEmail } from "@/lib/tms/roles";
 
 type Role = "dispatcher" | "carrier" | "driver";
 
@@ -24,13 +22,13 @@ const ROLES: {
   {
     id: "dispatcher",
     label: "Dispatcher",
-    hint: "Authorized dispatch accounts only.",
+    hint: "Use Google or your invite email/password.",
     icon: ClipboardList,
   },
   {
     id: "carrier",
     label: "Carrier",
-    hint: "Verified MC carrier account.",
+    hint: "Most carriers use Continue with Google.",
     icon: Truck,
   },
   {
@@ -41,20 +39,39 @@ const ROLES: {
   },
 ];
 
+async function resolvePathAfterLogin(): Promise<{ path: string; error?: string }> {
+  const res = await fetch("/api/auth/resolve-destination", {
+    credentials: "include",
+    cache: "no-store",
+  });
+  const body = (await res.json().catch(() => ({}))) as {
+    path?: string;
+    error?: string;
+    role?: string;
+  };
+  if (!res.ok || !body.path) {
+    return {
+      path: "/login",
+      error: body.error ?? "Could not determine your portal access.",
+    };
+  }
+  return { path: body.path };
+}
+
 export function FreightLoginForm() {
   const router = useRouter();
   const sp = useSearchParams();
   const next = sp?.get("next") ?? "";
   const urlError = sp?.get("error");
 
-  const [role, setRole] = useState<Role>("carrier");
+  const [role, setRole] = useState<Role>("dispatcher");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(() => {
     if (urlError === "auth") {
       const reason = sp?.get("reason");
       if (reason) return decodeURIComponent(reason);
-      return "Sign-in failed. Carriers: select Carrier, then Continue with Google. Dispatchers: use your invite link if you were invited.";
+      return "Sign-in failed. Try Continue with Google, or use your invite password for dispatchers/drivers.";
     }
     if (urlError === "terminated") return "Your dispatcher access has been terminated.";
     return null;
@@ -83,96 +100,66 @@ export function FreightLoginForm() {
     router.refresh();
   }
 
-  async function resolveDestinationAfterAuth(supabase: NonNullable<ReturnType<typeof createClient>>) {
-    const { data } = await supabase.auth.getUser();
-    const uid = data.user?.id;
-    const emailSignedIn = data.user?.email ?? "";
-    if (!uid) {
-      setError("Sign-in failed. Try again.");
-      return null;
+  async function afterSessionReady() {
+    const supabase = createClient();
+    if (!supabase) {
+      setError("Auth is not configured.");
+      return;
     }
 
-    let { data: profile } = await supabase
-      .from("profiles")
-      .select("role, enrollment_status, carrier_status")
-      .eq("id", uid)
-      .maybeSingle();
-
-    const superAdmin = isSuperAdminEmail(emailSignedIn);
-    const superDispatcher = isSuperDispatcherEmail(emailSignedIn) || superAdmin;
-    let tmsTeamRole: string | undefined;
-
+    // Provision dispatcher team members (super / invited) when they chose Dispatcher
+    // or when resolve-destination says they belong on dispatcher routes.
     if (role === "dispatcher") {
       const ensureRes = await fetch("/api/dispatcher/ensure-profile", {
         method: "POST",
         credentials: "include",
       });
-      const ensureBody = (await ensureRes.json().catch(() => ({}))) as {
-        error?: string;
-        ok?: boolean;
-        portalRole?: string;
-        role?: string;
-      };
-      tmsTeamRole = ensureBody.role;
       if (!ensureRes.ok) {
+        // Still try resolve — carriers who clicked Dispatcher by mistake can continue.
+        const resolved = await resolvePathAfterLogin();
+        if (resolved.path.startsWith("/carrier") || resolved.path.startsWith("/driver")) {
+          await finishTo(resolved.path);
+          return;
+        }
+        const body = (await ensureRes.json().catch(() => ({}))) as { error?: string };
         await supabase.auth.signOut();
         setError(
-          ensureBody.error ??
-            "Dispatcher access requires an invitation from a super dispatcher.",
+          body.error ??
+            "Dispatcher access requires an invitation from a super dispatcher, or your Google email must be on SUPER_DISPATCHER_EMAILS.",
         );
-        return null;
-      }
-      profile = {
-        role: "dispatcher",
-        enrollment_status: profile?.enrollment_status ?? null,
-        carrier_status: profile?.carrier_status ?? null,
-      };
-    }
-
-    if (role === "carrier" && profile?.role === "client") {
-      await finishTo("/carrier/register");
-      return null;
-    }
-
-    if (role === "driver" && profile?.role === "client") {
-      setError("Use your driver invite link to finish setup first.");
-      return null;
-    }
-
-    if (!profile?.role || profile.role !== role) {
-      if (superDispatcher && role !== "driver") {
-        const res = await fetch("/api/freight/superadmin/set-role", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role }),
-        });
-        const body = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          setError(body?.error || "Unable to switch role.");
-          return null;
-        }
-      } else {
-        await supabase.auth.signOut();
-        setError(`This account is not a ${role}. Select the correct role above.`);
-        return null;
+        return;
       }
     }
 
-    let dest = next || redirectTarget;
-
-    if (role === "dispatcher") {
-      if (tmsTeamRole === "sub_dispatcher") dest = "/dispatcher/loads";
-      else if (!next) dest = "/dispatcher/dashboard";
+    const aal = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    const resolved = await resolvePathAfterLogin();
+    if (resolved.error && resolved.path === "/login") {
+      setError(resolved.error);
+      return;
     }
 
-    if (role === "carrier") {
-      if (profile?.carrier_status === "verified") dest = "/carrier/dashboard";
-      else if (profile?.carrier_status === "rejected") dest = "/carrier/rejected";
-      else if (profile?.carrier_status === "suspended") dest = "/carrier/suspended";
-      else dest = "/carrier/pending";
+    let dest =
+      next && next.startsWith("/") && !next.startsWith("//") ? next : resolved.path;
+
+    // Prefer role-accurate destination over stale ?next=
+    if (resolved.path.startsWith("/carrier") || resolved.path.startsWith("/driver")) {
+      dest = resolved.path;
+    } else if (resolved.path.startsWith("/dispatcher") && role === "dispatcher") {
+      dest = resolved.path;
     }
 
-    return dest;
+    if (
+      !aal.error &&
+      aal.data &&
+      aal.data.nextLevel === "aal2" &&
+      aal.data.currentLevel !== "aal2"
+    ) {
+      setPendingDest(dest);
+      setMfaPending(true);
+      return;
+    }
+
+    await finishTo(dest);
   }
 
   async function submit(e: React.FormEvent) {
@@ -195,9 +182,9 @@ export function FreightLoginForm() {
 
       if (signErr) {
         const msg = signErr.message || "Unable to sign in";
-        if (/invalid login credentials|invalid_credentials/i.test(msg) && role === "carrier") {
+        if (/invalid login credentials|invalid_credentials/i.test(msg)) {
           setError(
-            "Password login failed. This carrier account uses Google — select Carrier, then Continue with Google.",
+            "Email/password failed. Most Alpha Freight accounts use Google only — select your role, then Continue with Google.",
           );
         } else {
           setError(msg);
@@ -205,22 +192,7 @@ export function FreightLoginForm() {
         return;
       }
 
-      const aal = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      if (
-        !aal.error &&
-        aal.data &&
-        aal.data.nextLevel === "aal2" &&
-        aal.data.currentLevel !== "aal2"
-      ) {
-        const dest = await resolveDestinationAfterAuth(supabase);
-        if (!dest) return;
-        setPendingDest(dest);
-        setMfaPending(true);
-        return;
-      }
-
-      const dest = await resolveDestinationAfterAuth(supabase);
-      if (dest) await finishTo(dest);
+      await afterSessionReady();
     } finally {
       setLoading(false);
     }
@@ -231,7 +203,7 @@ export function FreightLoginForm() {
     setGoogleLoading(true);
     try {
       if (role === "driver") {
-        setError("Drivers must use their invite link.");
+        setError("Drivers must use their invite link (email/password), not Google.");
         return;
       }
       const supabase = createClient();
@@ -252,6 +224,9 @@ export function FreightLoginForm() {
         provider: "google",
         options: {
           redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}&freight=1&role=${encodeURIComponent(role)}`,
+          queryParams: {
+            prompt: "select_account",
+          },
         },
       });
       if (oauthError) setError(oauthError.message);
@@ -285,7 +260,6 @@ export function FreightLoginForm() {
           </p>
         </div>
 
-        {/* Compact role cards */}
         <div className="mb-4 grid grid-cols-3 gap-2">
           {ROLES.map(({ id, label, icon: Icon }) => {
             const selected = role === id;
@@ -333,8 +307,6 @@ export function FreightLoginForm() {
               <Link href="/carrier/register" className="text-[var(--color-accent)] hover:underline">
                 Register
               </Link>
-              . Use <strong>Continue with Google (Carrier)</strong> — password login will not work for
-              Google-only carrier accounts.
             </>
           ) : null}
         </p>
@@ -350,74 +322,73 @@ export function FreightLoginForm() {
             />
           ) : (
             <>
-          <button
-            type="button"
-            onClick={() => void signInWithGoogle()}
-            disabled={loading || googleLoading || role === "driver"}
-            className="dispatch-field mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--color-border)] py-2.5 text-sm font-medium transition-colors hover:border-[var(--color-accent)] disabled:opacity-40"
-          >
-            <GoogleGlyph className="h-4 w-4 shrink-0" />
-            {googleLoading
-              ? "Redirecting…"
-              : role === "carrier"
-                ? "Continue with Google (Carrier)"
-                : "Continue with Google"}
-          </button>
+              {error ? (
+                <p className="mb-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-300" role="alert">
+                  {error}
+                </p>
+              ) : null}
 
-          <div className="mb-3 flex items-center gap-2 text-[10px] uppercase tracking-wider text-[var(--color-muted)]">
-            <span className="h-px flex-1 bg-[var(--color-border)]" />
-            or email
-            <span className="h-px flex-1 bg-[var(--color-border)]" />
-          </div>
+              {role !== "driver" ? (
+                <button
+                  type="button"
+                  onClick={() => void signInWithGoogle()}
+                  disabled={loading || googleLoading}
+                  className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-accent)] py-3 text-sm font-bold text-[#05080f] transition-opacity hover:opacity-95 disabled:opacity-40"
+                >
+                  <GoogleGlyph className="h-4 w-4 shrink-0" />
+                  {googleLoading
+                    ? "Redirecting…"
+                    : `Continue with Google — ${activeRole.label}`}
+                </button>
+              ) : null}
 
-          <form onSubmit={(e) => void submit(e)} className="space-y-2.5">
-            {error ? (
-              <p className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</p>
-            ) : null}
-            <input
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email"
-              className="dispatch-field w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-sm"
-            />
-            <input
-              type="password"
-              required
-              minLength={6}
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password"
-              className="dispatch-field w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-sm"
-            />
-            <div className="flex justify-end">
-              <Link
-                href="/forgot-password"
-                className="text-[11px] text-[var(--color-accent)] hover:underline"
-              >
-                Forgot password?
-              </Link>
-            </div>
-            <button
-              type="submit"
-              disabled={loading || googleLoading}
-              className="w-full rounded-xl bg-[var(--color-accent)] py-2.5 text-sm font-bold text-[#05080f] transition-opacity hover:opacity-95 disabled:opacity-50"
-            >
-              {loading ? "Signing in…" : `Sign in as ${activeRole.label}`}
-            </button>
-          </form>
+              <div className="mb-3 flex items-center gap-2 text-[10px] uppercase tracking-wider text-[var(--color-muted)]">
+                <span className="h-px flex-1 bg-[var(--color-border)]" />
+                or email / password
+                <span className="h-px flex-1 bg-[var(--color-border)]" />
+              </div>
+
+              <form onSubmit={(e) => void submit(e)} className="space-y-2.5">
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Email"
+                  className="dispatch-field w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-sm"
+                />
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password"
+                  className="dispatch-field w-full rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-sm"
+                />
+                <div className="flex justify-end">
+                  <Link
+                    href="/forgot-password"
+                    className="text-[11px] text-[var(--color-accent)] hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading || googleLoading}
+                  className="w-full rounded-xl border border-[var(--color-border)] py-2.5 text-sm font-semibold text-[var(--color-text)] hover:border-[var(--color-accent)]/50 disabled:opacity-50"
+                >
+                  {loading ? "Signing in…" : `Sign in as ${activeRole.label}`}
+                </button>
+              </form>
             </>
           )}
         </div>
         <p className="mt-3 text-center text-[11px] text-[var(--color-muted)]">
-          Enable 2FA anytime at{" "}
-          <Link href="/security" className="text-[var(--color-accent)] hover:underline">
-            /security
-          </Link>{" "}
-          after signing in.
+          After Google sign-in you are routed by your account type automatically.
         </p>
       </div>
     </div>

@@ -9,6 +9,30 @@ function safeNextPath(raw: string | null): string {
   return "/";
 }
 
+async function resolveDestinationWithRetry(): Promise<string | null> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const destRes = await fetch("/api/auth/resolve-destination", {
+      credentials: "include",
+      cache: "no-store",
+    });
+    const destBody = (await destRes.json().catch(() => ({}))) as {
+      path?: string;
+      role?: string;
+      error?: string;
+    };
+    if (destRes.ok && destBody.path && destBody.path !== "/login") {
+      return destBody.path;
+    }
+    if (destRes.status === 401 && attempt < 2) {
+      await new Promise((r) => setTimeout(r, 350 * (attempt + 1)));
+      continue;
+    }
+    if (destBody.path === "/carrier/register") return destBody.path;
+    return null;
+  }
+  return null;
+}
+
 function AuthCallbackInner() {
   const searchParams = useSearchParams();
   const [message, setMessage] = useState("Signing you in…");
@@ -49,7 +73,6 @@ function AuthCallbackInner() {
         return;
       }
 
-      // Invite / magic-link / recovery tokens arrive in the URL hash.
       const hash = typeof window !== "undefined" ? window.location.hash.slice(1) : "";
       if (hash) {
         const hashParams = new URLSearchParams(hash);
@@ -90,49 +113,25 @@ function AuthCallbackInner() {
         }
       }
 
-      // Always resolve from the real profile — carriers must never be forced through
-      // dispatcher ensure-profile just because the login role toggle was wrong.
-      const destRes = await fetch("/api/auth/resolve-destination", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const destBody = (await destRes.json().catch(() => ({}))) as {
-        path?: string;
-        role?: string;
-        error?: string;
-      };
-
-      if (destRes.ok && destBody.path && destBody.path !== "/login") {
-        // Only provision dispatcher when the account actually is dispatch team
-        // (or user explicitly chose dispatcher and is not already a carrier/driver).
+      // Always route from real account type (carrier / driver / dispatcher).
+      const resolvedPath = await resolveDestinationWithRetry();
+      if (resolvedPath) {
         if (
           freight === "1" &&
           intendedRole === "dispatcher" &&
-          destBody.role !== "carrier" &&
-          destBody.role !== "driver" &&
-          !String(destBody.path).startsWith("/carrier") &&
-          !String(destBody.path).startsWith("/driver")
+          resolvedPath.startsWith("/dispatcher")
         ) {
-          const ensureRes = await fetch("/api/dispatcher/ensure-profile", {
+          await fetch("/api/dispatcher/ensure-profile", {
             method: "POST",
             credentials: "include",
           });
-          if (!ensureRes.ok) {
-            const body = (await ensureRes.json().catch(() => ({}))) as { error?: string };
-            window.location.replace(
-              `/login?error=auth&reason=${encodeURIComponent(body.error ?? "dispatcher_provision_failed")}`,
-            );
-            return;
-          }
         }
-
         if (cancelled) return;
         setMessage("Success — redirecting…");
-        window.location.replace(destBody.path);
+        window.location.replace(resolvedPath);
         return;
       }
 
-      // Fallback: intended carrier with no profile yet → registration
       if (intendedRole === "carrier") {
         if (cancelled) return;
         window.location.replace("/carrier/register");
@@ -151,7 +150,10 @@ function AuthCallbackInner() {
           );
           return;
         }
-        if (!next.startsWith("/dispatcher")) next = "/dispatcher/dashboard";
+        const again = await resolveDestinationWithRetry();
+        if (cancelled) return;
+        window.location.replace(again ?? "/dispatcher/dashboard");
+        return;
       }
 
       if (cancelled) return;
