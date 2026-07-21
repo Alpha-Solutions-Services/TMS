@@ -237,10 +237,13 @@ export function FreightLoginForm() {
       } catch {
         /* ignore */
       }
+      // Path-only redirectTo — query params on redirect_to often break Google OAuth (400)
+      // and Supabase allowlist matching. next/role live in sessionStorage for the callback.
+      const redirectTo = `${origin}/auth/callback`;
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}&freight=1&role=${encodeURIComponent(role)}`,
+          redirectTo,
           queryParams: {
             prompt: "select_account",
           },

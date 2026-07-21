@@ -52,12 +52,17 @@ export function CarrierRegisterClient() {
         return;
       }
       const origin = window.location.origin;
+      try {
+        sessionStorage.setItem("tms_oauth_next", "/carrier/register");
+        sessionStorage.setItem("tms_oauth_role", "carrier");
+      } catch {
+        /* ignore */
+      }
       const { error: oauthError } = await sb.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(
-            "/carrier/register"
-          )}&freight=1&role=carrier`,
+          redirectTo: `${origin}/auth/callback`,
+          queryParams: { prompt: "select_account" },
         },
       });
       if (oauthError) setErr(oauthError.message);

@@ -203,8 +203,8 @@ export function CarrierPaymentsPage() {
         </p>
         <p className="mt-3 text-xs text-[var(--color-muted)]">
           Email{" "}
-          <a href="mailto:info@alphasolutions.software" className="text-[var(--color-accent)] hover:underline">
-            info@alphasolutions.software
+          <a href="mailto:support@freight.alphasolutions.software" className="text-[var(--color-accent)] hover:underline">
+            support@freight.alphasolutions.software
           </a>{" "}
           to continue portal access after trial.
         </p>

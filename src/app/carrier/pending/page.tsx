@@ -35,8 +35,8 @@ export default async function CarrierPendingPage() {
         ) : null}
         <p className="mt-4 text-xs text-[var(--color-muted)]">
           Questions?{" "}
-          <a href="mailto:info@alphasolutions.software" className="font-semibold text-[var(--color-accent)]">
-            info@alphasolutions.software
+          <a href="mailto:support@freight.alphasolutions.software" className="font-semibold text-[var(--color-accent)]">
+            support@freight.alphasolutions.software
           </a>
         </p>
         <div className="mt-10 flex flex-col items-center gap-3">

@@ -64,7 +64,6 @@ function AuthCallbackInner() {
       const oauthError = searchParams.get("error");
       const oauthDesc = searchParams.get("error_description");
       const code = searchParams.get("code");
-      const freight = searchParams.get("freight");
       const roleParam = searchParams.get("role");
 
       let next = safeNextPath(searchParams.get("next"));
@@ -115,31 +114,30 @@ function AuthCallbackInner() {
       }
 
       // Only provision dispatcher when the account actually belongs on dispatcher routes.
-      if (
-        freight === "1" &&
-        intendedRole === "dispatcher" &&
-        resolved.path.startsWith("/dispatcher")
-      ) {
+      if (intendedRole === "dispatcher" && resolved.path.startsWith("/dispatcher")) {
         const ensureRes = await fetch("/api/dispatcher/ensure-profile", {
           method: "POST",
           credentials: "include",
         });
         if (!ensureRes.ok) {
           const body = (await ensureRes.json().catch(() => ({}))) as { error?: string };
-          // Do not sign out — resolve already confirmed dispatcher access; retry landing.
           console.warn("[auth/callback] ensure-profile:", body.error);
         }
       }
 
       if (cancelled) return;
       setMessage("Success — redirecting…");
-      const dest =
+      let dest = resolved.path;
+      if (next === "/carrier/register" && resolved.path.startsWith("/carrier")) {
+        dest = next;
+      } else if (
         next &&
         ((resolved.path.startsWith("/dispatcher") && next.startsWith("/dispatcher")) ||
           (resolved.path.startsWith("/carrier") && next.startsWith("/carrier")) ||
           (resolved.path.startsWith("/driver") && next.startsWith("/driver")))
-          ? next
-          : resolved.path;
+      ) {
+        dest = next;
+      }
       window.location.replace(dest);
     }
 

@@ -110,12 +110,17 @@ export default function FreightStudentEnroll({
         return;
       }
       const origin = window.location.origin;
+      try {
+        sessionStorage.setItem("tms_oauth_next", "/freight/student/enroll");
+        sessionStorage.setItem("tms_oauth_role", "student");
+      } catch {
+        /* ignore */
+      }
       const { error: oauthError } = await sb.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(
-            "/freight/student/enroll"
-          )}&freight=1&role=student`,
+          redirectTo: `${origin}/auth/callback`,
+          queryParams: { prompt: "select_account" },
         },
       });
       if (oauthError) setFormErr(oauthError.message);

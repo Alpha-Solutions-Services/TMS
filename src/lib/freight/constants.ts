@@ -1,6 +1,6 @@
 import { COMPANY, SITE_URL } from "@/data/site";
 
-/** Official Alpha Solutions contact email — use info@ only */
+/** Official AFN / TMS support inbox */
 export const FREIGHT_SUPPORT_EMAIL =
   process.env.FREIGHT_SUPPORT_EMAIL?.trim() ||
   process.env.CONTACT_EMAIL?.trim() ||
