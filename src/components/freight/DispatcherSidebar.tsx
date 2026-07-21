@@ -10,8 +10,10 @@ import {
   GraduationCap,
   LayoutDashboard,
   Package,
+  ShieldCheck,
   UserPlus,
   Users,
+  UsersRound,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useDashboardMobileNavClose } from "@/components/layout/ResponsiveDashboardShell";
@@ -27,6 +29,8 @@ const NAV = [
   { href: "/freight/dispatcher/reports", label: "Reports", icon: BarChart3 },
   { href: "/freight/dispatcher/alerts", label: "Alerts", icon: AlertTriangle },
   { href: "/freight/dispatcher/drivers", label: "Drivers", icon: UserPlus },
+  { href: "/dispatcher/approvals", label: "Approvals", icon: ShieldCheck },
+  { href: "/dispatcher/team", label: "Team", icon: UsersRound },
 ] as const;
 
 export function DispatcherSidebar({ email }: { email: string }) {
@@ -37,7 +41,7 @@ export function DispatcherSidebar({ email }: { email: string }) {
   async function signOut() {
     const supabase = createClient();
     if (supabase) await supabase.auth.signOut();
-    router.push("/freight/login");
+    router.push("/login");
     router.refresh();
   }
 
