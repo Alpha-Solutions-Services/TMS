@@ -10,7 +10,7 @@ type BeforeInstallPromptEvent = Event & {
 
 export function PwaRegister() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(
-    null
+    null,
   );
   const [show, setShow] = useState(false);
 
@@ -20,10 +20,12 @@ export function PwaRegister() {
     }
 
     const onBip = (e: Event) => {
+      // Only defer the native banner when we will show our own Install UI.
+      const dismissed = sessionStorage.getItem("pwa-dismiss");
+      if (dismissed) return;
       e.preventDefault();
       setDeferred(e as BeforeInstallPromptEvent);
-      const dismissed = sessionStorage.getItem("pwa-dismiss");
-      if (!dismissed) setShow(true);
+      setShow(true);
     };
     window.addEventListener("beforeinstallprompt", onBip);
     return () => window.removeEventListener("beforeinstallprompt", onBip);
@@ -42,10 +44,10 @@ export function PwaRegister() {
             className="text-sm font-semibold text-[var(--color-text)]"
             style={{ fontFamily: "var(--font-display), sans-serif" }}
           >
-            Install Alpha Portal
+            Install AFN TMS
           </p>
           <p className="mt-0.5 text-xs text-[var(--color-muted)]">
-            Add to your home screen for quick access like an app.
+            Add to your home screen for quick access.
           </p>
           <div className="mt-3 flex gap-2">
             <button

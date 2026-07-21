@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { CarrierSidebar } from "@/components/freight/CarrierSidebar";
 import { ResponsiveDashboardShell } from "@/components/layout/ResponsiveDashboardShell";
 import { createClient } from "@/lib/supabase/server";
+import { getServiceRoleClient } from "@/lib/supabase/service-role";
 
 export const dynamic = "force-dynamic";
 
@@ -17,11 +18,18 @@ export default async function CarrierPortalLayout({
   } = await sb.auth.getUser();
   if (!user?.id) redirect("/login");
 
-  const { data: profile } = await sb
-    .from("profiles")
-    .select("role, carrier_status, company_name")
-    .eq("id", user.id)
-    .maybeSingle();
+  const admin = getServiceRoleClient();
+  const { data: profile } = admin
+    ? await admin
+        .from("profiles")
+        .select("role, carrier_status, company_name")
+        .eq("id", user.id)
+        .maybeSingle()
+    : await sb
+        .from("profiles")
+        .select("role, carrier_status, company_name")
+        .eq("id", user.id)
+        .maybeSingle();
 
   if (!profile || profile.role !== "carrier") redirect("/login");
   if (profile.carrier_status === "pending") redirect("/carrier/pending");

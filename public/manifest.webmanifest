@@ -1,8 +1,8 @@
 {
-  "name": "Alpha Portal",
-  "short_name": "Alpha Portal",
-  "description": "Alpha Solutions client and admin portal",
-  "start_url": "/dashboard",
+  "name": "Alpha Freight Network TMS",
+  "short_name": "AFN TMS",
+  "description": "Dispatcher, carrier, and driver transportation management",
+  "start_url": "/login",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
@@ -10,13 +10,13 @@
   "theme_color": "#05080f",
   "icons": [
     {
-      "src": "/alpha-logo.png",
+      "src": "/afn-logo.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/alpha-logo.png",
+      "src": "/afn-logo.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
