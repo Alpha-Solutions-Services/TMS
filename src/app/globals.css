@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: #05080f;
+  --color-surface: #0b1120;
+  --color-surface-2: #0f1829;
+  --color-border: rgba(56, 139, 253, 0.12);
+  --color-border-glow: rgba(56, 163, 255, 0.35);
+  --color-accent: #38a3ff;
+  --color-accent-2: #5bc8ff;
+  --color-accent-dim: rgba(56, 163, 255, 0.1);
+  --color-accent-glow: rgba(56, 163, 255, 0.25);
+  --color-chrome: #8fb4d4;
+  --color-text: #edf2f8;
+  --color-muted: #6a8caf;
+  --glow-sm: 0 0 12px rgba(56, 163, 255, 0.3);
+  --glow-md: 0 0 30px rgba(56, 163, 255, 0.25),
+    0 0 60px rgba(56, 163, 255, 0.1);
+  --glow-lg: 0 0 50px rgba(56, 163, 255, 0.35),
+    0 0 100px rgba(56, 163, 255, 0.15);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  background-color: var(--color-bg);
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body), sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-display), sans-serif;
+  font-weight: 700;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-accent-dim);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
+}
+::selection {
+  background: var(--color-accent-dim);
+  color: var(--color-accent-2);
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
