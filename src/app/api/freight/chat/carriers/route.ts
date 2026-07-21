@@ -3,8 +3,10 @@ import { assertDispatcher } from "@/lib/freight/dispatch-roster";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
 import { canViewContactDetails } from "@/lib/tms/contact-privacy";
-import { resolveTmsRole } from "@/lib/tms/auth";
 import { isSuperDispatcherEmail } from "@/lib/tms/roles";
+import { canChatWithCarriers } from "@/lib/tms/permissions";
+import { resolveDispatcherTmsRole } from "@/lib/freight/dispatch-roster";
+import type { TmsRole } from "@/lib/tms/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +23,11 @@ export async function GET() {
     return NextResponse.json({ error: "Dispatcher only" }, { status: 403 });
   }
 
-  const role = await resolveTmsRole(user);
+  const role = (await resolveDispatcherTmsRole(user.id)) as TmsRole;
+  if (!canChatWithCarriers(role)) {
+    return NextResponse.json({ error: "Sub dispatchers cannot access carrier chat" }, { status: 403 });
+  }
+
   const viewContacts = canViewContactDetails(role, user.email);
   const isSuper = isSuperDispatcherEmail(user.email) || role === "super_dispatcher";
 

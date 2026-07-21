@@ -16,6 +16,8 @@ import {
 import { isInvoiceableLoad } from "@/lib/freight/dispatch-invoice";
 import { buildInvoicePdfWithPayment } from "@/lib/freight/dispatch-invoice-build";
 import { createClient } from "@/lib/supabase/server";
+import { resolveTmsRole } from "@/lib/tms/auth";
+import { canSendInvoices } from "@/lib/tms/permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,14 +44,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: me } = await sb
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!me || me.role !== "dispatcher") {
-    return NextResponse.json({ error: "Dispatcher only" }, { status: 403 });
+  const role = await resolveTmsRole(user);
+  if (!canSendInvoices(role)) {
+    return NextResponse.json(
+      { error: "Only dispatchers and super dispatchers can send invoices" },
+      { status: 403 },
+    );
   }
 
   try {

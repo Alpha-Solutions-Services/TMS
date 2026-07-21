@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { checkRateLimit } from "@/lib/freight/api-security";
-import { assertDispatcher } from "@/lib/freight/dispatch-roster";
+import { assertDispatcher, resolveDispatcherTmsRole } from "@/lib/freight/dispatch-roster";
+import { insertDispatchLoadApproval } from "@/lib/freight/dispatch-load-approvals";
 import {
   insertDispatchLoad,
   softDeleteDispatchLoad,
@@ -14,6 +15,7 @@ import {
   sendLoadDriverAssignedCarrierEmail,
   sendLoadRemovedEmail,
   sendLoadUpdatedEmail,
+  sendSubDispatcherApprovalRequestEmail,
 } from "@/lib/freight/emails";
 import { resolveProfileEmail, resolveProfileName } from "@/lib/freight/load-documents";
 import {
@@ -23,6 +25,9 @@ import {
 import { resolveActiveMonthTab } from "@/lib/freight/dispatch-sheet-tabs";
 import { ensureLoadChatThread } from "@/lib/freight/load-chat-thread";
 import { createClient } from "@/lib/supabase/server";
+import { listSuperDispatcherEmails } from "@/lib/tms/auth";
+import { requiresSuperApproval } from "@/lib/tms/permissions";
+import type { TmsRole } from "@/lib/tms/roles";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
 
 const loadFieldsSchema = z.object({
@@ -78,7 +83,29 @@ async function requireDispatcher(req: NextRequest) {
     return { error: NextResponse.json({ error: "Dispatcher only" }, { status: 403 }) };
   }
 
-  return { user };
+  const role = (await resolveDispatcherTmsRole(user.id)) as TmsRole;
+
+  return { user, role };
+}
+
+async function notifySuperApprovers(opts: {
+  action: "create" | "update" | "delete";
+  requestedByEmail?: string | null;
+  companyName: string;
+  loadNumber: string;
+}): Promise<void> {
+  const supers = await listSuperDispatcherEmails();
+  await Promise.all(
+    supers.map((to) =>
+      sendSubDispatcherApprovalRequestEmail({
+        to,
+        action: opts.action,
+        requestedByEmail: opts.requestedByEmail ?? "sub-dispatcher",
+        companyName: opts.companyName,
+        loadNumber: opts.loadNumber,
+      }).catch(() => {}),
+    ),
+  );
 }
 
 async function notifyCarrierIfEmail(opts: {
@@ -145,6 +172,8 @@ export async function POST(req: NextRequest) {
   try {
     const body = createSchema.parse(await req.json());
     const monthTab = body.monthTab?.trim() || resolveActiveMonthTab();
+    const needsApproval = requiresSuperApproval(auth.role);
+    const loadStatus = needsApproval ? "Pending Approval" : body.status ?? "Unpaid";
 
     const result = await insertDispatchLoad(
       {
@@ -168,7 +197,7 @@ export async function POST(req: NextRequest) {
         balance: body.balance,
         notes: body.notes,
         claim: body.claim,
-        status: body.status ?? "Unpaid",
+        status: loadStatus,
         cpay: body.cpay,
         dtp: body.dtp,
         brokerAgentName: body.brokerAgentName,
@@ -185,6 +214,29 @@ export async function POST(req: NextRequest) {
     }
 
     const loadNo = body.loadNumber || `SR-${result.sr}`;
+
+    if (needsApproval) {
+      await insertDispatchLoadApproval({
+        loadId: result.id,
+        action: "create",
+        payload: { ...body, monthTab, status: loadStatus },
+        requestedBy: auth.user.id,
+        requestedByEmail: auth.user.email,
+      });
+      await notifySuperApprovers({
+        action: "create",
+        requestedByEmail: auth.user.email,
+        companyName: body.companyName,
+        loadNumber: loadNo,
+      });
+      return NextResponse.json({
+        ok: true,
+        id: result.id,
+        sr: result.sr,
+        pendingApproval: true,
+        message: "Load submitted for super dispatcher approval.",
+      });
+    }
 
     const carrierNotified = await notifyCarrierIfEmail({
       loadEmail: body.email,
@@ -260,14 +312,36 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    const ok = await updateDispatchLoad(body.id, body);
-    if (!ok) return NextResponse.json({ error: "Update failed" }, { status: 500 });
-
     const loadNo =
       body.loadNumber ||
       loadMeta?.load_number ||
       (loadMeta ? `SR-${loadMeta.sr}` : "—");
     const company = body.companyName || loadMeta?.company_name || "—";
+
+    if (requiresSuperApproval(auth.role)) {
+      await insertDispatchLoadApproval({
+        loadId: body.id,
+        action: "update",
+        payload: body as Record<string, unknown>,
+        requestedBy: auth.user.id,
+        requestedByEmail: auth.user.email,
+      });
+      await notifySuperApprovers({
+        action: "update",
+        requestedByEmail: auth.user.email,
+        companyName: company,
+        loadNumber: loadNo,
+      });
+      return NextResponse.json({
+        ok: true,
+        pendingApproval: true,
+        message: "Change submitted for super dispatcher approval.",
+      });
+    }
+
+    const ok = await updateDispatchLoad(body.id, body);
+    if (!ok) return NextResponse.json({ error: "Update failed" }, { status: 500 });
+
     const loadEmail = body.email ?? loadMeta?.email ?? undefined;
 
     const isDriverAssignOnly =
@@ -354,12 +428,33 @@ export async function DELETE(req: NextRequest) {
     .eq("id", id)
     .maybeSingle();
 
-  const ok = await softDeleteDispatchLoad(id);
-  if (!ok) return NextResponse.json({ error: "Delete failed" }, { status: 500 });
-
   if (row) {
     const loadNo = (row.load_number as string) || `SR-${row.sr}`;
     const company = row.company_name as string;
+
+    if (requiresSuperApproval(auth.role)) {
+      await insertDispatchLoadApproval({
+        loadId: id,
+        action: "delete",
+        payload: { id, companyName: company, loadNumber: loadNo },
+        requestedBy: auth.user.id,
+        requestedByEmail: auth.user.email,
+      });
+      await notifySuperApprovers({
+        action: "delete",
+        requestedByEmail: auth.user.email,
+        companyName: company,
+        loadNumber: loadNo,
+      });
+      return NextResponse.json({
+        ok: true,
+        pendingApproval: true,
+        message: "Delete request submitted for super dispatcher approval.",
+      });
+    }
+
+    const ok = await softDeleteDispatchLoad(id);
+    if (!ok) return NextResponse.json({ error: "Delete failed" }, { status: 500 });
 
     const carrierNotified = await notifyCarrierIfEmail({
       loadEmail: row.email as string,

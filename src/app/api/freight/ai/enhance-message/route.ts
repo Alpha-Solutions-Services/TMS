@@ -10,6 +10,7 @@ import { parseLoadBoardLine } from "@/lib/freight/parse-load-board";
 import { getPortalUser } from "@/lib/portal/auth";
 import { resolveTmsRole } from "@/lib/tms/auth";
 import { isDispatcherRole } from "@/lib/tms/roles";
+import { canChatWithCarriers } from "@/lib/tms/permissions";
 
 const schema = z.object({
   text: z.string().min(1).max(4000),
@@ -26,6 +27,12 @@ export async function POST(req: NextRequest) {
   const role = await resolveTmsRole(user);
   if (!isDispatcherRole(role)) {
     return NextResponse.json({ error: "Dispatcher only" }, { status: 403 });
+  }
+  if (!canChatWithCarriers(role)) {
+    return NextResponse.json(
+      { error: "Sub dispatchers cannot use carrier chat tools" },
+      { status: 403 },
+    );
   }
 
   let body: z.infer<typeof schema>;

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getPortalUser } from "@/lib/portal/auth";
 import { resolveTmsRole } from "@/lib/tms/auth";
+import { dispatcherLandingPath } from "@/lib/tms/permissions";
 import { ApprovalsPageClient } from "@/components/tms/ApprovalsPageClient";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +9,6 @@ export const dynamic = "force-dynamic";
 export default async function ApprovalsPage() {
   const user = await getPortalUser();
   const role = await resolveTmsRole(user);
-  if (role !== "super_dispatcher") redirect("/dispatcher/dashboard");
+  if (role !== "super_dispatcher") redirect(dispatcherLandingPath(role));
   return <ApprovalsPageClient />;
 }

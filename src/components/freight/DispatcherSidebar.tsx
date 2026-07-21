@@ -18,28 +18,30 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useDashboardMobileNavClose } from "@/components/layout/ResponsiveDashboardShell";
 import { PortalClock } from "@/components/freight/PortalClock";
+import type { TmsRole } from "@/lib/tms/roles";
+import { canAccessDispatcherNavItem } from "@/lib/tms/permissions";
 
 const NAV = [
-  { href: "/dispatcher/dashboard", label: "Dashboard", icon: LayoutDashboard, superOnly: false },
-  { href: "/dispatcher/loads", label: "Loads", icon: Package, superOnly: false },
-  { href: "/dispatcher/carriers", label: "Carriers", icon: Users, superOnly: false },
-  { href: "/dispatcher/chat", label: "Chat", icon: MessageSquare, superOnly: false },
-  { href: "/dispatcher/carrier-portal", label: "Carrier portal", icon: Users, superOnly: false },
-  { href: "/dispatcher/invoices", label: "Invoices", icon: FileText, superOnly: false },
-  { href: "/dispatcher/reports", label: "Reports", icon: BarChart3, superOnly: false },
-  { href: "/dispatcher/alerts", label: "Alerts", icon: AlertTriangle, superOnly: false },
-  { href: "/dispatcher/drivers", label: "Drivers", icon: UserPlus, superOnly: false },
-  { href: "/dispatcher/approvals", label: "Approvals", icon: ShieldCheck, superOnly: true },
-  { href: "/dispatcher/team", label: "Team", icon: UsersRound, superOnly: true },
+  { href: "/dispatcher/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dispatcher/loads", label: "Loads", icon: Package },
+  { href: "/dispatcher/carriers", label: "Carriers", icon: Users },
+  { href: "/dispatcher/chat", label: "Chat", icon: MessageSquare },
+  { href: "/dispatcher/carrier-portal", label: "Carrier portal", icon: Users },
+  { href: "/dispatcher/invoices", label: "Invoices", icon: FileText },
+  { href: "/dispatcher/reports", label: "Reports", icon: BarChart3 },
+  { href: "/dispatcher/alerts", label: "Alerts", icon: AlertTriangle },
+  { href: "/dispatcher/drivers", label: "Drivers", icon: UserPlus },
+  { href: "/dispatcher/approvals", label: "Approvals", icon: ShieldCheck },
+  { href: "/dispatcher/team", label: "Team", icon: UsersRound },
 ] as const;
 
 export function DispatcherSidebar({
   email,
-  isSuper,
+  tmsRole,
   roleLabel,
 }: {
   email: string;
-  isSuper: boolean;
+  tmsRole: TmsRole;
   roleLabel: string;
 }) {
   const pathname = usePathname();
@@ -52,6 +54,8 @@ export function DispatcherSidebar({
     router.push("/login");
     router.refresh();
   }
+
+  const visibleNav = NAV.filter((item) => canAccessDispatcherNavItem(tmsRole, item.href));
 
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)]/50 backdrop-blur-sm">
@@ -73,7 +77,7 @@ export function DispatcherSidebar({
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 p-3">
-        {NAV.filter((item) => isSuper || !item.superOnly).map(({ href, label, icon: Icon }) => {
+        {visibleNav.map(({ href, label, icon: Icon }) => {
           const active =
             pathname === href ||
             (href !== "/dispatcher/dashboard" && pathname.startsWith(href));

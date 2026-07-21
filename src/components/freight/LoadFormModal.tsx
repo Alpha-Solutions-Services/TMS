@@ -228,8 +228,18 @@ export function LoadFormPanel({
         sr?: number;
         carrierNotified?: boolean;
         dispatcherNotified?: boolean;
+        pendingApproval?: boolean;
+        message?: string;
       };
       if (!res.ok) throw new Error(json.error ?? "Save failed");
+
+      if (json.pendingApproval) {
+        await onSaved(
+          json.message ??
+            "Submitted for super dispatcher approval — you'll be notified when approved.",
+        );
+        return;
+      }
 
       const parts: string[] = [];
       if (mode === "create") parts.push(`Load saved (SR-${json.sr}).`);

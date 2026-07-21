@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { canAccessDispatcherPortal } from "@/lib/tms/auth";
+import { canAccessDispatcherPortal, resolveTmsRole } from "@/lib/tms/auth";
+import { dispatcherLandingPath } from "@/lib/tms/permissions";
 
 export default async function HomePage() {
   const sb = await createClient();
@@ -12,7 +13,8 @@ export default async function HomePage() {
   if (!user) redirect("/login");
 
   if (await canAccessDispatcherPortal(user)) {
-    redirect("/dispatcher/dashboard");
+    const role = await resolveTmsRole(user);
+    redirect(dispatcherLandingPath(role));
   }
 
   const { data: profile } = await sb

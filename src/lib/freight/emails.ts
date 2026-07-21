@@ -586,6 +586,39 @@ export async function sendTeamTerminatedEmail(params: { to: string; name: string
   });
 }
 
+export async function sendSubDispatcherApprovalRequestEmail(params: {
+  to: string;
+  action: "create" | "update" | "delete";
+  requestedByEmail: string;
+  companyName: string;
+  loadNumber: string;
+}) {
+  const actionLabel =
+    params.action === "create"
+      ? "booked a new load"
+      : params.action === "update"
+        ? "requested load changes"
+        : "requested load removal";
+
+  const html = brandedEmailWrap(
+    "Sub-dispatcher approval needed",
+    `<p><strong>${escapeHtml(params.requestedByEmail)}</strong> ${actionLabel}.</p>
+     <ul style="margin-top:12px;line-height:1.6;">
+       <li><strong>Carrier:</strong> ${escapeHtml(params.companyName)}</li>
+       <li><strong>Load:</strong> ${escapeHtml(params.loadNumber)}</li>
+     </ul>
+     ${cta("Review approvals", `${PUBLIC_SITE_URL}/dispatcher/approvals`)}
+     <p style="font-size:13px;color:#6a8caf;">Sub-dispatcher actions stay pending until you approve.</p>`,
+  );
+
+  return sendTransactional({
+    to: params.to,
+    subject: `Approval needed — ${params.companyName} (${params.loadNumber})`,
+    html,
+    text: `${params.requestedByEmail} ${actionLabel} for ${params.companyName} load ${params.loadNumber}. Review: ${PUBLIC_SITE_URL}/dispatcher/approvals`,
+  });
+}
+
 export async function sendInvoicePaymentReceivedEmail(params: {
   to: string;
   carrierName: string;

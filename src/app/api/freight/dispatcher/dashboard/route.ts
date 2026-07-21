@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { buildDispatchDashboard } from "@/lib/freight/build-dispatch-dashboard";
+import { assertDispatcher } from "@/lib/freight/dispatch-roster";
 import { createClient } from "@/lib/supabase/server";
 import { canViewContactDetails, maskCarrierRosterEntry, maskDriverRow } from "@/lib/tms/contact-privacy";
 import { resolveTmsRole } from "@/lib/tms/auth";
@@ -20,13 +21,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: me } = await sb
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!me || me.role !== "dispatcher") {
+  if (!(await assertDispatcher(user.id))) {
     return NextResponse.json({ error: "Dispatcher only" }, { status: 403 });
   }
 

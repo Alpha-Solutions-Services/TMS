@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { checkRateLimit, sanitizeText } from "@/lib/freight/api-security";
-import { assertDispatcher } from "@/lib/freight/dispatch-roster";
+import { assertDispatcher, resolveDispatcherTmsRole } from "@/lib/freight/dispatch-roster";
 import { sendDispatcherMessageToCarrierEmail } from "@/lib/freight/emails";
 import { PUBLIC_SITE_URL } from "@/lib/freight/constants";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
+import { canChatWithCarriers } from "@/lib/tms/permissions";
+import type { TmsRole } from "@/lib/tms/roles";
 
 const postSchema = z.object({
   carrierProfileId: z.string().uuid(),
@@ -37,6 +39,16 @@ async function requireDispatcher(req: NextRequest) {
 
   if (!(await assertDispatcher(user.id))) {
     return { error: NextResponse.json({ error: "Dispatcher only" }, { status: 403 }) };
+  }
+
+  const role = (await resolveDispatcherTmsRole(user.id)) as TmsRole;
+  if (!canChatWithCarriers(role)) {
+    return {
+      error: NextResponse.json(
+        { error: "Sub dispatchers cannot chat with carriers" },
+        { status: 403 },
+      ),
+    };
   }
 
   const { data: me } = await sb

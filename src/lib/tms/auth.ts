@@ -2,7 +2,7 @@ import type { User } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { getPortalUser } from "@/lib/portal/auth";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
-import { canInviteCarriersAndDrivers } from "@/lib/tms/permissions";
+import { canInviteCarriersAndDrivers, canChatWithCarriers, canSendInvoices } from "@/lib/tms/permissions";
 import {
   isSuperDispatcherEmail,
   type TmsRole,
@@ -117,6 +117,94 @@ export async function requireSuperDispatcher(): Promise<
     return { error: NextResponse.json({ error: "Super dispatcher only" }, { status: 403 }) };
   }
   return { user };
+}
+
+export async function requireDispatchTeam(): Promise<
+  { user: User; role: TmsRole } | { error: NextResponse }
+> {
+  const user = await getPortalUser();
+  if (!user) {
+    return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+  const role = await resolveTmsRole(user);
+  if (
+    role !== "super_dispatcher" &&
+    role !== "dispatcher" &&
+    role !== "sub_dispatcher"
+  ) {
+    return { error: NextResponse.json({ error: "Dispatcher team only" }, { status: 403 }) };
+  }
+  return { user, role };
+}
+
+export async function requireCanSendInvoices(): Promise<
+  { user: User; role: TmsRole } | { error: NextResponse }
+> {
+  const auth = await requireDispatchTeam();
+  if ("error" in auth) return auth;
+  if (!canSendInvoices(auth.role)) {
+    return {
+      error: NextResponse.json(
+        { error: "Only dispatchers and super dispatchers can send invoices" },
+        { status: 403 },
+      ),
+    };
+  }
+  return auth;
+}
+
+export async function requireCanChatWithCarriers(): Promise<
+  { user: User; role: TmsRole } | { error: NextResponse }
+> {
+  const auth = await requireDispatchTeam();
+  if ("error" in auth) return auth;
+  if (!canChatWithCarriers(auth.role)) {
+    return {
+      error: NextResponse.json(
+        { error: "Sub dispatchers cannot chat with carriers — ask your super dispatcher" },
+        { status: 403 },
+      ),
+    };
+  }
+  return auth;
+}
+
+export async function listSuperDispatcherEmails(): Promise<string[]> {
+  const db = getServiceRoleClient();
+  const emails = new Set<string>();
+
+  if (db) {
+    const { data } = await db
+      .from("tms_users")
+      .select("email")
+      .eq("role", "super_dispatcher")
+      .eq("active", true);
+    for (const row of data ?? []) {
+      const e = (row.email as string)?.trim();
+      if (e) emails.add(e);
+    }
+  }
+
+  for (const e of getSuperDispatcherAllowlistFromEnv()) {
+    emails.add(e);
+  }
+
+  const team = process.env.FREIGHT_TEAM_EMAIL?.trim();
+  if (team) emails.add(team);
+
+  return Array.from(emails);
+}
+
+function getSuperDispatcherAllowlistFromEnv(): string[] {
+  const raw =
+    process.env.SUPER_DISPATCHER_EMAILS?.trim() ||
+    process.env.SUPER_ADMIN_EMAILS?.trim() ||
+    "";
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 export async function syncSubDispatcherProfile(

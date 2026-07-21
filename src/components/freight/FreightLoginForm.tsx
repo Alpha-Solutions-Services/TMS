@@ -111,6 +111,7 @@ export function FreightLoginForm() {
 
       const superAdmin = isSuperAdminEmail(emailSignedIn);
       const superDispatcher = isSuperDispatcherEmail(emailSignedIn) || superAdmin;
+      let tmsTeamRole: string | undefined;
 
       if (role === "dispatcher") {
         const ensureRes = await fetch("/api/dispatcher/ensure-profile", {
@@ -121,7 +122,9 @@ export function FreightLoginForm() {
           error?: string;
           ok?: boolean;
           portalRole?: string;
+          role?: string;
         };
+        tmsTeamRole = ensureBody.role;
         if (!ensureRes.ok) {
           await supabase.auth.signOut();
           setError(
@@ -169,6 +172,11 @@ export function FreightLoginForm() {
       }
 
       let dest = next || redirectTarget;
+
+      if (role === "dispatcher") {
+        if (tmsTeamRole === "sub_dispatcher") dest = "/dispatcher/loads";
+        else if (!next) dest = "/dispatcher/dashboard";
+      }
 
       if (role === "carrier") {
         if (profile?.carrier_status === "verified") dest = "/carrier/dashboard";

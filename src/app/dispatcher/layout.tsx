@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { DispatcherSidebar } from "@/components/freight/DispatcherSidebar";
+import { DispatcherRouteGuard } from "@/components/freight/DispatcherRouteGuard";
 import { ResponsiveDashboardShell } from "@/components/layout/ResponsiveDashboardShell";
 import { createClient } from "@/lib/supabase/server";
 import { canAccessDispatcherPortal, resolveTmsRole } from "@/lib/tms/auth";
@@ -25,7 +26,6 @@ export default async function DispatcherLayout({
   }
 
   const tmsRole = await resolveTmsRole(user);
-  const isSuper = tmsRole === "super_dispatcher";
   const email = user.email ?? "Dispatcher";
   const roleLabel = displayRoleLabel(tmsRole, email);
 
@@ -36,9 +36,11 @@ export default async function DispatcherLayout({
   return (
     <ResponsiveDashboardShell
       mobileTitle="Dispatcher"
-      sidebar={<DispatcherSidebar email={email} isSuper={isSuper} roleLabel={roleLabel} />}
+      sidebar={<DispatcherSidebar email={email} tmsRole={tmsRole} roleLabel={roleLabel} />}
     >
-      <main className="min-h-[calc(100vh-5rem)] bg-[var(--color-bg)]">{children}</main>
+      <main className="min-h-[calc(100vh-5rem)] bg-[var(--color-bg)]">
+        <DispatcherRouteGuard tmsRole={tmsRole}>{children}</DispatcherRouteGuard>
+      </main>
     </ResponsiveDashboardShell>
   );
 }

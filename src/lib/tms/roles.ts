@@ -46,8 +46,9 @@ export function roleHomePath(role: TmsRole): string {
   switch (role) {
     case "super_dispatcher":
     case "dispatcher":
+      return "/dispatcher/dashboard";
     case "sub_dispatcher":
-      return "/dispatcher";
+      return "/dispatcher/loads";
     case "carrier":
       return "/carrier";
     case "driver":

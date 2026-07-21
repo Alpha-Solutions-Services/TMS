@@ -84,7 +84,11 @@ export function DispatcherAcceptInviteClient({ token }: { token: string }) {
           return;
         }
       }
-      router.replace("/dispatcher/dashboard");
+      const landing =
+        invite?.roleLabel === "Sub Dispatcher"
+          ? "/dispatcher/loads"
+          : "/dispatcher/dashboard";
+      router.replace(landing);
       router.refresh();
     } catch (ex: unknown) {
       setErr(ex instanceof Error ? ex.message : "Error");
