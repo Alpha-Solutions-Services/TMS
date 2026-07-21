@@ -71,6 +71,48 @@ h6 {
   color: var(--color-accent-2);
 }
 
+@layer base {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]),
+  select,
+  textarea {
+    color: var(--color-text);
+    background-color: #050912;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"])::placeholder,
+  textarea::placeholder {
+    color: var(--color-muted);
+  }
+}
+
+@layer components {
+  .dispatch-field {
+    background-color: #050912;
+    color: var(--color-text);
+    caret-color: var(--color-accent);
+  }
+
+  .dispatch-field::placeholder {
+    color: var(--color-muted);
+    opacity: 0.9;
+  }
+
+  .dispatch-field:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 1px var(--color-accent-glow);
+  }
+
+  input.dispatch-field:-webkit-autofill,
+  input.dispatch-field:-webkit-autofill:hover,
+  input.dispatch-field:-webkit-autofill:focus,
+  textarea.dispatch-field:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px #050912 inset;
+    -webkit-text-fill-color: var(--color-text);
+    transition: background-color 5000s ease-in-out 0s;
+  }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

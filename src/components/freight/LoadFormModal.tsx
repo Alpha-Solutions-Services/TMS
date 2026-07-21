@@ -269,7 +269,7 @@ export function LoadFormPanel({
               type={type ?? "text"}
               value={form[key]}
               onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-              className="dispatch-field mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)]/60 px-2 py-1.5 text-sm"
+              className="dispatch-field mt-1 w-full rounded-lg border border-[var(--color-border)] px-2 py-1.5 text-sm text-[var(--color-text)]"
             />
           </label>
         ))}
