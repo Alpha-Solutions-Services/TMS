@@ -162,3 +162,59 @@ export async function revokeTeamMemberAccess(
 export async function revokeSubDispatcherAccess(userId: string): Promise<void> {
   await revokeTeamMemberAccess(userId, "sub_dispatcher");
 }
+
+/** Server-side only — uses service role to upsert tms_users (no client INSERT policy). */
+export async function ensureDispatcherTmsUser(params: {
+  userId: string;
+  email: string;
+  superDispatcher: boolean;
+}): Promise<{ ok: true; role: string } | { ok: false; error: string }> {
+  const db = getServiceRoleClient();
+  if (!db) return { ok: false, error: "Database not configured" };
+
+  const emailNorm = params.email.trim().toLowerCase();
+
+  const { data: existing } = await db
+    .from("tms_users")
+    .select("id, role, active")
+    .eq("id", params.userId)
+    .maybeSingle();
+
+  if (params.superDispatcher) {
+    const { error } = await db.from("tms_users").upsert(
+      {
+        id: params.userId,
+        email: emailNorm,
+        role: "super_dispatcher",
+        active: true,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "id" },
+    );
+    if (error) return { ok: false, error: error.message };
+    console.info("[tms_users] Upserted super_dispatcher", {
+      userId: params.userId,
+      email: emailNorm,
+      previousRole: existing?.role ?? null,
+    });
+    return { ok: true, role: "super_dispatcher" };
+  }
+
+  if (!existing?.active) {
+    return {
+      ok: false,
+      error: "No active dispatcher team record. Ask a super dispatcher to invite you.",
+    };
+  }
+
+  if (existing.role !== "dispatcher" && existing.role !== "sub_dispatcher") {
+    return { ok: false, error: "Invalid team role on account." };
+  }
+
+  console.info("[tms_users] Verified team member", {
+    userId: params.userId,
+    email: emailNorm,
+    role: existing.role,
+  });
+  return { ok: true, role: existing.role };
+}

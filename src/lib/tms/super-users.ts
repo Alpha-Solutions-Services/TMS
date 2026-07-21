@@ -1,9 +1,9 @@
-/** Emails from env + hardcoded super dispatcher defaults */
+/** Emails from SUPER_DISPATCHER_EMAILS env only (no hardcoded defaults). */
 export function getSuperDispatcherAllowlistEmails(): string[] {
   const raw =
     process.env.SUPER_DISPATCHER_EMAILS?.trim() ||
     process.env.SUPER_ADMIN_EMAILS?.trim() ||
-    "mikran.dispatch@gmail.com,alphaassistant.alpha@gmail.com,muhammadmikran.alpha@gmail.com";
+    "";
   return raw
     .split(",")
     .map((s) => s.trim().toLowerCase())

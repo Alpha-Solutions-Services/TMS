@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { enforceAiRateLimit } from "@/lib/freight/ai-rate-limit";
 import { FREIGHT_AI_SYSTEM, getGroqClient, groqModel } from "@/lib/freight/groq-client";
 import { getPortalUser } from "@/lib/portal/auth";
 import { resolveTmsRole } from "@/lib/tms/auth";
@@ -14,6 +15,9 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const rate = await enforceAiRateLimit("chat");
+  if (rate instanceof NextResponse) return rate;
+
   const user = await getPortalUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
