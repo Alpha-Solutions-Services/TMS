@@ -13,7 +13,7 @@ SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=
 SMTP_PASS=
-SMTP_FROM=Alpha Freight Network <no-reply@alphasolutions.software>
+SMTP_FROM=Alpha Freight Network <info@alphasolutions.software>
 
 # Groq AI (load paste parser + assistant)
 GROQ_API_KEY=

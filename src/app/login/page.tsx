@@ -12,13 +12,18 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams?: { error?: string; reason?: string };
+}) {
   const sb = await createClient();
   if (sb) {
     const {
       data: { user },
     } = await sb.auth.getUser();
-    if (user?.id) {
+    // If already signed in and not currently showing an auth error, go to portal.
+    if (user?.id && searchParams?.error !== "auth") {
       const dest = await resolveLoginDestination(user);
       if (dest.path && dest.path !== "/login") {
         redirect(dest.path);

@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ClipboardList, Truck, IdCard } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import { notifyAuthActivityClient } from "@/lib/auth/notify-client";
 import { MfaChallengeForm } from "@/components/freight/MfaChallengeForm";
@@ -81,6 +81,19 @@ export function FreightLoginForm() {
   const [mfaPending, setMfaPending] = useState(false);
   const [pendingDest, setPendingDest] = useState("/login");
 
+  useEffect(() => {
+    // Drop stale SW caches that previously broke Google return-to-/login.
+    void (async () => {
+      try {
+        if (!("serviceWorker" in navigator)) return;
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, []);
+
   const redirectTarget = useMemo(() => {
     switch (role) {
       case "dispatcher":
@@ -107,22 +120,30 @@ export function FreightLoginForm() {
       return;
     }
 
-    // Provision dispatcher team members (super / invited) when they chose Dispatcher
-    // or when resolve-destination says they belong on dispatcher routes.
-    if (role === "dispatcher") {
+    // Resolve real account type first — never lock carriers out for picking Dispatcher.
+    const resolved = await resolvePathAfterLogin();
+    if (resolved.error && resolved.path === "/login") {
+      setError(resolved.error);
+      return;
+    }
+
+    if (resolved.path.startsWith("/carrier") || resolved.path.startsWith("/driver")) {
+      await finishTo(resolved.path);
+      return;
+    }
+
+    if (role === "dispatcher" || resolved.path.startsWith("/dispatcher")) {
       const ensureRes = await fetch("/api/dispatcher/ensure-profile", {
         method: "POST",
         credentials: "include",
       });
       if (!ensureRes.ok) {
-        // Still try resolve — carriers who clicked Dispatcher by mistake can continue.
-        const resolved = await resolvePathAfterLogin();
-        if (resolved.path.startsWith("/carrier") || resolved.path.startsWith("/driver")) {
-          await finishTo(resolved.path);
+        const again = await resolvePathAfterLogin();
+        if (again.path.startsWith("/carrier") || again.path.startsWith("/driver")) {
+          await finishTo(again.path);
           return;
         }
         const body = (await ensureRes.json().catch(() => ({}))) as { error?: string };
-        await supabase.auth.signOut();
         setError(
           body.error ??
             "Dispatcher access requires an invitation from a super dispatcher, or your Google email must be on SUPER_DISPATCHER_EMAILS.",
@@ -132,20 +153,16 @@ export function FreightLoginForm() {
     }
 
     const aal = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    const resolved = await resolvePathAfterLogin();
-    if (resolved.error && resolved.path === "/login") {
-      setError(resolved.error);
-      return;
-    }
-
+    const resolvedAgain = await resolvePathAfterLogin();
     let dest =
-      next && next.startsWith("/") && !next.startsWith("//") ? next : resolved.path;
+      next && next.startsWith("/") && !next.startsWith("//")
+        ? next
+        : resolvedAgain.path || resolved.path;
 
-    // Prefer role-accurate destination over stale ?next=
-    if (resolved.path.startsWith("/carrier") || resolved.path.startsWith("/driver")) {
-      dest = resolved.path;
-    } else if (resolved.path.startsWith("/dispatcher") && role === "dispatcher") {
-      dest = resolved.path;
+    if (resolvedAgain.path.startsWith("/carrier") || resolvedAgain.path.startsWith("/driver")) {
+      dest = resolvedAgain.path;
+    } else if (resolvedAgain.path.startsWith("/dispatcher")) {
+      dest = resolvedAgain.path;
     }
 
     if (

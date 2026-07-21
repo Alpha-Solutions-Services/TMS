@@ -5,7 +5,7 @@ export const SITE_URL =
 
 export const COMPANY = {
   name: "Alpha Solutions Services LLC",
-  email: "support@alphasolutions.software",
+  email: "info@alphasolutions.software",
   logoUrl: "/afn-logo.png",
   phone: "+1 (000) 000-0000",
 };

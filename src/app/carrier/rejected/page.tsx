@@ -17,8 +17,8 @@ export default function CarrierRejectedPage() {
         </h1>
         <p className="mt-4 text-sm text-[var(--color-muted)]">
           Dispatch left context in your onboarding email thread. Respond there or escalate through{" "}
-          <a className="text-[var(--color-accent)]" href="mailto:freight@alphasolutions.software">
-            freight@alphasolutions.software
+          <a className="text-[var(--color-accent)]" href="mailto:info@alphasolutions.software">
+            info@alphasolutions.software
           </a>
           .
         </p>
