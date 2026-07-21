@@ -4,6 +4,7 @@ export type FreightAction =
   | "team.invite"
   | "team.assign"
   | "team.terminate"
+  | "team.role_change"
   | "driver.invite"
   | "carrier.add"
   | "carrier.remove"

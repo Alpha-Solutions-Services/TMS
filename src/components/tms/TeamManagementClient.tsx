@@ -27,17 +27,9 @@ type AssignDriver = {
 
 type InviteRole = "dispatcher" | "sub_dispatcher";
 
-const ROLE_OPTIONS: { value: InviteRole; label: string; hint: string }[] = [
-  {
-    value: "dispatcher",
-    label: "Dispatcher",
-    hint: "Carriers, drivers, loads — no team management",
-  },
-  {
-    value: "sub_dispatcher",
-    label: "Sub Dispatcher",
-    hint: "Book loads — super approval required",
-  },
+const ROLE_OPTIONS: { value: InviteRole; label: string }[] = [
+  { value: "dispatcher", label: "Dispatcher" },
+  { value: "sub_dispatcher", label: "Sub Dispatcher" },
 ];
 
 function roleLabel(role: string) {
@@ -140,6 +132,26 @@ export function TeamManagementClient() {
     }
   }
 
+  async function changeRole(id: string, newRole: InviteRole) {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, role: newRole }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Role change failed");
+      setMsg(`Updated role to ${roleLabel(newRole)}.`);
+      void refresh();
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "Error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function terminate(id: string, emailLabel: string) {
     if (!confirm(`Terminate ${emailLabel}? They will lose dispatcher access immediately.`)) return;
     setBusy(true);
@@ -222,7 +234,6 @@ export function TeamManagementClient() {
                   className="sr-only"
                 />
                 <span className="text-sm font-semibold text-[var(--color-text)]">{opt.label}</span>
-                <p className="mt-1 text-[11px] text-[var(--color-muted)]">{opt.hint}</p>
               </label>
             ))}
           </div>
@@ -343,7 +354,17 @@ export function TeamManagementClient() {
                 <tr key={u.id} className="border-b border-[var(--color-border)]/50">
                   <td className="px-4 py-3 text-[var(--color-text)]">{u.email}</td>
                   <td className="px-4 py-3 text-[var(--color-muted)]">{u.full_name ?? "—"}</td>
-                  <td className="px-4 py-3 text-[var(--color-accent)]">{roleLabel(u.role)}</td>
+                  <td className="px-4 py-3">
+                    <select
+                      value={u.role}
+                      disabled={busy}
+                      onChange={(e) => void changeRole(u.id, e.target.value as InviteRole)}
+                      className="dispatch-field rounded-lg border border-[var(--color-border)] bg-transparent px-2 py-1 text-xs text-[var(--color-accent)]"
+                    >
+                      <option value="dispatcher">Dispatcher</option>
+                      <option value="sub_dispatcher">Sub Dispatcher</option>
+                    </select>
+                  </td>
                   <td className="px-4 py-3 text-emerald-400">Active</td>
                   <td className="px-4 py-3 text-right">
                     <button

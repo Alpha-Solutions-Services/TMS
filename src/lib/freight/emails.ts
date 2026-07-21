@@ -533,12 +533,6 @@ export async function sendTeamInviteEmail(params: {
     "Team invitation",
     `<p>Hi ${escapeHtml(params.inviteeName || "there")},</p>
      <p><strong>${escapeHtml(params.inviterName)}</strong> added you to Alpha Freight TMS as <strong>${escapeHtml(params.roleLabel)}</strong>.</p>
-     <p><strong>Role rights:</strong></p>
-     <ul style="color:#edf2f8;line-height:1.6;">
-       <li><strong>Super Dispatcher</strong> — team, approvals, carriers, drivers, invoices</li>
-       <li><strong>Dispatcher</strong> — carriers, drivers, loads (no team management)</li>
-       <li><strong>Sub Dispatcher</strong> — book loads (super approval required)</li>
-     </ul>
      ${cta("Sign in to TMS", params.loginUrl)}
      <p style="font-size:13px;color:#6a8caf;">Questions? ${FREIGHT_SUPPORT_EMAIL}</p>`,
   );

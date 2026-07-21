@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { logFreightAction } from "@/lib/freight/audit-log";
 import {
   sendTeamInviteEmail,
@@ -217,4 +218,68 @@ export async function DELETE(req: Request) {
   });
 
   return NextResponse.json({ ok: true, emailSent: termEmail.ok });
+}
+
+const patchSchema = z.object({
+  id: z.string().uuid(),
+  role: z.enum(["dispatcher", "sub_dispatcher"]),
+});
+
+export async function PATCH(req: Request) {
+  const auth = await requireSuperDispatcher();
+  if ("error" in auth) return auth.error;
+
+  let body: z.infer<typeof patchSchema>;
+  try {
+    body = patchSchema.parse(await req.json());
+  } catch {
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+
+  if (body.id === auth.user.id) {
+    return NextResponse.json({ error: "You cannot change your own role here." }, { status: 400 });
+  }
+
+  const db = getServiceRoleClient();
+  if (!db) return NextResponse.json({ error: "DB not configured" }, { status: 503 });
+
+  const { data: target } = await db
+    .from("tms_users")
+    .select("id, email, full_name, role, active")
+    .eq("id", body.id)
+    .maybeSingle();
+
+  if (!target?.active) {
+    return NextResponse.json({ error: "Team member not found" }, { status: 404 });
+  }
+
+  if (target.role !== "dispatcher" && target.role !== "sub_dispatcher") {
+    return NextResponse.json({ error: "Only dispatch team roles can be changed." }, { status: 400 });
+  }
+
+  if (isSuperDispatcherEmail(target.email)) {
+    return NextResponse.json({ error: "Cannot change super dispatcher role." }, { status: 400 });
+  }
+
+  const { data, error } = await db
+    .from("tms_users")
+    .update({ role: body.role, updated_at: new Date().toISOString() })
+    .eq("id", body.id)
+    .select()
+    .single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await syncSubDispatcherProfile(body.id, target.email, target.full_name);
+
+  await logFreightAction({
+    actorId: auth.user.id,
+    actorEmail: auth.user.email,
+    action: "team.role_change",
+    entityType: "tms_user",
+    entityId: body.id,
+    meta: { email: target.email, from: target.role, to: body.role },
+  });
+
+  return NextResponse.json({ user: data });
 }

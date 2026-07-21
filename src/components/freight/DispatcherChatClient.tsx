@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Bot, Loader2, Truck, Users } from "lucide-react";
-import { FreightAiAssistant } from "@/components/freight/FreightAiAssistant";
+import { Loader2, Truck, Users } from "lucide-react";
 import { FreightChatPanel } from "@/components/freight/FreightChatPanel";
 
 type CarrierRow = {
@@ -67,13 +66,13 @@ export function DispatcherChatClient() {
   const activeGroup = groupThreads.find((t) => t.id === activeGroupId);
 
   return (
-    <div className="flex h-[calc(100vh-5rem)] flex-col p-4 md:p-6">
-      <header className="mb-4 shrink-0">
-        <h1 className="text-2xl font-bold text-[var(--color-text)]">Chat</h1>
-        <p className="text-sm text-[var(--color-muted)]">
-          Message carriers, drivers, and load teams · attach RC, BOL, POD, PDF, images
+    <div className="flex h-[calc(100dvh-4rem)] flex-col">
+      <header className="shrink-0 border-b border-[var(--color-border)] px-4 py-3 md:px-6">
+        <h1 className="text-xl font-bold text-[var(--color-text)]">Chat</h1>
+        <p className="text-xs text-[var(--color-muted)]">
+          Full-screen messaging · toggle Ask Alpha AI inside any thread to analyze the conversation
         </p>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-2 flex flex-wrap gap-2">
           {(["loads", "carriers", "groups"] as const).map((t) => (
             <button
               key={t}
@@ -89,8 +88,8 @@ export function DispatcherChatClient() {
         </div>
       </header>
 
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[220px_1fr]">
-        <aside className="overflow-y-auto rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/40 p-2">
+      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[240px_1fr]">
+        <aside className="overflow-y-auto border-b border-[var(--color-border)] p-2 lg:border-b-0 lg:border-r">
           {loading ? (
             <p className="flex items-center gap-2 p-3 text-xs text-[var(--color-muted)]">
               <Loader2 className="h-3 w-3 animate-spin" /> Loading…
@@ -125,7 +124,6 @@ export function DispatcherChatClient() {
                 }`}
               >
                 <span className="font-medium">{c.companyName}</span>
-                <span className="text-[10px] opacity-70">{c.email}</span>
               </button>
             ))}
           {tab === "groups" &&
@@ -146,50 +144,40 @@ export function DispatcherChatClient() {
             ))}
           {!loading && tab === "loads" && loadThreads.length === 0 ? (
             <p className="p-3 text-[10px] text-[var(--color-muted)]">
-              Assign a load to a driver to open a load chat (dispatch + carrier + driver by email).
+              Assign a load to open a load chat (dispatch + carrier + driver).
             </p>
           ) : null}
         </aside>
 
-        <div className="flex min-h-0 flex-col gap-4">
+        <div className="min-h-0 p-2 md:p-4">
           {tab === "loads" && activeLoadId ? (
             <FreightChatPanel
               mode="load"
               loadId={activeLoadId}
               title={activeLoad?.title}
-              emptyHint="Load chat — dispatcher, carrier, and driver see this on their portal."
+              enableAiAssist
+              emptyHint="Load chat — use Ask Alpha AI to summarize, draft replies, or parse load details from the thread."
             />
           ) : tab === "carriers" && activeCarrierId ? (
             <FreightChatPanel
               mode="carrier"
               carrierProfileId={activeCarrierId}
               title={activeCarrier?.companyName}
-              emptyHint="Carrier gets email when you message. They reply on carrier portal."
+              enableAiAssist
+              emptyHint="Carrier chat — Ask Alpha AI about this carrier conversation."
             />
           ) : tab === "groups" && activeGroupId ? (
             <FreightChatPanel
               mode="group"
               threadId={activeGroupId}
               title={activeGroup?.title}
+              enableAiAssist
             />
           ) : (
-            <div className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-[var(--color-border)] text-sm text-[var(--color-muted)]">
+            <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-[var(--color-border)] text-sm text-[var(--color-muted)]">
               Select a conversation
             </div>
           )}
-
-          <section className="shrink-0 rounded-2xl border border-[var(--color-accent)]/30 bg-[var(--color-surface)]/50">
-            <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-3">
-              <Bot className="h-4 w-4 text-[var(--color-accent)]" />
-              <h2 className="text-sm font-semibold text-[var(--color-text)]">Alpha AI Assistant</h2>
-              <span className="text-[10px] text-[var(--color-muted)]">
-                Upload RC/BOL/POD to extract load data · paste load board text
-              </span>
-            </div>
-            <div className="p-3">
-              <FreightAiAssistant embedded allowFiles />
-            </div>
-          </section>
         </div>
       </div>
     </div>

@@ -112,24 +112,6 @@ export function FreightLoginForm() {
       const superAdmin = isSuperAdminEmail(emailSignedIn);
       const superDispatcher = isSuperDispatcherEmail(emailSignedIn) || superAdmin;
 
-      if (role === "dispatcher" && !superDispatcher) {
-        const { data: tmsRow } = await supabase
-          .from("tms_users")
-          .select("role, active")
-          .eq("id", uid)
-          .maybeSingle();
-
-        const allowedRole =
-          tmsRow?.active &&
-          (tmsRow.role === "sub_dispatcher" || tmsRow.role === "dispatcher");
-
-        if (!allowedRole) {
-          await supabase.auth.signOut();
-          setError("Dispatcher access requires an invitation from a super dispatcher.");
-          return;
-        }
-      }
-
       if (role === "dispatcher") {
         const ensureRes = await fetch("/api/freight/dispatcher/ensure-profile", {
           method: "POST",
@@ -137,7 +119,7 @@ export function FreightLoginForm() {
         if (!ensureRes.ok) {
           const body = (await ensureRes.json().catch(() => ({}))) as { error?: string };
           await supabase.auth.signOut();
-          setError(body.error ?? "Unable to provision dispatcher access.");
+          setError(body.error ?? "Dispatcher access requires an invitation from a super dispatcher.");
           return;
         }
         const { data: ensuredProfile } = await supabase

@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { FREIGHT_AI_SYSTEM, getGroqClient, groqModel } from "@/lib/freight/groq-client";
+import {
+  formatLoadSummary,
+  parseLoadBoardLine,
+} from "@/lib/freight/parse-load-board";
 import { getPortalUser } from "@/lib/portal/auth";
 import { resolveTmsRole } from "@/lib/tms/auth";
 import { isDispatcherRole } from "@/lib/tms/roles";
 
 const schema = z.object({
-  raw: z.string().min(5).max(8000),
+  raw: z.string().min(3).max(8000),
 });
 
 const PARSE_PROMPT = `Parse this freight load board paste into JSON. Return ONLY valid JSON with these keys (use empty string if unknown):
@@ -24,8 +28,8 @@ const PARSE_PROMPT = `Parse this freight load board paste into JSON. Return ONLY
   "notes": "equipment, weight, rate per mile, any extra details formatted for carriers"
 }
 
-Example input: "$1,300 $1.04*/mi 1245 Minneapolis, MN (0) Odessa, TX 7/20 SB 165 lbs 16 ft - Full"
-Example notes should include: Rate $1,300 · $1.04/mi · 1,245 mi · SB · 165 lbs · 16 ft Full`;
+Example: "$400 Factoring 193 San Angelo, TX (126) Lubbock, TX 7/21 SB 275 lbs 26 ft - Full"
+→ rate 400, miles 126, San Angelo TX → Lubbock TX, date 7/21, SB, 275 lbs, 26 ft Full`;
 
 export async function POST(req: NextRequest) {
   const user = await getPortalUser();
@@ -36,16 +40,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Dispatcher only" }, { status: 403 });
   }
 
-  const groq = getGroqClient();
-  if (!groq) {
-    return NextResponse.json({ error: "AI parser unavailable (GROQ_API_KEY missing)" }, { status: 503 });
-  }
-
   let body: z.infer<typeof schema>;
   try {
     body = schema.parse(await req.json());
   } catch {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+
+  const local = parseLoadBoardLine(body.raw);
+  if (local) {
+    return NextResponse.json({
+      fields: local,
+      carrierSummary: formatLoadSummary(local),
+      source: "local",
+    });
+  }
+
+  const groq = getGroqClient();
+  if (!groq) {
+    return NextResponse.json(
+      { error: "Could not parse load — check format or set GROQ_API_KEY for AI parsing" },
+      { status: 422 },
+    );
   }
 
   try {
@@ -75,7 +91,7 @@ export async function POST(req: NextRequest) {
       .filter(Boolean)
       .join(" · ");
 
-    return NextResponse.json({ fields: parsed, carrierSummary: summary });
+    return NextResponse.json({ fields: parsed, carrierSummary: summary, source: "ai" });
   } catch (e) {
     console.error("[parse-load]", e);
     return NextResponse.json({ error: "Parse failed" }, { status: 500 });

@@ -8,8 +8,9 @@ import { getServiceRoleClient } from "@/lib/supabase/service-role";
 
 const schema = z.object({
   message: z.string().min(1).max(4000),
-  conversationId: z.string().uuid().optional(),
+  conversationId: z.string().uuid().optional().nullable(),
   trainingNotes: z.string().max(2000).optional(),
+  chatContext: z.string().max(8000).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
   const db = getServiceRoleClient();
   if (!db) return NextResponse.json({ error: "DB not configured" }, { status: 503 });
 
-  let conversationId = body.conversationId;
+  let conversationId = body.conversationId ?? undefined;
   if (!conversationId) {
     const { data, error } = await db
       .from("freight_ai_conversations")
@@ -83,9 +84,13 @@ export async function POST(req: NextRequest) {
     .limit(20);
 
   const training = body.trainingNotes?.trim() || (conv.training_notes as string | null) || "";
-  const system = training
+  let system = training
     ? `${FREIGHT_AI_SYSTEM}\n\nTraining notes from super dispatcher:\n${training}`
     : FREIGHT_AI_SYSTEM;
+
+  if (body.chatContext?.trim()) {
+    system += `\n\nActive chat thread (use this to answer questions about the conversation):\n${body.chatContext.trim()}`;
+  }
 
   const completion = await groq.chat.completions.create({
     model: groqModel(),

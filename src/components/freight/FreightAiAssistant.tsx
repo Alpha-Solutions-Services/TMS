@@ -36,7 +36,7 @@ export function FreightAiAssistant({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userMsg,
-          conversationId,
+          ...(conversationId ? { conversationId } : {}),
           trainingNotes: training.trim() || undefined,
         }),
       });
@@ -212,7 +212,7 @@ export function FreightAiAssistant({
       {allowFiles ? (
         <p className="flex items-center gap-1 px-3 pb-2 text-[10px] text-[var(--color-muted)]">
           <Sparkles className="h-3 w-3" />
-          Vector-style doc AI: RC/BOL/POD → load fields for booking
+          Upload RC, BOL, or POD — Alpha AI extracts load fields for booking
         </p>
       ) : null}
     </div>
