@@ -1,4 +1,5 @@
-import { CarrierChatPage } from "@/components/freight/CarrierSubPages";
+import { CarrierChatPage } from "@/components/freight/CarrierChatPage";
+
 export default function Page() {
   return <CarrierChatPage />;
 }

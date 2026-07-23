@@ -110,13 +110,13 @@ export async function POST(req: NextRequest) {
       .update({ status: "accepted" })
       .eq("id", invite.id as string);
 
-    void deliverAuthNotifications({
+    await deliverAuthNotifications({
       kind: "signup",
       userId,
       email: emailNorm,
       profileRole: "dispatcher",
       detail: `${teamRole} accepted invitation.`,
-    }).catch(() => {});
+    });
 
     return NextResponse.json({ ok: true, userId, email: emailNorm });
   } catch (e) {

@@ -156,13 +156,14 @@ export async function GET(request: NextRequest) {
   }
 
   const { deliverAuthNotifications } = await import("@/lib/email/auth-notify");
-  void deliverAuthNotifications({
+  // Must await — Vercel freezes the isolate after the redirect response.
+  await deliverAuthNotifications({
     kind: "login",
     email: user.email?.trim().toLowerCase() || "unknown",
     userId: user.id,
     profileRole: tmsRole || intendedRole || "unknown",
     detail: "OAuth / Google sign-in",
-  }).catch(() => {});
+  });
 
   return applyCookies(NextResponse.redirect(`${origin}${dest}`), cookiesToSet);
 }

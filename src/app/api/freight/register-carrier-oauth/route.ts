@@ -170,13 +170,13 @@ export async function POST(req: NextRequest) {
 
     await sendCarrierPendingEmail(emailNorm, companyName || "Carrier", normalizedMc).catch(() => {});
 
-    void deliverAuthNotifications({
+    await deliverAuthNotifications({
       kind: "login",
       userId: user.id,
       email: emailNorm,
       profileRole: "carrier",
       detail: "Carrier completed MC registration (Google OAuth).",
-    }).catch(() => {});
+    });
 
     return NextResponse.json({ ok: true, userId: user.id, fmcsaVerified });
   } catch (e) {

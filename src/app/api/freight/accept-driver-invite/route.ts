@@ -185,13 +185,13 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    void deliverAuthNotifications({
+    await deliverAuthNotifications({
       kind: "signup",
       userId,
       email: emailNorm,
       profileRole: "driver",
       detail: "Driver accepted invitation — account created.",
-    }).catch(() => {});
+    });
 
     return NextResponse.json({ ok: true, userId });
   } catch (e) {

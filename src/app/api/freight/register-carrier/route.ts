@@ -229,13 +229,13 @@ export async function POST(req: NextRequest) {
       normalizedMc,
     ).catch(() => {});
 
-    void deliverAuthNotifications({
+    await deliverAuthNotifications({
       kind: "signup",
       userId,
       email: emailNorm,
       profileRole: "carrier",
       detail: "Carrier registered (email + password).",
-    }).catch(() => {});
+    });
 
     return NextResponse.json({ ok: true, userId, fmcsaVerified });
   } catch (e) {

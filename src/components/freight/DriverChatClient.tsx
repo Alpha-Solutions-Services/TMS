@@ -26,13 +26,12 @@ export function DriverChatClient() {
       setThreads(list);
       if (loadParam && list.some((t) => t.load_id === loadParam)) {
         setActiveLoadId(loadParam);
-      }
-      // Desktop-only auto-select first thread; mobile stays on list
-      else if (
+      } else if (
         typeof window !== "undefined" &&
         window.matchMedia("(min-width: 1024px)").matches &&
         list[0] &&
-        !activeLoadId
+        !activeLoadId &&
+        !loadParam
       ) {
         setActiveLoadId(list[0].load_id);
       }
@@ -44,8 +43,17 @@ export function DriverChatClient() {
     void refresh();
   }, [refresh]);
 
-  const active = threads.find((t) => t.load_id === activeLoadId);
   const chatOpen = Boolean(activeLoadId);
+  useEffect(() => {
+    if (!chatOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [chatOpen]);
+
+  const active = threads.find((t) => t.load_id === activeLoadId);
 
   function closeChat() {
     setActiveLoadId(null);
@@ -55,7 +63,7 @@ export function DriverChatClient() {
     <div className="flex h-[calc(100dvh-5rem)] flex-col">
       <header
         className={`shrink-0 px-3 pt-3 sm:px-4 sm:pt-4 md:px-6 ${
-          chatOpen ? "hidden lg:block" : ""
+          chatOpen ? "max-lg:hidden" : ""
         }`}
       >
         <h1 className="mb-1 text-lg font-bold text-[var(--color-text)] sm:text-xl">
@@ -66,10 +74,10 @@ export function DriverChatClient() {
         </p>
       </header>
 
-      <div className="grid min-h-0 flex-1 gap-0 px-0 lg:grid-cols-[220px_1fr] lg:gap-4 lg:px-6 lg:pb-4">
+      <div className="relative grid min-h-0 flex-1 gap-0 px-0 lg:grid-cols-[220px_1fr] lg:gap-4 lg:px-6 lg:pb-4">
         <aside
           className={`overflow-y-auto border-[var(--color-border)] p-2 lg:rounded-xl lg:border ${
-            chatOpen ? "hidden lg:block" : "block"
+            chatOpen ? "max-lg:hidden" : ""
           }`}
         >
           <div className="flex flex-col gap-1">
@@ -96,9 +104,11 @@ export function DriverChatClient() {
         </aside>
 
         <div
-          className={`min-h-0 min-w-0 flex-1 ${
-            chatOpen ? "flex flex-col" : "hidden lg:flex"
-          }`}
+          className={
+            chatOpen
+              ? "fixed inset-0 z-[60] flex flex-col bg-[var(--color-bg)] lg:static lg:inset-auto lg:z-auto lg:bg-transparent"
+              : "hidden lg:flex lg:flex-col"
+          }
         >
           {activeLoadId ? (
             <FreightChatPanel
@@ -110,7 +120,7 @@ export function DriverChatClient() {
               emptyHint="Message dispatch and carrier. Attach BOL or POD when delivered."
             />
           ) : (
-            <div className="hidden h-full items-center justify-center rounded-xl border border-dashed border-[var(--color-border)] p-6 text-sm text-[var(--color-muted)] lg:flex">
+            <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-[var(--color-border)] p-6 text-sm text-[var(--color-muted)]">
               Select a load
             </div>
           )}

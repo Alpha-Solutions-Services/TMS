@@ -6,6 +6,7 @@ import { resolveTmsRole } from "@/lib/tms/auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const maxDuration = 30;
 
 const schema = z.object({
   kind: z.string().min(1).max(40).default("login"),
@@ -16,7 +17,8 @@ const schema = z.object({
 });
 
 /**
- * Client-triggered login/signup notify → support@freight.alphasolutions.software
+ * Client-triggered login/signup notify → support@freight + the signed-in user.
+ * Awaits SMTP so Vercel does not freeze the function early.
  */
 export async function POST(req: NextRequest) {
   const user = await getPortalUser();
@@ -36,14 +38,21 @@ export async function POST(req: NextRequest) {
     (await resolveTmsRole(user).catch(() => null)) ||
     "unknown";
 
-  void deliverAuthNotifications({
+  const result = await deliverAuthNotifications({
     kind: body.kind,
     email: body.email || user.email || "unknown",
     userId: user.id,
     profileRole: role,
     displayName: body.displayName,
     detail: body.detail,
-  }).catch(() => {});
+  });
+
+  if (!result.ok) {
+    return NextResponse.json(
+      { ok: false, error: result.error ?? "Email failed" },
+      { status: 502 },
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }

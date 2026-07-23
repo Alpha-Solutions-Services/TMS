@@ -140,13 +140,13 @@ export async function POST(req: NextRequest) {
         : "Lifetime Access — Alpha Freight Academy (pending payment)",
     );
 
-    void deliverAuthNotifications({
+    await deliverAuthNotifications({
       kind: "signup",
       userId,
       email: normalizedEmail,
       profileRole: "student",
       detail: "Student account created — payment pending activation.",
-    }).catch(() => {});
+    });
 
     return NextResponse.json({ success: true, userId, pendingPayment: true });
   } catch (e) {

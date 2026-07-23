@@ -96,7 +96,7 @@ export function FreightLoginForm() {
   }, [role]);
 
   async function finishTo(dest: string) {
-    void notifyAuthActivityClient("login");
+    await notifyAuthActivityClient("login");
     router.replace(dest);
     router.refresh();
   }
