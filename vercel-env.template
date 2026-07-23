@@ -7,14 +7,16 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<same as Portal>
 SUPABASE_SERVICE_ROLE_KEY=<same as Portal>
 SUPER_DISPATCHER_EMAILS=mikran.dispatch@gmail.com,alphaassistant.alpha@gmail.com,muhammadmikran.alpha@gmail.com
 
-# Optional (Phase 2 notifications)
+# Optional (Phase 2 notifications) — REQUIRED for login/signup alert emails
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=alphaassistant.alpha@gmail.com
+# Gmail App Password (not the normal account password)
 SMTP_PASS=
 SMTP_FROM=Alpha Freight Network <alphaassistant.alpha@gmail.com>
-AUTH_OPS_NOTIFY_EMAIL=alphaassistant.alpha@gmail.com
+# Login/signup alerts go here (plus support@freight…)
+AUTH_OPS_NOTIFY_EMAIL=alphaassistant.alpha@gmail.com,support@freight.alphasolutions.software
 FREIGHT_TEAM_EMAIL=alphaassistant.alpha@gmail.com
 # Public contact address (mailto / email footers) — not the SMTP sender
 FREIGHT_SUPPORT_EMAIL=support@freight.alphasolutions.software

@@ -11,6 +11,7 @@ import { isDispatcherRole } from "@/lib/tms/roles";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 type CookieToSet = {
   name: string;
@@ -155,15 +156,19 @@ export async function GET(request: NextRequest) {
     dest = nextHint;
   }
 
-  const { deliverAuthNotifications } = await import("@/lib/email/auth-notify");
-  // Must await — Vercel freezes the isolate after the redirect response.
-  await deliverAuthNotifications({
-    kind: "login",
-    email: user.email?.trim().toLowerCase() || "unknown",
-    userId: user.id,
-    profileRole: tmsRole || intendedRole || "unknown",
-    detail: "OAuth / Google sign-in",
-  });
+  try {
+    const { deliverAuthNotifications } = await import("@/lib/email/auth-notify");
+    // Must await — Vercel freezes the isolate after the redirect response.
+    await deliverAuthNotifications({
+      kind: "login",
+      email: user.email?.trim().toLowerCase() || "unknown",
+      userId: user.id,
+      profileRole: tmsRole || intendedRole || "unknown",
+      detail: "OAuth / Google sign-in",
+    });
+  } catch (e) {
+    console.error("[auth/callback] auth-notify failed (login continues)", e);
+  }
 
   return applyCookies(NextResponse.redirect(`${origin}${dest}`), cookiesToSet);
 }

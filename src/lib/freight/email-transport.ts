@@ -49,19 +49,32 @@ function buildTransporter(opts: {
 
 /** Shared nodemailer config with `src/app/api/contact/route.ts` */
 export function createConfiguredTransporter(): nodemailer.Transporter | null {
-  const transporter = buildTransporter({
-    host: process.env.SMTP_HOST?.trim(),
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: process.env.SMTP_SECURE === "true",
-    user: process.env.SMTP_USER?.trim(),
-    pass: readSmtpPass(process.env.SMTP_PASS),
-  });
+  const host = process.env.SMTP_HOST?.trim();
+  const user = process.env.SMTP_USER?.trim();
+  const pass = readSmtpPass(process.env.SMTP_PASS);
+  const port = Number(process.env.SMTP_PORT || 587);
+  const secure = process.env.SMTP_SECURE === "true";
 
-  if (!transporter) {
-    console.warn("[freight-mail] SMTP not configured — skipping send");
+  if (!host || !user || !pass) {
+    console.warn("[freight-mail] SMTP not configured — skipping send", {
+      hasHost: Boolean(host),
+      hasUser: Boolean(user),
+      hasPass: Boolean(pass),
+    });
+    return null;
   }
 
-  return transporter;
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+    // Gmail on 587 needs STARTTLS; keep timeouts under Vercel limits
+    requireTLS: !secure && port === 587,
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
+  });
 }
 
 /** Invoice send — uses DISPATCH_INVOICE_SMTP_* when set, else falls back to SMTP_*. */
