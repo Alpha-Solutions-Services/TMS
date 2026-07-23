@@ -35,7 +35,9 @@ export default async function DriverLayout({ children }: Readonly<{ children: Re
         />
       }
     >
-      <main className="min-h-[calc(100dvh-5rem)] bg-[var(--color-bg)]">{children}</main>
+      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[var(--color-bg)]">
+        {children}
+      </main>
     </ResponsiveDashboardShell>
   );
 }

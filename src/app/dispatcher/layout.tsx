@@ -46,7 +46,7 @@ export default async function DispatcherLayout({
       mobileTitle="Dispatcher"
       sidebar={<DispatcherSidebar email={email} tmsRole={tmsRole} roleLabel={roleLabel} />}
     >
-      <main className="min-h-[calc(100vh-5rem)] bg-[var(--color-bg)]">
+      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[var(--color-bg)]">
         <DispatcherRouteGuard tmsRole={tmsRole}>{children}</DispatcherRouteGuard>
       </main>
     </ResponsiveDashboardShell>

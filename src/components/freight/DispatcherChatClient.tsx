@@ -66,8 +66,11 @@ export function DispatcherChatClient() {
     (tab === "carriers" && Boolean(activeCarrierId)) ||
     (tab === "groups" && Boolean(activeGroupId));
 
+  // Only lock body scroll on mobile full-screen chat — never on laptop/desktop
   useEffect(() => {
     if (!chatOpen) return;
+    const mq = window.matchMedia("(min-width: 1024px)");
+    if (mq.matches) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
@@ -93,7 +96,8 @@ export function DispatcherChatClient() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-4rem)] flex-col">
+    /* 3.5rem ≈ shell sticky header — keep chat inside the viewport so messages scroll */
+    <div className="flex h-[calc(100dvh-3.5rem)] max-h-[calc(100dvh-3.5rem)] flex-col overflow-hidden">
       <header
         className={`shrink-0 border-b border-[var(--color-border)] px-4 py-3 md:px-6 ${
           chatOpen ? "max-lg:hidden" : ""
@@ -121,10 +125,10 @@ export function DispatcherChatClient() {
         </div>
       </header>
 
-      <div className="relative grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[240px_1fr]">
+      <div className="relative grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[240px_1fr]">
         <aside
-          className={`overflow-y-auto border-[var(--color-border)] p-2 lg:border-r ${
-            chatOpen ? "max-lg:hidden" : "min-h-0 flex-1 lg:flex-none"
+          className={`min-h-0 overflow-y-auto border-[var(--color-border)] p-2 lg:border-r ${
+            chatOpen ? "max-lg:hidden" : ""
           }`}
         >
           {loading ? (
@@ -186,12 +190,11 @@ export function DispatcherChatClient() {
           ) : null}
         </aside>
 
-        {/* One panel tree: full-screen on mobile when open; side pane on desktop */}
         <div
           className={
             chatOpen
-              ? "fixed inset-0 z-[60] flex flex-col bg-[var(--color-bg)] lg:static lg:inset-auto lg:z-auto lg:bg-transparent lg:p-4"
-              : "hidden lg:flex lg:flex-col lg:p-4"
+              ? "fixed inset-0 z-[60] flex min-h-0 flex-col overflow-hidden bg-[var(--color-bg)] lg:static lg:inset-auto lg:z-auto lg:h-full lg:bg-transparent lg:p-4"
+              : "hidden min-h-0 lg:flex lg:h-full lg:flex-col lg:overflow-hidden lg:p-4"
           }
         >
           {chatOpen ? (
@@ -212,7 +215,7 @@ export function DispatcherChatClient() {
               ))}
             </div>
           ) : null}
-          <div className="min-h-0 flex-1">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             {tab === "loads" && activeLoadId ? (
               <FreightChatPanel
                 mode="load"

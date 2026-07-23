@@ -49,7 +49,9 @@ export default async function CarrierPortalLayout({
         />
       }
     >
-      <main className="min-h-[calc(100vh-5rem)] bg-[var(--color-bg)]">{children}</main>
+      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[var(--color-bg)]">
+        {children}
+      </main>
     </ResponsiveDashboardShell>
   );
 }

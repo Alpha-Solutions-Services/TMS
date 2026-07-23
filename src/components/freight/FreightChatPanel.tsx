@@ -446,7 +446,7 @@ export function FreightChatPanel({
 
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[url('/chat-bg.png')] bg-cover bg-center p-3 md:p-4"
+        className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-[url('/chat-bg.png')] bg-cover bg-center p-3 md:p-4"
         style={{
           backgroundImage:
             "radial-gradient(circle at 20% 20%, rgba(56,163,255,0.04), transparent 40%), radial-gradient(circle at 80% 80%, rgba(0,92,75,0.06), transparent 45%)",

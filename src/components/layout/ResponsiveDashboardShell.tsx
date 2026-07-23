@@ -45,7 +45,7 @@ export function ResponsiveDashboardShell({
   }, [open]);
 
   return (
-    <div className="relative flex min-h-screen w-full bg-[var(--color-bg)]">
+    <div className="relative flex h-[100dvh] max-h-[100dvh] w-full overflow-hidden bg-[var(--color-bg)]">
       {open ? (
         <button
           type="button"
@@ -58,7 +58,7 @@ export function ResponsiveDashboardShell({
       <div
         id="dashboard-sidebar"
         className={clsx(
-          "fixed left-0 top-0 z-50 flex h-screen max-w-[85vw] transition-transform duration-200 ease-out md:static md:z-0 md:h-auto md:max-w-none md:min-h-screen md:translate-x-0 md:transition-none",
+          "fixed left-0 top-0 z-50 flex h-screen max-w-[85vw] transition-transform duration-200 ease-out md:static md:z-0 md:h-full md:max-w-none md:translate-x-0 md:transition-none",
           open ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"
         )}
       >
@@ -67,8 +67,8 @@ export function ResponsiveDashboardShell({
         </CloseMobileNavContext.Provider>
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-bg)]/95 px-4 py-3 backdrop-blur-md">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="sticky top-0 z-30 flex shrink-0 items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-bg)]/95 px-4 py-3 backdrop-blur-md">
           <button
             type="button"
             className="rounded-lg border border-[var(--color-border)] p-2 text-[var(--color-text)] hover:bg-[var(--color-surface)] md:hidden"
