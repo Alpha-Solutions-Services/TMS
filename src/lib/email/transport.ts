@@ -163,12 +163,12 @@ export function getOpsNotifyEmails(): string[] {
     "alphaassistant.alpha@gmail.com",
   ];
   if (!raw) return defaults;
-  return [
-    ...new Set(
+  return Array.from(
+    new Set(
       raw
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean),
     ),
-  ];
+  );
 }
