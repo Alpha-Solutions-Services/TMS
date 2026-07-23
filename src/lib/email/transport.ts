@@ -158,9 +158,17 @@ export async function sendBrandedMail(opts: {
 
 export function getOpsNotifyEmails(): string[] {
   const raw = process.env.AUTH_OPS_NOTIFY_EMAIL?.trim();
-  if (!raw) return ["alphaassistant.alpha@gmail.com"];
-  return raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const defaults = [
+    "support@freight.alphasolutions.software",
+    "alphaassistant.alpha@gmail.com",
+  ];
+  if (!raw) return defaults;
+  return [
+    ...new Set(
+      raw
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
+  ];
 }

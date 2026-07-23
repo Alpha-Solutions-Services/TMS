@@ -65,21 +65,46 @@ export function DispatcherChatClient() {
   const activeLoad = loadThreads.find((t) => t.load_id === activeLoadId);
   const activeGroup = groupThreads.find((t) => t.id === activeGroupId);
 
+  const chatOpen =
+    (tab === "loads" && Boolean(activeLoadId)) ||
+    (tab === "carriers" && Boolean(activeCarrierId)) ||
+    (tab === "groups" && Boolean(activeGroupId));
+
+  function switchTab(next: typeof tab) {
+    setTab(next);
+    // Mobile: return to list when changing labels
+    setActiveLoadId(null);
+    setActiveCarrierId(null);
+    setActiveGroupId(null);
+  }
+
+  function closeChat() {
+    setActiveLoadId(null);
+    setActiveCarrierId(null);
+    setActiveGroupId(null);
+  }
+
   return (
     <div className="flex h-[calc(100dvh-4rem)] flex-col">
-      <header className="shrink-0 border-b border-[var(--color-border)] px-4 py-3 md:px-6">
+      <header
+        className={`shrink-0 border-b border-[var(--color-border)] px-4 py-3 md:px-6 ${
+          chatOpen ? "hidden lg:block" : ""
+        }`}
+      >
         <h1 className="text-xl font-bold text-[var(--color-text)]">Chat</h1>
         <p className="text-xs text-[var(--color-muted)]">
-          Full-screen messaging · toggle Ask Alpha AI inside any thread to analyze the conversation
+          Full-screen messaging · Ask Alpha AI inside any thread
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
           {(["loads", "carriers", "groups"] as const).map((t) => (
             <button
               key={t}
               type="button"
-              onClick={() => setTab(t)}
+              onClick={() => switchTab(t)}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize ${
-                tab === t ? "bg-[var(--color-accent)] text-[#05080f]" : "border border-[var(--color-border)]"
+                tab === t
+                  ? "bg-[var(--color-accent)] text-[#05080f]"
+                  : "border border-[var(--color-border)]"
               }`}
             >
               {t === "loads" ? "Load chats" : t}
@@ -88,8 +113,32 @@ export function DispatcherChatClient() {
         </div>
       </header>
 
+      {/* Mobile: keep tab labels visible while in a chat */}
+      {chatOpen ? (
+        <div className="flex shrink-0 gap-2 border-b border-[var(--color-border)] px-3 py-2 lg:hidden">
+          {(["loads", "carriers", "groups"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => switchTab(t)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize ${
+                tab === t
+                  ? "bg-[var(--color-accent)] text-[#05080f]"
+                  : "border border-[var(--color-border)]"
+              }`}
+            >
+              {t === "loads" ? "Load chats" : t}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[240px_1fr]">
-        <aside className="overflow-y-auto border-b border-[var(--color-border)] p-2 lg:border-b-0 lg:border-r">
+        <aside
+          className={`overflow-y-auto border-[var(--color-border)] p-2 lg:border-r ${
+            chatOpen ? "hidden lg:block" : "block border-b lg:border-b-0"
+          }`}
+        >
           {loading ? (
             <p className="flex items-center gap-2 p-3 text-xs text-[var(--color-muted)]">
               <Loader2 className="h-3 w-3 animate-spin" /> Loading…
@@ -101,7 +150,7 @@ export function DispatcherChatClient() {
                 key={t.id}
                 type="button"
                 onClick={() => setActiveLoadId(t.load_id)}
-                className={`mb-1 flex w-full items-start gap-2 rounded-lg px-2 py-2 text-left text-xs ${
+                className={`mb-1 flex w-full items-start gap-2 rounded-lg px-2 py-2.5 text-left text-xs ${
                   activeLoadId === t.load_id
                     ? "bg-[var(--color-accent-dim)] text-[var(--color-accent)]"
                     : "hover:bg-[var(--color-bg)]"
@@ -117,7 +166,7 @@ export function DispatcherChatClient() {
                 key={c.profileId}
                 type="button"
                 onClick={() => setActiveCarrierId(c.profileId)}
-                className={`mb-1 flex w-full flex-col rounded-lg px-2 py-2 text-left text-xs ${
+                className={`mb-1 flex w-full flex-col rounded-lg px-2 py-2.5 text-left text-xs ${
                   activeCarrierId === c.profileId
                     ? "bg-[var(--color-accent-dim)] text-[var(--color-accent)]"
                     : "hover:bg-[var(--color-bg)]"
@@ -132,7 +181,7 @@ export function DispatcherChatClient() {
                 key={t.id}
                 type="button"
                 onClick={() => setActiveGroupId(t.id)}
-                className={`mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs ${
+                className={`mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-2.5 text-left text-xs ${
                   activeGroupId === t.id
                     ? "bg-[var(--color-accent-dim)] text-[var(--color-accent)]"
                     : "hover:bg-[var(--color-bg)]"
@@ -149,13 +198,18 @@ export function DispatcherChatClient() {
           ) : null}
         </aside>
 
-        <div className="min-h-0 p-2 md:p-4">
+        <div
+          className={`min-h-0 ${
+            chatOpen ? "flex flex-col p-0 lg:p-4" : "hidden lg:flex lg:p-4"
+          }`}
+        >
           {tab === "loads" && activeLoadId ? (
             <FreightChatPanel
               mode="load"
               loadId={activeLoadId}
               title={activeLoad?.title}
               enableAiAssist
+              onBack={closeChat}
               emptyHint="Load chat — use Ask Alpha AI to summarize, draft replies, or parse load details from the thread."
             />
           ) : tab === "carriers" && activeCarrierId ? (
@@ -165,6 +219,7 @@ export function DispatcherChatClient() {
               title={activeCarrier?.companyName}
               enableAiAssist
               enableCreateLoadFromRc
+              onBack={closeChat}
               emptyHint="Carrier chat — upload RC to create a load, or use Ask Alpha AI to draft messages."
             />
           ) : tab === "groups" && activeGroupId ? (
@@ -173,9 +228,10 @@ export function DispatcherChatClient() {
               threadId={activeGroupId}
               title={activeGroup?.title}
               enableAiAssist
+              onBack={closeChat}
             />
           ) : (
-            <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-[var(--color-border)] text-sm text-[var(--color-muted)]">
+            <div className="hidden h-full items-center justify-center rounded-2xl border border-dashed border-[var(--color-border)] text-sm text-[var(--color-muted)] lg:flex">
               Select a conversation
             </div>
           )}

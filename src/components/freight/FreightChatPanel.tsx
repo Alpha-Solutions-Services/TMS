@@ -1,7 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FileText, Loader2, Paperclip, Send, Sparkles, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Bot,
+  FileText,
+  Loader2,
+  Paperclip,
+  Send,
+  Sparkles,
+  X,
+} from "lucide-react";
 import {
   ChatMessageBubble,
   formatDocFieldsAsMessage,
@@ -35,6 +44,7 @@ export function FreightChatPanel({
   viewerRole = "dispatcher",
   onSendComplete,
   onLoadCreated,
+  onBack,
 }: {
   mode: ChatMode;
   carrierProfileId?: string;
@@ -48,6 +58,8 @@ export function FreightChatPanel({
   viewerRole?: "dispatcher" | "carrier" | "driver";
   onSendComplete?: () => void;
   onLoadCreated?: (message: string) => void;
+  /** Mobile WhatsApp-style: show back control and edge-to-edge panel */
+  onBack?: () => void;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -57,6 +69,13 @@ export function FreightChatPanel({
   const [uploading, setUploading] = useState(false);
   const [docAnalysis, setDocAnalysis] = useState<DocAnalysis | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [askOpen, setAskOpen] = useState(false);
+  const [askDraft, setAskDraft] = useState("");
+  const [askBusy, setAskBusy] = useState(false);
+  const [askReplies, setAskReplies] = useState<
+    { role: "user" | "assistant"; content: string }[]
+  >([]);
+  const [aiConversationId, setAiConversationId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -153,6 +172,50 @@ export function FreightChatPanel({
     }
   }
 
+  async function askAlpha() {
+    const text = askDraft.trim();
+    if (!text || askBusy) return;
+    setAskDraft("");
+    setAskReplies((r) => [...r, { role: "user", content: text }]);
+    setAskBusy(true);
+    setStatusMsg(null);
+    try {
+      const res = await fetch("/api/freight/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: text,
+          chatContext: buildChatContext(messages, title),
+          includeTmsData: true,
+          ...(loadId ? { loadId } : {}),
+          ...(carrierProfileId ? { carrierProfileId } : {}),
+          ...(aiConversationId ? { conversationId: aiConversationId } : {}),
+        }),
+      });
+      const json = (await res.json()) as {
+        error?: string;
+        reply?: string;
+        conversationId?: string;
+      };
+      if (!res.ok) throw new Error(json.error ?? "Ask Alpha failed");
+      if (json.conversationId) setAiConversationId(json.conversationId);
+      setAskReplies((r) => [
+        ...r,
+        { role: "assistant", content: json.reply ?? "No reply." },
+      ]);
+    } catch (e) {
+      setAskReplies((r) => [
+        ...r,
+        {
+          role: "assistant",
+          content: e instanceof Error ? e.message : "Ask Alpha failed",
+        },
+      ]);
+    } finally {
+      setAskBusy(false);
+    }
+  }
+
   async function enhanceDraft() {
     const text = draft.trim();
     if (!text) return;
@@ -165,6 +228,8 @@ export function FreightChatPanel({
         body: JSON.stringify({
           text,
           chatContext: buildChatContext(messages, title),
+          includeTmsData: true,
+          ...(loadId ? { loadId } : {}),
         }),
       });
       const json = (await res.json()) as { error?: string; enhanced?: string };
@@ -292,10 +357,90 @@ export function FreightChatPanel({
     (mode === "group" && threadId);
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[#0a1018]">
-      {title ? (
-        <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-surface)]/60 px-4 py-3">
-          <p className="truncate text-sm font-semibold text-[var(--color-text)]">{title}</p>
+    <div
+      className={`flex h-full min-h-0 flex-col overflow-hidden bg-[#0a1018] ${
+        onBack
+          ? "rounded-none border-0 lg:rounded-2xl lg:border lg:border-[var(--color-border)]"
+          : "rounded-2xl border border-[var(--color-border)]"
+      }`}
+    >
+      {title || onBack ? (
+        <div className="flex shrink-0 items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-surface)]/60 px-3 py-3 sm:px-4">
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="shrink-0 rounded-lg p-2 text-[var(--color-muted)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)] lg:hidden"
+              aria-label="Back to chats"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          ) : null}
+          <p className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--color-text)]">
+            {title ?? "Chat"}
+          </p>
+          {enableAiAssist ? (
+            <button
+              type="button"
+              onClick={() => setAskOpen((o) => !o)}
+              className={`shrink-0 inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold ${
+                askOpen
+                  ? "bg-[var(--color-accent)] text-[#05080f]"
+                  : "border border-[var(--color-accent)]/40 text-[var(--color-accent)]"
+              }`}
+              title="Ask Alpha about this thread and TMS data"
+            >
+              <Bot className="h-3.5 w-3.5" />
+              Ask Alpha
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {enableAiAssist && askOpen ? (
+        <div className="shrink-0 border-b border-[var(--color-border)] bg-[var(--color-surface)]/90 px-3 py-2">
+          <p className="text-[10px] text-[var(--color-muted)]">
+            Trained on this chat thread + your TMS loads
+          </p>
+          <div className="mt-2 max-h-36 space-y-2 overflow-y-auto">
+            {askReplies.map((m, i) => (
+              <p
+                key={i}
+                className={`whitespace-pre-wrap text-xs ${
+                  m.role === "user"
+                    ? "text-[var(--color-text)]"
+                    : "text-[var(--color-accent)]"
+                }`}
+              >
+                <span className="font-semibold opacity-70">
+                  {m.role === "user" ? "You" : "Alpha"}:{" "}
+                </span>
+                {m.content}
+              </p>
+            ))}
+          </div>
+          <div className="mt-2 flex gap-2">
+            <input
+              value={askDraft}
+              onChange={(e) => setAskDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void askAlpha();
+                }
+              }}
+              placeholder="Ask about this chat or loads…"
+              className="dispatch-field flex-1 rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs"
+            />
+            <button
+              type="button"
+              disabled={askBusy || !askDraft.trim()}
+              onClick={() => void askAlpha()}
+              className="rounded-lg bg-[var(--color-accent)] px-3 py-2 text-xs font-semibold text-[#05080f] disabled:opacity-40"
+            >
+              {askBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Ask"}
+            </button>
+          </div>
         </div>
       ) : null}
 

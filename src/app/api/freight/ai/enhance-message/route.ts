@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { enforceAiRateLimit } from "@/lib/freight/ai-rate-limit";
+import { buildTmsAiContext } from "@/lib/freight/ai-tms-context";
 import {
   extractLoadBoardLine,
   formatCarrierReadyPost,
@@ -15,6 +16,8 @@ import { canChatWithCarriers } from "@/lib/tms/permissions";
 const schema = z.object({
   text: z.string().min(1).max(4000),
   chatContext: z.string().max(8000).optional(),
+  includeTmsData: z.boolean().optional(),
+  loadId: z.string().uuid().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -55,6 +58,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "AI unavailable" }, { status: 503 });
   }
 
+  let tmsBlock = "";
+  if (body.includeTmsData !== false) {
+    tmsBlock = await buildTmsAiContext({
+      userId: user.id,
+      loadId: body.loadId,
+    });
+  }
+
   const completion = await groq.chat.completions.create({
     model: groqModel(),
     messages: [
@@ -64,6 +75,9 @@ export async function POST(req: NextRequest) {
       },
       ...(body.chatContext?.trim()
         ? [{ role: "user" as const, content: `Thread context:\n${body.chatContext.trim()}` }]
+        : []),
+      ...(tmsBlock
+        ? [{ role: "user" as const, content: tmsBlock }]
         : []),
       { role: "user", content: body.text.trim() },
     ],

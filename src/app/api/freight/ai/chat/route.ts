@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { enforceAiRateLimit } from "@/lib/freight/ai-rate-limit";
+import { buildTmsAiContext } from "@/lib/freight/ai-tms-context";
 import {
   extractLoadBoardLine,
   formatCarrierReadyPost,
@@ -17,6 +18,9 @@ const schema = z.object({
   conversationId: z.string().uuid().optional().nullable(),
   trainingNotes: z.string().max(2000).optional(),
   chatContext: z.string().max(8000).optional(),
+  includeTmsData: z.boolean().optional(),
+  loadId: z.string().uuid().optional(),
+  carrierProfileId: z.string().uuid().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -129,6 +133,17 @@ export async function POST(req: NextRequest) {
 
   if (body.chatContext?.trim()) {
     system += `\n\nActive chat thread (use this to answer questions about the conversation):\n${body.chatContext.trim()}`;
+  }
+
+  if (body.includeTmsData !== false) {
+    const tms = await buildTmsAiContext({
+      userId: user.id,
+      loadId: body.loadId,
+      carrierProfileId: body.carrierProfileId,
+    });
+    if (tms) {
+      system += `\n\n${tms}\nUse TMS data above when answering. Do not invent loads or rates not listed.`;
+    }
   }
 
   const completion = await groq.chat.completions.create({

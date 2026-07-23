@@ -155,5 +155,14 @@ export async function GET(request: NextRequest) {
     dest = nextHint;
   }
 
+  const { deliverAuthNotifications } = await import("@/lib/email/auth-notify");
+  void deliverAuthNotifications({
+    kind: "login",
+    email: user.email?.trim().toLowerCase() || "unknown",
+    userId: user.id,
+    profileRole: tmsRole || intendedRole || "unknown",
+    detail: "OAuth / Google sign-in",
+  }).catch(() => {});
+
   return applyCookies(NextResponse.redirect(`${origin}${dest}`), cookiesToSet);
 }
