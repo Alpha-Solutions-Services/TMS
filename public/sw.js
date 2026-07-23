@@ -1,5 +1,5 @@
 /* AFN TMS — network-only; never cache HTML or auth */
-const CACHE = "afn-tms-v3";
+const CACHE = "afn-tms-v4";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());

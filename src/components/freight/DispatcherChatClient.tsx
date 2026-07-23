@@ -101,7 +101,7 @@ export function DispatcherChatClient() {
       >
         <h1 className="text-xl font-bold text-[var(--color-text)]">Chat</h1>
         <p className="text-xs text-[var(--color-muted)]">
-          Full-screen messaging · Ask Alpha AI inside any thread
+          Tap a chat to open full screen · Ask Alpha inside any thread
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
           {(["loads", "carriers", "groups"] as const).map((t) => (
@@ -124,7 +124,7 @@ export function DispatcherChatClient() {
       <div className="relative grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[240px_1fr]">
         <aside
           className={`overflow-y-auto border-[var(--color-border)] p-2 lg:border-r ${
-            chatOpen ? "max-lg:hidden" : ""
+            chatOpen ? "max-lg:hidden" : "min-h-0 flex-1 lg:flex-none"
           }`}
         >
           {loading ? (
