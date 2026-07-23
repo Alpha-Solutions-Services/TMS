@@ -29,7 +29,7 @@ export function authNotifyRecipients(): string[] {
   add(process.env.SMTP_USER);
   for (const e of getOpsNotifyEmails()) add(e);
 
-  return [...set];
+  return Array.from(set);
 }
 
 export function smtpConfigured(): boolean {
