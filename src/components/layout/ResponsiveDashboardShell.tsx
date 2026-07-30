@@ -7,29 +7,180 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { Suspense } from "react";
 import clsx from "clsx";
-import { Menu } from "lucide-react";
+import {
+  CreditCard,
+  FileText,
+  FolderKanban,
+  LayoutDashboard,
+  Menu,
+  MessageSquare,
+  Package,
+  Sparkles,
+  Ticket,
+  Truck,
+  Users,
+} from "lucide-react";
+import {
+  MobileBottomNav,
+  type MobileNavItem,
+} from "@/components/layout/MobileBottomNav";
 
 const CloseMobileNavContext = createContext<(() => void) | undefined>(
-  undefined
+  undefined,
 );
 
 export function useDashboardMobileNavClose(): (() => void) | undefined {
   return useContext(CloseMobileNavContext);
 }
 
+export type DashboardShellVariant =
+  | "dispatcher"
+  | "carrier"
+  | "driver"
+  | "instructor"
+  | "client"
+  | "admin";
+
+const BOTTOM_NAV: Record<DashboardShellVariant, MobileNavItem[]> = {
+  dispatcher: [
+    {
+      href: "/dispatcher/dashboard",
+      label: "Home",
+      icon: LayoutDashboard,
+      match: ["/dispatcher/dashboard"],
+    },
+    {
+      href: "/dispatcher/loads",
+      label: "Loads",
+      icon: Package,
+      match: ["/dispatcher/loads"],
+    },
+    {
+      href: "/dispatcher/chat",
+      label: "Chat",
+      icon: MessageSquare,
+      match: ["/dispatcher/chat"],
+    },
+    {
+      href: "/dispatcher/invoices",
+      label: "Bills",
+      icon: FileText,
+      match: ["/dispatcher/invoices"],
+    },
+  ],
+  carrier: [
+    {
+      href: "/carrier/dashboard",
+      label: "Home",
+      icon: LayoutDashboard,
+      match: ["/carrier/dashboard"],
+    },
+    {
+      href: "/carrier/loads",
+      label: "Loads",
+      icon: Package,
+      match: ["/carrier/loads"],
+    },
+    {
+      href: "/carrier/chat",
+      label: "Chat",
+      icon: MessageSquare,
+      match: ["/carrier/chat"],
+    },
+    {
+      href: "/carrier/payments",
+      label: "Pay",
+      icon: CreditCard,
+      match: ["/carrier/payments"],
+    },
+  ],
+  driver: [
+    {
+      href: "/driver/dashboard",
+      label: "Loads",
+      icon: Truck,
+      match: ["/driver/dashboard"],
+    },
+    {
+      href: "/driver/chat",
+      label: "Chat",
+      icon: MessageSquare,
+      match: ["/driver/chat"],
+    },
+  ],
+  instructor: [
+    {
+      href: "/freight/instructor/dashboard",
+      label: "Home",
+      icon: LayoutDashboard,
+      match: ["/freight/instructor/dashboard"],
+    },
+    {
+      href: "/freight/instructor/students",
+      label: "Students",
+      icon: Users,
+      match: ["/freight/instructor/students"],
+    },
+    {
+      href: "/freight/instructor/modules",
+      label: "Learn",
+      icon: Package,
+      match: ["/freight/instructor/modules"],
+    },
+  ],
+  client: [
+    { href: "/dashboard", label: "Home", icon: LayoutDashboard, tab: "overview" },
+    {
+      href: "/dashboard?tab=messages",
+      label: "Chat",
+      icon: MessageSquare,
+      tab: "messages",
+    },
+    { href: "/dashboard?tab=ai", label: "Assist", icon: Sparkles, tab: "ai" },
+    {
+      href: "/dashboard?tab=projects",
+      label: "Projects",
+      icon: FolderKanban,
+      tab: "projects",
+    },
+  ],
+  admin: [
+    { href: "/admin", label: "Home", icon: LayoutDashboard, tab: "overview" },
+    {
+      href: "/admin?tab=clients",
+      label: "Chat",
+      icon: MessageSquare,
+      tab: "clients",
+    },
+    { href: "/admin?tab=ai", label: "Assist", icon: Sparkles, tab: "ai" },
+    {
+      href: "/admin?tab=tickets",
+      label: "Tickets",
+      icon: Ticket,
+      tab: "tickets",
+    },
+  ],
+};
+
 export function ResponsiveDashboardShell({
   sidebar,
   mobileTitle,
   children,
   headerRight,
+  variant = "dispatcher",
+  bottomNav,
 }: {
   sidebar: ReactNode;
   mobileTitle: string;
   children: ReactNode;
   headerRight?: ReactNode;
+  variant?: DashboardShellVariant;
+  bottomNav?: MobileNavItem[];
 }) {
   const [open, setOpen] = useState(false);
+  const dock = bottomNav ?? BOTTOM_NAV[variant];
 
   function closeMobile() {
     setOpen(false);
@@ -59,7 +210,7 @@ export function ResponsiveDashboardShell({
         id="dashboard-sidebar"
         className={clsx(
           "fixed left-0 top-0 z-50 flex h-screen max-w-[85vw] transition-transform duration-200 ease-out md:static md:z-0 md:h-full md:max-w-none md:translate-x-0 md:transition-none",
-          open ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"
+          open ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0",
         )}
       >
         <CloseMobileNavContext.Provider value={closeMobile}>
@@ -74,6 +225,7 @@ export function ResponsiveDashboardShell({
             className="rounded-lg border border-[var(--color-border)] p-2 text-[var(--color-text)] hover:bg-[var(--color-surface)] md:hidden"
             aria-expanded={open}
             aria-controls="dashboard-sidebar"
+            aria-label="Open full menu"
             onClick={() => setOpen(true)}
           >
             <Menu className="h-5 w-5 shrink-0" aria-hidden />
@@ -83,8 +235,16 @@ export function ResponsiveDashboardShell({
           </span>
           {headerRight}
         </header>
-        {children}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pb-[calc(4.25rem+env(safe-area-inset-bottom,0px))] md:pb-0">
+          {children}
+        </div>
       </div>
+
+      {dock.length > 0 ? (
+        <Suspense fallback={null}>
+          <MobileBottomNav items={dock} />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

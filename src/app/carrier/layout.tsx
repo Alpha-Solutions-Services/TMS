@@ -42,6 +42,7 @@ export default async function CarrierPortalLayout({
   return (
     <ResponsiveDashboardShell
       mobileTitle="Carrier"
+      variant="carrier"
       sidebar={
         <CarrierSidebar
           email={email}

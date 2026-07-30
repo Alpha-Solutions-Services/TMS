@@ -28,6 +28,7 @@ export default async function DriverLayout({ children }: Readonly<{ children: Re
   return (
     <ResponsiveDashboardShell
       mobileTitle="Driver"
+      variant="driver"
       sidebar={
         <DriverSidebar
           name={(profile.full_name as string) || "Driver"}

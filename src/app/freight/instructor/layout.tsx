@@ -30,6 +30,7 @@ export default async function InstructorLayout({
   return (
     <ResponsiveDashboardShell
       mobileTitle="Instructor"
+      variant="instructor"
       sidebar={<InstructorSidebar email={user.email ?? "Instructor"} />}
     >
       <main className="min-h-[calc(100vh-5rem)] bg-[var(--color-bg)]">{children}</main>

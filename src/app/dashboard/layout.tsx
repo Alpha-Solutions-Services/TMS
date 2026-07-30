@@ -19,6 +19,7 @@ export default async function DashboardLayout({
   return (
     <ResponsiveDashboardShell
       mobileTitle="Client portal"
+      variant="client"
       sidebar={
         <PortalSidebar
           displayName={portalDisplayName(user)}

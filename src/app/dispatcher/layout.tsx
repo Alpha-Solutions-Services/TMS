@@ -44,6 +44,7 @@ export default async function DispatcherLayout({
   return (
     <ResponsiveDashboardShell
       mobileTitle="Dispatcher"
+      variant="dispatcher"
       sidebar={<DispatcherSidebar email={email} tmsRole={tmsRole} roleLabel={roleLabel} />}
     >
       <main className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[var(--color-bg)]">

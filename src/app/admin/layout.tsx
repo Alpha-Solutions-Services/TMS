@@ -19,6 +19,7 @@ export default async function AdminLayout({
   return (
     <ResponsiveDashboardShell
       mobileTitle="Admin"
+      variant="admin"
       sidebar={<AdminSidebar email={user.email} />}
       headerRight={<NotificationBell />}
     >
