@@ -76,7 +76,7 @@ export function DispatcherSidebar({
         </div>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-1 p-3">
+      <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain p-3">
         {visibleNav.map(({ href, label, icon: Icon }) => {
           const active =
             pathname === href ||

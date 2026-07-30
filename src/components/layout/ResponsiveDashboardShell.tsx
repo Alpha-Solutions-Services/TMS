@@ -11,7 +11,6 @@ import { Suspense } from "react";
 import clsx from "clsx";
 import {
   CreditCard,
-  FileText,
   FolderKanban,
   LayoutDashboard,
   Menu,
@@ -21,6 +20,7 @@ import {
   Ticket,
   Truck,
   Users,
+  UsersRound,
 } from "lucide-react";
 import {
   MobileBottomNav,
@@ -64,10 +64,10 @@ const BOTTOM_NAV: Record<DashboardShellVariant, MobileNavItem[]> = {
       match: ["/dispatcher/chat"],
     },
     {
-      href: "/dispatcher/invoices",
-      label: "Bills",
-      icon: FileText,
-      match: ["/dispatcher/invoices"],
+      href: "/dispatcher/team",
+      label: "Team",
+      icon: UsersRound,
+      match: ["/dispatcher/team"],
     },
   ],
   carrier: [
