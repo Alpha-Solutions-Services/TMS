@@ -104,33 +104,18 @@ export function createInvoiceTransporter(): nodemailer.Transporter | null {
 }
 
 export function resolveInvoiceFromAddress(fallbackFrom: string) {
-  const smtpUser =
-    process.env.DISPATCH_INVOICE_SMTP_USER?.trim() ||
-    process.env.SMTP_USER?.trim();
-
   const fromRaw = process.env.DISPATCH_INVOICE_FROM;
   const fromStripped =
     typeof fromRaw === "string" ? stripWrappingQuotes(fromRaw) : undefined;
-  const configured =
+
+  // Always prefer the invoice mailbox — do not rewrite to SMTP_USER.
+  // For Gmail Sent to land in this mailbox, set DISPATCH_INVOICE_SMTP_USER/PASS
+  // to invoice.payment.alpha@gmail.com (that account's app password).
+  return (
     fromStripped ||
     fallbackFrom ||
-    smtpUser ||
-    "Alpha Invoice & Payment <invoice.payment.alpha@gmail.com>";
-
-  // Gmail SMTP only puts mail in Sent for the authenticated mailbox. If From
-  // points at a different address, rewrite to the SMTP user and keep the label.
-  const configuredEmail = extractEmailAddress(configured);
-  if (
-    smtpUser &&
-    configuredEmail &&
-    configuredEmail.toLowerCase() !== smtpUser.toLowerCase()
-  ) {
-    const label =
-      extractDisplayName(configured) || "Alpha Invoice & Payment";
-    return `${label} <${smtpUser}>`;
-  }
-
-  return configured;
+    "Alpha Invoice & Payment <invoice.payment.alpha@gmail.com>"
+  );
 }
 
 function extractEmailAddress(from: string): string | null {
@@ -140,18 +125,13 @@ function extractEmailAddress(from: string): string | null {
   return null;
 }
 
-function extractDisplayName(from: string): string | null {
-  const angle = from.match(/^(.*)<[^>]+>\s*$/);
-  if (!angle) return null;
-  const name = angle[1].trim().replace(/^["']|["']$/g, "").trim();
-  return name || null;
-}
-
-/** BCC copies so ops can find the send in Gmail (SMTP Sent is the auth mailbox). */
+/** BCC copies so ops can find the send (and Gmail Sent of the auth mailbox). */
 export function resolveInvoiceBccAddresses(smtpUser?: string | null): string[] {
+  const fromEmail = extractEmailAddress(resolveInvoiceFromAddress(""));
   const raw = [
     process.env.DISPATCH_INVOICE_BCC,
     process.env.AUTH_OPS_NOTIFY_EMAIL,
+    fromEmail,
   ]
     .filter(Boolean)
     .join(",");
