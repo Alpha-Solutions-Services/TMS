@@ -293,7 +293,7 @@ export function groupLoadsByCarrier(
   }
 
   const map = new Map<string, DashboardLoad[]>();
-  for (const { display, loads: list } of buckets.values()) {
+  for (const { display, loads: list } of Array.from(buckets.values())) {
     list.sort((a, b) => Number(a.sr) - Number(b.sr));
     map.set(display, list);
   }
