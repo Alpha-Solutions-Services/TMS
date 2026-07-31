@@ -3,6 +3,8 @@ import type { DashboardLoad } from "./dispatch-dashboard-types";
 import {
   buildCarrierContactIndex,
   lookupCarrierContact,
+  normalizeCompanyKey,
+  preferCarrierDisplayName,
   resolveCarrierEmail,
 } from "./carrier-contact";
 
@@ -223,18 +225,29 @@ export function isInvoiceableLoad(load: DashboardLoad): boolean {
 }
 
 export function groupLoadsByCarrier(loads: DashboardLoad[]): Map<string, DashboardLoad[]> {
-  const map = new Map<string, DashboardLoad[]>();
+  /** Normalized company key → preferred display name + loads */
+  const byKey = new Map<string, { display: string; loads: DashboardLoad[] }>();
 
   for (const load of loads.filter(isInvoiceableLoad)) {
-    const key = resolveCarrierName(load);
-    const list = map.get(key) ?? [];
-    list.push(load);
-    map.set(key, list);
+    const raw = resolveCarrierName(load);
+    const key = normalizeCompanyKey(raw);
+    if (!key) continue;
+
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, { display: raw, loads: [load] });
+      continue;
+    }
+
+    existing.loads.push(load);
+    existing.display = preferCarrierDisplayName(existing.display, raw);
   }
 
-  map.forEach((list) => {
+  const map = new Map<string, DashboardLoad[]>();
+  for (const { display, loads: list } of byKey.values()) {
     list.sort((a, b) => Number(a.sr) - Number(b.sr));
-  });
+    map.set(display, list);
+  }
 
   return map;
 }
@@ -257,17 +270,27 @@ export function buildCarrierInvoices(
   const rosterIndex = buildCarrierContactIndex(opts?.carrierRoster ?? []);
   const customNumbers = opts?.invoiceNumbersByCarrier ?? {};
 
-  const carrierFilter = opts?.carriers?.map((c) => c.trim().toLowerCase());
+  const carrierFilterKeys = opts?.carriers
+    ?.map((c) => normalizeCompanyKey(c))
+    .filter(Boolean);
   const invoices: CarrierDispatchInvoice[] = [];
 
   const sortedCarriers = Array.from(grouped.keys()).sort((a, b) => a.localeCompare(b));
 
   for (const carrierName of sortedCarriers) {
-    if (carrierFilter?.length && !carrierFilter.includes(carrierName.toLowerCase())) {
+    const carrierKey = normalizeCompanyKey(carrierName);
+    if (
+      carrierFilterKeys?.length &&
+      !carrierFilterKeys.includes(carrierKey)
+    ) {
       continue;
     }
 
-    const custom = customNumbers[carrierName]?.trim();
+    const custom =
+      customNumbers[carrierName]?.trim() ||
+      Object.entries(customNumbers).find(
+        ([name]) => normalizeCompanyKey(name) === carrierKey,
+      )?.[1]?.trim();
     const invoiceNumber = custom || String(nextAutoNumber);
     if (!custom) nextAutoNumber += 1;
 

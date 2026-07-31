@@ -1,14 +1,31 @@
 import type { CarrierRosterEntry } from "./carrier-sheet";
 import type { DashboardLoad } from "./dispatch-dashboard-types";
 
+/** Canonical key for matching carrier names across sheet spelling variants. */
 export function normalizeCompanyKey(name: string): string {
   return name
     .trim()
     .toLowerCase()
     .replace(/[.,']/g, "")
     .replace(/\s+/g, " ")
-    .replace(/\b(llc|inc|corp|ltd|co)\b/g, "")
+    .replace(/\b(llc|inc|corp|ltd|co|company|limited)\b/g, "")
+    // Collapse common plural variants: "Services" vs "Service"
+    .replace(/\bservices\b/g, "service")
+    .replace(/\btrucking\b/g, "truck")
+    .replace(/\btransports\b/g, "transport")
+    .replace(/\s+/g, " ")
     .trim();
+}
+
+/** Prefer the more complete legal-style spelling for invoice display. */
+export function preferCarrierDisplayName(a: string, b: string): string {
+  const score = (name: string) => {
+    let s = name.trim().length;
+    if (/\b(llc|inc|corp|ltd|company)\b/i.test(name)) s += 20;
+    if (/[a-z]/.test(name) && /[A-Z]/.test(name)) s += 5; // mixed case over ALL CAPS
+    return s;
+  };
+  return score(a) >= score(b) ? a : b;
 }
 
 function isBlank(value: string | undefined | null): boolean {

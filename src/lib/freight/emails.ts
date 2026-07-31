@@ -2,6 +2,7 @@ import {
   brandedEmailWrap,
   createConfiguredTransporter,
   createInvoiceTransporter,
+  resolveInvoiceBccAddresses,
   resolveInvoiceFromAddress,
   resolveSmtpFromAddress,
 } from "@/lib/freight/email-transport";
@@ -267,9 +268,15 @@ Department of ${issuer.companyName}`;
     return { ok: false as const, error: "Invoice SMTP not configured" };
   }
 
+  const from = resolveInvoiceFromAddress(issuer.emailFrom);
+  const bcc = resolveInvoiceBccAddresses(smtpUser).filter(
+    (addr) => addr.toLowerCase() !== to.toLowerCase(),
+  );
+
   await transporter.sendMail({
-    from: resolveInvoiceFromAddress(issuer.emailFrom),
+    from,
     to,
+    ...(bcc.length ? { bcc: bcc.join(", ") } : {}),
     subject,
     text,
     html,

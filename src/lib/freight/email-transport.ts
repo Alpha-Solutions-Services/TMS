@@ -104,15 +104,66 @@ export function createInvoiceTransporter(): nodemailer.Transporter | null {
 }
 
 export function resolveInvoiceFromAddress(fallbackFrom: string) {
+  const smtpUser =
+    process.env.DISPATCH_INVOICE_SMTP_USER?.trim() ||
+    process.env.SMTP_USER?.trim();
+
   const fromRaw = process.env.DISPATCH_INVOICE_FROM;
   const fromStripped =
     typeof fromRaw === "string" ? stripWrappingQuotes(fromRaw) : undefined;
-  return (
+  const configured =
     fromStripped ||
     fallbackFrom ||
-    process.env.DISPATCH_INVOICE_SMTP_USER?.trim() ||
-    "Alpha Invoice & Payment <invoice.payment.alpha@gmail.com>"
-  );
+    smtpUser ||
+    "Alpha Invoice & Payment <invoice.payment.alpha@gmail.com>";
+
+  // Gmail SMTP only puts mail in Sent for the authenticated mailbox. If From
+  // points at a different address, rewrite to the SMTP user and keep the label.
+  const configuredEmail = extractEmailAddress(configured);
+  if (
+    smtpUser &&
+    configuredEmail &&
+    configuredEmail.toLowerCase() !== smtpUser.toLowerCase()
+  ) {
+    const label =
+      extractDisplayName(configured) || "Alpha Invoice & Payment";
+    return `${label} <${smtpUser}>`;
+  }
+
+  return configured;
+}
+
+function extractEmailAddress(from: string): string | null {
+  const angle = from.match(/<([^>]+)>/);
+  if (angle?.[1]) return angle[1].trim();
+  if (from.includes("@")) return from.trim();
+  return null;
+}
+
+function extractDisplayName(from: string): string | null {
+  const angle = from.match(/^(.*)<[^>]+>\s*$/);
+  if (!angle) return null;
+  const name = angle[1].trim().replace(/^["']|["']$/g, "").trim();
+  return name || null;
+}
+
+/** BCC copies so ops can find the send in Gmail (SMTP Sent is the auth mailbox). */
+export function resolveInvoiceBccAddresses(smtpUser?: string | null): string[] {
+  const raw = [
+    process.env.DISPATCH_INVOICE_BCC,
+    process.env.AUTH_OPS_NOTIFY_EMAIL,
+  ]
+    .filter(Boolean)
+    .join(",");
+
+  const emails = raw
+    .split(/[,;]+/)
+    .map((e) => e.trim())
+    .filter((e) => e.includes("@"));
+
+  if (smtpUser?.includes("@")) emails.push(smtpUser.trim());
+
+  return Array.from(new Set(emails.map((e) => e.toLowerCase())));
 }
 
 export function brandedEmailWrap(title: string, innerHtml: string) {
