@@ -16,6 +16,7 @@ import {
   groupLoadsByCarrier,
   isInvoiceableLoad,
   computeOutstandingDispatchFee,
+  mergeCarrierGroupsByEmail,
 } from "@/lib/freight/dispatch-invoice";
 import {
   buildCarrierContactIndex,
@@ -117,9 +118,9 @@ export function DispatcherInvoicesPage() {
       }),
       data.carrier_roster,
     );
-    const grouped = groupLoadsByCarrier(openLoads);
+    const grouped = groupLoadsByCarrier(openLoads, data.carrier_roster);
 
-    return Array.from(grouped.entries()).map(([carrier, loads]) => {
+    const rows = Array.from(grouped.entries()).map(([carrier, loads]) => {
       const email = resolveCarrierEmail(loads, rosterIndex);
       const total = loads.reduce(
         (s, load) => s + computeOutstandingDispatchFee(load),
@@ -136,6 +137,9 @@ export function DispatcherInvoicesPage() {
         lineCount: loads.length,
       };
     });
+
+    // Same displayed email = same carrier invoice (covers roster-only emails).
+    return mergeCarrierGroupsByEmail(rows);
   }, [data, billedKeys]);
 
   useEffect(() => {
