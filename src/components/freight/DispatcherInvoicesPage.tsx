@@ -17,7 +17,11 @@ import {
   isInvoiceableLoad,
   computeOutstandingDispatchFee,
 } from "@/lib/freight/dispatch-invoice";
-import { buildCarrierContactIndex, resolveCarrierEmail } from "@/lib/freight/carrier-contact";
+import {
+  buildCarrierContactIndex,
+  enrichLoadsWithCarrierRoster,
+  resolveCarrierEmail,
+} from "@/lib/freight/carrier-contact";
 import {
   INVOICE_PAYMENT_OPTIONS,
   type InvoicePaymentMethod,
@@ -94,22 +98,25 @@ export function DispatcherInvoicesPage() {
   const carrierGroups = useMemo(() => {
     if (!data) return [];
     const rosterIndex = buildCarrierContactIndex(data.carrier_roster);
-    const openLoads = data.loads.filter((load) => {
-      if (!isInvoiceableLoad(load)) return false;
-      if (load.db_id && billedKeys.dbIds.has(load.db_id)) return false;
-      if (
-        load.load_number &&
-        load.load_number !== "—" &&
-        billedKeys.loadNumbers.has(load.load_number.trim())
-      ) {
-        return false;
-      }
-      const carrier = load.carrier.trim().toLowerCase();
-      if (carrier && load.sr && billedKeys.carrierSrs.has(`${carrier}::${load.sr}`)) {
-        return false;
-      }
-      return true;
-    });
+    const openLoads = enrichLoadsWithCarrierRoster(
+      data.loads.filter((load) => {
+        if (!isInvoiceableLoad(load)) return false;
+        if (load.db_id && billedKeys.dbIds.has(load.db_id)) return false;
+        if (
+          load.load_number &&
+          load.load_number !== "—" &&
+          billedKeys.loadNumbers.has(load.load_number.trim())
+        ) {
+          return false;
+        }
+        const carrier = load.carrier.trim().toLowerCase();
+        if (carrier && load.sr && billedKeys.carrierSrs.has(`${carrier}::${load.sr}`)) {
+          return false;
+        }
+        return true;
+      }),
+      data.carrier_roster,
+    );
     const grouped = groupLoadsByCarrier(openLoads);
 
     return Array.from(grouped.entries()).map(([carrier, loads]) => {

@@ -2,6 +2,7 @@ import type { CarrierRosterEntry } from "./carrier-sheet";
 import type { DashboardLoad } from "./dispatch-dashboard-types";
 import {
   buildCarrierContactIndex,
+  enrichLoadsWithCarrierRoster,
   lookupCarrierContact,
   normalizeCompanyKey,
   preferCarrierDisplayName,
@@ -225,26 +226,72 @@ export function isInvoiceableLoad(load: DashboardLoad): boolean {
 }
 
 export function groupLoadsByCarrier(loads: DashboardLoad[]): Map<string, DashboardLoad[]> {
-  /** Normalized company key → preferred display name + loads */
-  const byKey = new Map<string, { display: string; loads: DashboardLoad[] }>();
+  type Bucket = { display: string; loads: DashboardLoad[] };
+  const invoiceable = loads.filter(isInvoiceableLoad);
 
-  for (const load of loads.filter(isInvoiceableLoad)) {
+  // Union-find so same email OR same normalized name collapses to one invoice.
+  const parent = new Map<string, string>();
+  function find(id: string): string {
+    let cur = parent.get(id) ?? id;
+    while (cur !== (parent.get(cur) ?? cur)) {
+      cur = parent.get(cur) ?? cur;
+    }
+    parent.set(id, cur);
+    return cur;
+  }
+  function union(a: string, b: string) {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  }
+
+  const loadMeta: {
+    load: DashboardLoad;
+    display: string;
+    nameId: string;
+    emailId: string | null;
+  }[] = [];
+
+  for (const load of invoiceable) {
     const raw = resolveCarrierName(load);
-    const key = normalizeCompanyKey(raw);
-    if (!key) continue;
+    const nameKey = normalizeCompanyKey(raw);
+    if (!nameKey) continue;
 
-    const existing = byKey.get(key);
-    if (!existing) {
-      byKey.set(key, { display: raw, loads: [load] });
-      continue;
+    const nameId = `name:${nameKey}`;
+    const emailRaw = load.email?.trim();
+    const emailId =
+      emailRaw && emailRaw !== "—" && emailRaw.includes("@")
+        ? `email:${emailRaw.toLowerCase()}`
+        : null;
+
+    parent.set(nameId, parent.get(nameId) ?? nameId);
+    if (emailId) {
+      parent.set(emailId, parent.get(emailId) ?? emailId);
+      union(nameId, emailId);
     }
 
-    existing.loads.push(load);
-    existing.display = preferCarrierDisplayName(existing.display, raw);
+    loadMeta.push({ load, display: raw, nameId, emailId });
+  }
+
+  // Ensure every load is linked if email and name were registered in any order.
+  for (const meta of loadMeta) {
+    if (meta.emailId) union(meta.nameId, meta.emailId);
+  }
+
+  const buckets = new Map<string, Bucket>();
+  for (const meta of loadMeta) {
+    const root = find(meta.emailId ?? meta.nameId);
+    const existing = buckets.get(root);
+    if (!existing) {
+      buckets.set(root, { display: meta.display, loads: [meta.load] });
+      continue;
+    }
+    existing.loads.push(meta.load);
+    existing.display = preferCarrierDisplayName(existing.display, meta.display);
   }
 
   const map = new Map<string, DashboardLoad[]>();
-  for (const { display, loads: list } of byKey.values()) {
+  for (const { display, loads: list } of buckets.values()) {
     list.sort((a, b) => Number(a.sr) - Number(b.sr));
     map.set(display, list);
   }
@@ -262,7 +309,11 @@ export function buildCarrierInvoices(
     carrierRoster?: CarrierRosterEntry[];
   },
 ): CarrierDispatchInvoice[] {
-  const grouped = groupLoadsByCarrier(loads);
+  const enriched = enrichLoadsWithCarrierRoster(
+    loads,
+    opts?.carrierRoster ?? [],
+  );
+  const grouped = groupLoadsByCarrier(enriched);
   const invoiceDate = opts?.invoiceDate ?? getInvoiceFriday();
   const dueDate = invoiceDate;
   let nextAutoNumber = opts?.startNumber ?? 1;
