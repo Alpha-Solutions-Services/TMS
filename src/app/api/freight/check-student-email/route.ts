@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { checkRateLimit } from "@/lib/freight/api-security";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
 
 const bodySchema = z.object({
@@ -9,6 +10,10 @@ const bodySchema = z.object({
 /** Pre-flight before enrollment: report whether auth already has this email. */
 export async function POST(req: NextRequest) {
   try {
+    if (!checkRateLimit(req, "check-student-email", 30)) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
     const parsed = bodySchema.safeParse(await req.json());
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid email" }, { status: 400 });
