@@ -145,8 +145,17 @@ export async function GET(request: NextRequest) {
   }
 
   let dest = resolved.path;
-  if (nextHint === "/carrier/register" && resolved.path.startsWith("/carrier")) {
-    dest = nextHint;
+  // Allow Google OAuth to finish carrier self-registration even when
+  // resolveLoginDestination would send a new/client user elsewhere.
+  if (nextHint === "/carrier/register") {
+    const roleOk =
+      !tmsRole ||
+      tmsRole === "client" ||
+      resolved.path === "/carrier/register" ||
+      resolved.path.startsWith("/carrier");
+    if (roleOk || resolved.path === "/login") {
+      dest = "/carrier/register";
+    }
   } else if (
     nextHint &&
     ((dest.startsWith("/dispatcher") && nextHint.startsWith("/dispatcher")) ||
