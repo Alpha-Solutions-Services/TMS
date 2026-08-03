@@ -150,10 +150,10 @@ export async function GET(request: NextRequest) {
   if (nextHint === "/carrier/register") {
     const roleOk =
       !tmsRole ||
-      tmsRole === "client" ||
       resolved.path === "/carrier/register" ||
-      resolved.path.startsWith("/carrier");
-    if (roleOk || resolved.path === "/login") {
+      resolved.path.startsWith("/carrier") ||
+      resolved.path === "/login";
+    if (roleOk) {
       dest = "/carrier/register";
     }
   } else if (
