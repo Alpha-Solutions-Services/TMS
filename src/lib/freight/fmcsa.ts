@@ -100,7 +100,12 @@ export async function lookupCarrierByMcDocket(mcDigits: string, webKey: string) 
       };
     }
     const json = (await res.json()) as Record<string, unknown>;
-    const content = (json.content as Record<string, unknown> | undefined) ?? json;
+    // QCMobile docket-number API returns content as [{ carrier: {...} }], not a bare object.
+    const rawContent = json.content;
+    const entry = (
+      Array.isArray(rawContent) ? rawContent[0] : rawContent
+    ) as Record<string, unknown> | undefined;
+    const content = entry ?? json;
     const carrier = content.carrier as Record<string, unknown> | undefined;
     if (!carrier) {
       return { ok: false as const, reason: "not_found" as const };

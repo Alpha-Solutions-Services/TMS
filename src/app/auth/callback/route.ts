@@ -158,6 +158,11 @@ export async function GET(request: NextRequest) {
     }
   } else if (
     nextHint &&
+    dest !== "/carrier/register" &&
+    !(
+      nextHint.startsWith("/carrier/dashboard") &&
+      dest !== "/carrier/dashboard"
+    ) &&
     ((dest.startsWith("/dispatcher") && nextHint.startsWith("/dispatcher")) ||
       (dest.startsWith("/carrier") && nextHint.startsWith("/carrier")) ||
       (dest.startsWith("/driver") && nextHint.startsWith("/driver")))
