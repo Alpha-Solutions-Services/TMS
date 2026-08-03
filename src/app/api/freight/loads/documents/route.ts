@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/freight/api-security";
+import { isCarrierIdentity } from "@/lib/freight/carrier-identity";
 import { assertDispatcher } from "@/lib/freight/dispatch-roster";
 import {
   DOCUMENT_LABELS,
@@ -137,7 +138,7 @@ export async function GET(req: NextRequest) {
 
   const { data: profile } = await sb
     .from("profiles")
-    .select("role, company_name, carrier_id")
+    .select("role, carrier_status, company_name, carrier_id")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -145,7 +146,8 @@ export async function GET(req: NextRequest) {
   const isDriver =
     profile?.role === "driver" && load.assigned_driver_profile_id === user.id;
   const isCarrier =
-    profile?.role === "carrier" &&
+    !!profile &&
+    isCarrierIdentity(profile) &&
     (load.carrier_profile_id === user.id ||
       normalizeCarrierMatch(profile, load.company_name as string));
 
@@ -227,18 +229,19 @@ export async function POST(req: NextRequest) {
   const isDispatcher = await assertDispatcher(user);
   const { data: profile } = await admin
     .from("profiles")
-    .select("role, full_name, company_name, carrier_id, email")
+    .select("role, carrier_status, full_name, company_name, carrier_id, email")
     .eq("id", user.id)
     .maybeSingle();
 
   const isDriver =
     profile?.role === "driver" && load.assigned_driver_profile_id === user.id;
   const isCarrier =
-    profile?.role === "carrier" &&
+    !!profile &&
+    isCarrierIdentity(profile) &&
     (load.carrier_profile_id === user.id ||
       normalizeCarrierMatch(profile, load.company_name as string) ||
       (typeof load.email === "string" &&
-        profile.email &&
+        !!profile.email &&
         String(load.email).toLowerCase() === String(profile.email).toLowerCase()));
 
   const driverDocTypes: LoadDocumentType[] = ["bol", "commodity", "pod"];

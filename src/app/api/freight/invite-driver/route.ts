@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { z } from "zod";
 import { sendDriverAddedToCarrierEmail, sendDriverInvitationEmail } from "@/lib/freight/emails";
+import { isCarrierIdentity, isVerifiedCarrier } from "@/lib/freight/carrier-identity";
 import { PUBLIC_SITE_URL } from "@/lib/freight/constants";
 import { createClient } from "@/lib/supabase/server";
 import { requireCanInviteCarriersAndDrivers } from "@/lib/tms/auth";
@@ -41,8 +42,8 @@ export async function POST(req: NextRequest) {
     let inviterRole: "carrier" | "dispatcher";
     let inviterDisplay: string;
 
-    if (inviter.role === "carrier") {
-      if (inviter.carrier_status !== "verified") {
+    if (isCarrierIdentity(inviter)) {
+      if (!isVerifiedCarrier(inviter)) {
         return NextResponse.json(
           { error: "Verified carriers only" },
           { status: 403 },
@@ -65,11 +66,10 @@ export async function POST(req: NextRequest) {
       inviterDisplay = inviter.full_name ?? "Alpha Freight Dispatcher";
       const { data: car } = await sb
         .from("profiles")
-        .select("carrier_status")
+        .select("role, carrier_status")
         .eq("id", carrierUuid)
-        .eq("role", "carrier")
         .maybeSingle();
-      if (!car || car.carrier_status !== "verified") {
+      if (!isVerifiedCarrier(car)) {
         return NextResponse.json(
           { error: "Carrier not verified or not found" },
           { status: 400 },

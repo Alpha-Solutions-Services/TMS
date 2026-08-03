@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { CarrierSidebar } from "@/components/freight/CarrierSidebar";
 import { ResponsiveDashboardShell } from "@/components/layout/ResponsiveDashboardShell";
+import { isCarrierIdentity } from "@/lib/freight/carrier-identity";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
 
@@ -31,7 +32,7 @@ export default async function CarrierPortalLayout({
         .eq("id", user.id)
         .maybeSingle();
 
-  if (!profile || profile.role !== "carrier") redirect("/login");
+  if (!profile || !isCarrierIdentity(profile)) redirect("/login");
   if (profile.carrier_status === "pending") redirect("/carrier/pending");
   if (profile.carrier_status === "rejected") redirect("/carrier/rejected");
   if (profile.carrier_status === "suspended") redirect("/carrier/suspended");

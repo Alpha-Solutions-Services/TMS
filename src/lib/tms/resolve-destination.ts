@@ -1,4 +1,5 @@
 import type { User } from "@supabase/supabase-js";
+import { isCarrierIdentity } from "@/lib/freight/carrier-identity";
 import {
   canAccessDispatcherPortal,
   ensureDispatcherTmsUser,
@@ -58,7 +59,12 @@ export async function resolveLoginDestination(
   const role = profile?.role as string | undefined;
   const status = profile?.carrier_status as string | undefined;
 
-  if (role === "carrier") {
+  // Drivers first — invite accept can set carrier_status=pending on drivers.
+  if (role === "driver") {
+    return { path: "/driver/dashboard", role: "driver" };
+  }
+
+  if (isCarrierIdentity(profile)) {
     if (status === "verified") {
       return { path: "/carrier/dashboard", role: "carrier", status };
     }
@@ -73,10 +79,6 @@ export async function resolveLoginDestination(
       role: "carrier",
       status: status ?? "pending",
     };
-  }
-
-  if (role === "driver") {
-    return { path: "/driver/dashboard", role: "driver" };
   }
 
   if (await canAccessDispatcherPortal(user)) {

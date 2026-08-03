@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { buildCarrierDashboard } from "@/lib/freight/build-carrier-dashboard";
+import { isVerifiedCarrier } from "@/lib/freight/carrier-identity";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -24,7 +25,7 @@ export async function GET() {
     .eq("id", user.id)
     .maybeSingle();
 
-  if (!profile || profile.role !== "carrier" || profile.carrier_status !== "verified") {
+  if (!profile || !isVerifiedCarrier(profile)) {
     return NextResponse.json({ error: "Verified carrier only" }, { status: 403 });
   }
 

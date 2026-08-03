@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { checkRateLimit, sanitizeText } from "@/lib/freight/api-security";
+import { isVerifiedCarrier } from "@/lib/freight/carrier-identity";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
 
@@ -33,7 +34,7 @@ export async function GET() {
     .eq("id", user.id)
     .maybeSingle();
 
-  if (!profile || profile.role !== "carrier" || profile.carrier_status !== "verified") {
+  if (!isVerifiedCarrier(profile)) {
     return NextResponse.json({ error: "Verified carrier only" }, { status: 403 });
   }
 
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
     .eq("id", user.id)
     .maybeSingle();
 
-  if (!profile || profile.role !== "carrier" || profile.carrier_status !== "verified") {
+  if (!isVerifiedCarrier(profile)) {
     return NextResponse.json({ error: "Verified carrier only" }, { status: 403 });
   }
 
