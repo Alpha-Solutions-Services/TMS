@@ -85,7 +85,7 @@ export function DispatcherAcademyPage() {
             Academy enrollments
           </h1>
           <p className="mt-1 text-sm text-[var(--color-muted)]">
-            When a student pays via Zelle / Wise / Payoneer, mark payment accepted here to unlock their dashboard.
+            When a student pays via NayaPay and marks payment sent, verify the transfer then accept to unlock their dashboard.
           </p>
         </div>
         <button

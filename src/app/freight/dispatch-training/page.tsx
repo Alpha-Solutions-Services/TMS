@@ -9,7 +9,7 @@ export function generateMetadata(): Metadata {
   const title =
     "Truck Dispatcher Training Course | Alpha Freight Network";
   const description =
-    "Online freight dispatch training for $120. Learn load boards, negotiation basics, and carrier workflows. Enroll via WhatsApp with Alpha Freight Network.";
+    "Online freight dispatch training — PKR 20,000/month or PKR 34,000 for a 2-month bundle. Pay via NayaPay.";
   const url = "https://www.alphasolutions.software/freight/dispatch-training";
   return {
     title,
@@ -95,10 +95,10 @@ export default function DispatchTrainingPage() {
           </p>
           <div className="mt-8 flex flex-wrap items-baseline gap-3">
             <span className="text-4xl font-bold text-[var(--color-accent)] sm:text-5xl">
-              $120
+              PKR 34,000
             </span>
             <span className="text-sm font-medium text-[var(--color-muted)]">
-              one-time · online access
+              2-month bundle · or PKR 20,000/month
             </span>
           </div>
         </div>
@@ -160,15 +160,11 @@ export default function DispatchTrainingPage() {
           </h2>
           <ol className="mt-6 list-decimal space-y-4 pl-5 text-sm leading-relaxed text-[var(--color-muted)]">
             <li>
-              Message us on WhatsApp with the subject line{" "}
-              <strong className="text-[var(--color-text)]">
-                Dispatch training — $120
-              </strong>
-              .
+              Enroll online and pay via NayaPay to{" "}
+              <strong className="text-[var(--color-text)]">0321 644 3914</strong>.
             </li>
             <li>
-              We confirm availability, send payment instructions, and issue
-              access details for the course materials.
+              Tap &quot;I have paid&quot; after sending — our team verifies and activates your dashboard.
             </li>
             <li>
               Complete modules at your pace. Optional: add dispatch or
