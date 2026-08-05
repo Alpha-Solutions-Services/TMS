@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
 
   const cookieStore = await cookies();
   const supabase = createServerClient(url, anon, {
+    cookieEncoding: "base64url",
     cookies: {
       getAll() {
         return cookieStore.getAll();
