@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CarrierOnboardingDocsPanel } from "@/components/freight/CarrierOnboardingDocsPanel";
 import { FreightSignOutLink } from "@/components/freight/FreightSignOutLink";
 
 export const metadata: Metadata = {
@@ -22,6 +23,7 @@ export default function CarrierRejectedPage() {
           </a>
           .
         </p>
+        <CarrierOnboardingDocsPanel heading="Documents & rejection details" />
         <FreightSignOutLink />
         <Link href="/login" className="mt-4 block text-xs text-[var(--color-muted)] underline">
           Return to login chooser

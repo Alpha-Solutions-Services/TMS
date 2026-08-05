@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { CarrierOnboardingDocsPanel } from "@/components/freight/CarrierOnboardingDocsPanel";
 import { FreightSignOutLink } from "@/components/freight/FreightSignOutLink";
 
 export const metadata: Metadata = {
@@ -28,6 +29,7 @@ export default async function CarrierPendingPage() {
           Our Alpha Freight desk reviews filings and insurance alignment before releasing dispatch consoles.
           Most reviews land within one business day.
         </p>
+        <CarrierOnboardingDocsPanel />
         {emailDisp ? (
           <p className="mt-6 rounded-lg bg-[var(--color-bg)]/60 px-4 py-3 text-xs text-[var(--color-muted)]">
             Watch <strong className="text-[var(--color-text)]">{emailDisp}</strong> for onboarding steps.
