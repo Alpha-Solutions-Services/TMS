@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import {
+  carrierRequiredDocumentsApproved,
+  type CarrierPaymentPreference,
+} from "@/lib/freight/carrier-documents";
 import { startCarrierTrialIso } from "@/lib/freight/carrier-subscription";
 import { sendCarrierApprovedEmail, sendCarrierRejectedEmail } from "@/lib/freight/emails";
 import { createClient } from "@/lib/supabase/server";
+import { getServiceRoleClient } from "@/lib/supabase/service-role";
 
 const schema = z.object({
   carrierProfileId: z.string().uuid(),
@@ -40,6 +45,32 @@ export async function POST(req: NextRequest) {
 
     if (!target?.email) {
       return NextResponse.json({ error: "Carrier not found" }, { status: 404 });
+    }
+
+    if (body.decision === "approve") {
+      const admin = getServiceRoleClient();
+      const { data: prefRow } = admin
+        ? await admin
+            .from("profiles")
+            .select("carrier_payment_preference")
+            .eq("id", body.carrierProfileId)
+            .maybeSingle()
+        : { data: null };
+      const ready = await carrierRequiredDocumentsApproved(
+        body.carrierProfileId,
+        prefRow?.carrier_payment_preference as
+          | CarrierPaymentPreference
+          | null,
+      );
+      if (!ready) {
+        return NextResponse.json(
+          {
+            error:
+              "Cannot verify carrier until MC, W-9, COI, and pay document are all approved.",
+          },
+          { status: 400 },
+        );
+      }
     }
 
     const nextStatus =

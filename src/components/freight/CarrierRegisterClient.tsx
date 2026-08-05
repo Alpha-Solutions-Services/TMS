@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
+import type { CarrierPaymentPreference } from "@/lib/freight/carrier-documents";
 import { createClient } from "@/lib/supabase/client";
 import { setTmsOAuthHints } from "@/lib/tms/oauth-hints";
 
@@ -30,6 +31,13 @@ export function CarrierRegisterClient() {
   const [tos, setTos] = useState(false);
   const [companyManual, setCompanyManual] = useState("");
   const [addrManual, setAddrManual] = useState("");
+  const [paymentPreference, setPaymentPreference] = useState<
+    CarrierPaymentPreference | ""
+  >("");
+  const [fileMc, setFileMc] = useState<File | null>(null);
+  const [fileW9, setFileW9] = useState<File | null>(null);
+  const [fileCoi, setFileCoi] = useState<File | null>(null);
+  const [filePayDoc, setFilePayDoc] = useState<File | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -125,25 +133,46 @@ export function CarrierRegisterClient() {
       setErr("Terms acceptance required.");
       return;
     }
+    if (paymentPreference !== "factoring" && paymentPreference !== "quick_pay") {
+      setErr("Select factoring or quick pay.");
+      return;
+    }
+    if (!fileMc || !fileW9 || !fileCoi || !filePayDoc) {
+      setErr("Upload MC authority, W-9, COI, and your pay document.");
+      return;
+    }
     setLoading(true);
     try {
-      const payload = {
-        email,
-        password: oauthUserId ? undefined : password,
-        contactName,
-        phone,
-        mcNumber: normalizedMcDisplay || mc,
-        companyName: fallback ? companyManual : companyNameDisplay,
-        companyAddress: fallback ? addrManual : companyAddressDisplay,
-        allowManualVerification: fallback,
-      };
+      const fd = new FormData();
+      fd.append("email", email);
+      if (!oauthUserId) fd.append("password", password);
+      fd.append("contactName", contactName);
+      fd.append("phone", phone);
+      fd.append("mcNumber", normalizedMcDisplay || mc);
+      fd.append(
+        "companyName",
+        fallback ? companyManual : companyNameDisplay,
+      );
+      fd.append(
+        "companyAddress",
+        fallback ? addrManual : companyAddressDisplay,
+      );
+      if (fallback) fd.append("allowManualVerification", "true");
+      fd.append("carrierPaymentPreference", paymentPreference);
+      fd.append("mc_authority", fileMc);
+      fd.append("w9", fileW9);
+      fd.append("coi", fileCoi);
+      fd.append(
+        paymentPreference === "factoring" ? "factoring_noa" : "voided_check",
+        filePayDoc,
+      );
+
       const endpoint = oauthUserId
         ? "/api/freight/register-carrier-oauth"
         : "/api/freight/register-carrier";
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: fd,
       });
       const data = await res.json();
       if (!res.ok) {
@@ -159,6 +188,9 @@ export function CarrierRegisterClient() {
       setLoading(false);
     }
   }
+
+  const fileInputClass =
+    "w-full text-sm text-[var(--color-muted)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--color-accent)]/20 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[var(--color-accent)]";
 
   return (
     <div className="mx-auto max-w-2xl pb-24 pt-12 px-4">
@@ -287,6 +319,68 @@ export function CarrierRegisterClient() {
                 You’re using Google sign-in. No password needed.
               </p>
             )}
+
+            <label className="text-xs text-[var(--color-muted)]">Payment preference</label>
+            <select
+              required
+              value={paymentPreference}
+              onChange={(e) => {
+                setPaymentPreference(
+                  e.target.value as CarrierPaymentPreference | "",
+                );
+                setFilePayDoc(null);
+              }}
+              className="w-full rounded-lg border border-[var(--color-border)] bg-[#050912] px-3 py-2"
+            >
+              <option value="">Select…</option>
+              <option value="factoring">Factoring (upload NOA)</option>
+              <option value="quick_pay">Quick pay (upload voided check)</option>
+            </select>
+
+            <label className="text-xs text-[var(--color-muted)]">
+              MC Authority Letter (PDF/image)
+            </label>
+            <input
+              type="file"
+              accept=".pdf,image/*"
+              required
+              className={fileInputClass}
+              onChange={(e) => setFileMc(e.target.files?.[0] ?? null)}
+            />
+            <label className="text-xs text-[var(--color-muted)]">W-9 Form</label>
+            <input
+              type="file"
+              accept=".pdf,image/*"
+              required
+              className={fileInputClass}
+              onChange={(e) => setFileW9(e.target.files?.[0] ?? null)}
+            />
+            <label className="text-xs text-[var(--color-muted)]">
+              Certificate of Insurance
+            </label>
+            <input
+              type="file"
+              accept=".pdf,image/*"
+              required
+              className={fileInputClass}
+              onChange={(e) => setFileCoi(e.target.files?.[0] ?? null)}
+            />
+            <label className="text-xs text-[var(--color-muted)]">
+              {paymentPreference === "factoring"
+                ? "Notice of Assignment (NOA)"
+                : paymentPreference === "quick_pay"
+                  ? "Voided check"
+                  : "Pay document (select preference first)"}
+            </label>
+            <input
+              type="file"
+              accept=".pdf,image/*"
+              required
+              disabled={!paymentPreference}
+              className={`${fileInputClass} disabled:opacity-40`}
+              onChange={(e) => setFilePayDoc(e.target.files?.[0] ?? null)}
+            />
+
             <label className="inline-flex gap-3 text-xs text-[var(--color-muted)]">
               <input type="checkbox" checked={tos} onChange={(e) => setTos(e.target.checked)} />
               I agree to Alpha Freight Terms of Service &amp; data handling disclosures.

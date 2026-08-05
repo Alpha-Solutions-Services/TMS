@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyPasswordForEmail } from "@/lib/auth/verify-password-for-email";
+import {
+  uploadRequiredCarrierDocumentsFromFormData,
+  type CarrierPaymentPreference,
+} from "@/lib/freight/carrier-documents";
 import { sendCarrierPendingEmail } from "@/lib/freight/emails";
 import {
   lookupCarrierByMcDocket,
   normalizeMcNumber,
   summarizeFmcsCarrier,
 } from "@/lib/freight/fmcsa";
+import {
+  captureCarrierRegistrationSnapshot,
+  rollbackFailedCarrierRegistration,
+  type CarrierRegistrationProfileSnapshot,
+} from "@/lib/freight/rollback-carrier-registration";
 import { deliverAuthNotifications } from "@/lib/email/auth-notify";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
 
@@ -19,6 +28,7 @@ const schema = z.object({
   companyName: z.string().min(2),
   companyAddress: z.string().min(5).optional().or(z.literal("")),
   allowManualVerification: z.boolean().optional(),
+  carrierPaymentPreference: z.enum(["factoring", "quick_pay"]),
 });
 
 export async function POST(req: NextRequest) {
@@ -30,9 +40,23 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const body = schema.parse(await req.json());
+    const form = await req.formData();
+    const body = schema.parse({
+      email: String(form.get("email") ?? ""),
+      password: String(form.get("password") ?? ""),
+      contactName: String(form.get("contactName") ?? ""),
+      phone: String(form.get("phone") ?? ""),
+      mcNumber: String(form.get("mcNumber") ?? ""),
+      companyName: String(form.get("companyName") ?? ""),
+      companyAddress: String(form.get("companyAddress") ?? ""),
+      allowManualVerification: form.get("allowManualVerification") === "true",
+      carrierPaymentPreference: String(
+        form.get("carrierPaymentPreference") ?? "",
+      ),
+    });
     const normalizedMc = normalizeMcNumber(body.mcNumber);
     const emailNorm = body.email.trim().toLowerCase();
+    const preference = body.carrierPaymentPreference as CarrierPaymentPreference;
 
     const { data: emailExists } = await admin.rpc("check_freight_email_registered", {
       candidate: emailNorm,
@@ -150,6 +174,9 @@ export async function POST(req: NextRequest) {
     }
 
     let createdNewAuthUser = false;
+    let profileInserted = false;
+    let priorSnapshot: CarrierRegistrationProfileSnapshot | null = null;
+
     if (!emailExists) {
       const { data: created, error: createErr } =
         await admin.auth.admin.createUser({
@@ -189,6 +216,7 @@ export async function POST(req: NextRequest) {
       fmcsa_verified_at: fmcsaVerified ? new Date().toISOString() : null,
       fmcsa_data: fmcsData,
       enrollment_status: "unpaid",
+      carrier_payment_preference: preference,
     } as const;
 
     const { data: existingProfileByUser } = await admin
@@ -197,6 +225,10 @@ export async function POST(req: NextRequest) {
       .eq("id", userId)
       .maybeSingle();
 
+    if (existingProfileByUser) {
+      priorSnapshot = await captureCarrierRegistrationSnapshot(admin, userId);
+    }
+
     let profErr: { message?: string } | null = null;
     if (existingProfileByUser) {
       const { error } = await admin.from("profiles").update(baseProfile).eq("id", userId);
@@ -204,6 +236,7 @@ export async function POST(req: NextRequest) {
     } else {
       const { error } = await admin.from("profiles").insert({ id: userId, ...baseProfile });
       profErr = error;
+      if (!error) profileInserted = true;
     }
 
     if (profErr) {
@@ -214,6 +247,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Unable to finalize registration right now. Please try again." },
         { status: 500 },
+      );
+    }
+
+    const docs = await uploadRequiredCarrierDocumentsFromFormData({
+      carrierProfileId: userId,
+      preference,
+      form,
+    });
+    if ("error" in docs) {
+      console.error("[register-carrier] docs", docs.error);
+      await rollbackFailedCarrierRegistration({
+        admin,
+        userId,
+        createdNewAuthUser,
+        profileInserted,
+        priorSnapshot,
+      });
+      return NextResponse.json(
+        {
+          error: `${docs.error} Registration was not completed — please try again from the start.`,
+        },
+        { status: 400 },
       );
     }
 

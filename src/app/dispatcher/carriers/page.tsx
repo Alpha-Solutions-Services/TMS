@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { DispatcherCarrierReview } from "@/components/freight/DispatcherCarrierReview";
+import { DispatcherCarrierDocumentsReview } from "@/components/freight/DispatcherCarrierDocumentsReview";
 import { DispatcherCarrierManage } from "@/components/freight/DispatcherCarrierManage";
 import { DispatcherCarrierRoster } from "@/components/freight/DispatcherCarrierRoster";
 import { getPortalUser } from "@/lib/portal/auth";
@@ -47,6 +48,10 @@ function CarriersContent({
         <div className="mt-6">
           <DispatcherCarrierReview />
         </div>
+      </section>
+
+      <section className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)]/40 p-5 sm:p-8">
+        <DispatcherCarrierDocumentsReview />
       </section>
     </div>
   );

@@ -276,34 +276,148 @@ export function CarrierInvoicesPage() {
 
 export function CarrierDocumentsPage() {
   const { data, loading, company } = useCarrierPage();
+  const [onboarding, setOnboarding] = useState<{
+    preference: string | null;
+    documents: Array<{
+      type: string;
+      label: string;
+      status: string;
+      rejection_reason: string | null;
+      uploaded_at: string | null;
+      viewUrl: string | null;
+    }>;
+  } | null>(null);
+  const [onboardingErr, setOnboardingErr] = useState<string | null>(null);
+  const [uploadingType, setUploadingType] = useState<string | null>(null);
+
+  async function loadOnboarding() {
+    setOnboardingErr(null);
+    try {
+      const res = await fetch("/api/freight/carrier/documents");
+      const json = await res.json();
+      if (!res.ok) {
+        setOnboardingErr(json.error ?? "Could not load documents");
+        return;
+      }
+      setOnboarding(json);
+    } catch {
+      setOnboardingErr("Could not load documents");
+    }
+  }
+
+  useEffect(() => {
+    void loadOnboarding();
+  }, []);
+
+  async function reupload(type: string, file: File) {
+    setUploadingType(type);
+    setOnboardingErr(null);
+    try {
+      const fd = new FormData();
+      fd.append("documentType", type);
+      fd.append("file", file);
+      const res = await fetch("/api/freight/carrier/documents", {
+        method: "POST",
+        body: fd,
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Upload failed");
+      await loadOnboarding();
+    } catch (e) {
+      setOnboardingErr(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploadingType(null);
+    }
+  }
+
   return (
     <CarrierPageShell title="Documents" loading={loading && !data} companyName={company}>
-      {data ? (
-        <div className="space-y-6">
-          <CarrierGlassCard glow className="border-dashed">
-            <div className="flex flex-col items-center py-10 text-center">
-              <Upload className="h-10 w-10 text-[var(--color-accent)]" />
-              <p className="mt-3 font-medium text-[var(--color-text)]">Drag & drop POD / BOL</p>
-              <p className="mt-1 text-sm text-[var(--color-muted)]">PDF, JPG up to 10MB</p>
-              <button
-                type="button"
-                className="mt-4 rounded-xl border border-[var(--color-accent)]/50 px-4 py-2 text-sm text-[var(--color-accent)]"
+      <div className="space-y-6">
+        <CarrierGlassCard>
+          <h2 className="font-semibold text-[var(--color-text)]">
+            Onboarding documents
+          </h2>
+          <p className="mt-1 text-sm text-[var(--color-muted)]">
+            MC authority, W-9, COI, and your pay document. Re-upload if rejected.
+          </p>
+          {onboardingErr ? (
+            <p className="mt-2 text-sm text-red-200">{onboardingErr}</p>
+          ) : null}
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {(onboarding?.documents ?? []).map((doc) => (
+              <div
+                key={doc.type}
+                className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)]/40 p-4"
               >
-                Choose files
-              </button>
-            </div>
-          </CarrierGlassCard>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {data.documents.map((doc) => (
-              <CarrierGlassCard key={doc.document_type}>
-                <p className="font-medium">{doc.document_type}</p>
-                <p className="text-sm text-[var(--color-muted)]">Expires {doc.expiration_date}</p>
-                <CarrierStatusBadge status={doc.status} />
-              </CarrierGlassCard>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-medium text-[var(--color-text)]">{doc.label}</p>
+                  <CarrierStatusBadge status={doc.status} />
+                </div>
+                {doc.rejection_reason ? (
+                  <p className="mt-2 text-xs text-red-200">{doc.rejection_reason}</p>
+                ) : null}
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  {doc.viewUrl ? (
+                    <a
+                      href={doc.viewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-semibold text-[var(--color-accent)] underline"
+                    >
+                      View
+                    </a>
+                  ) : null}
+                  {doc.status === "rejected" || doc.status === "missing" ? (
+                    <label className="text-xs text-[var(--color-muted)]">
+                      {uploadingType === doc.type ? "Uploading…" : "Re-upload"}
+                      <input
+                        type="file"
+                        accept=".pdf,image/*"
+                        disabled={uploadingType === doc.type}
+                        className="mt-1 block w-full text-xs"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) void reupload(doc.type, f);
+                        }}
+                      />
+                    </label>
+                  ) : null}
+                </div>
+              </div>
             ))}
+            {!onboarding && !onboardingErr ? (
+              <p className="text-sm text-[var(--color-muted)]">Loading onboarding docs…</p>
+            ) : null}
           </div>
-        </div>
-      ) : null}
+        </CarrierGlassCard>
+
+        {data ? (
+          <>
+            <CarrierGlassCard glow className="border-dashed">
+              <div className="flex flex-col items-center py-10 text-center">
+                <Upload className="h-10 w-10 text-[var(--color-accent)]" />
+                <p className="mt-3 font-medium text-[var(--color-text)]">Drag & drop POD / BOL</p>
+                <p className="mt-1 text-sm text-[var(--color-muted)]">PDF, JPG up to 10MB</p>
+                <button
+                  type="button"
+                  className="mt-4 rounded-xl border border-[var(--color-accent)]/50 px-4 py-2 text-sm text-[var(--color-accent)]"
+                >
+                  Choose files
+                </button>
+              </div>
+            </CarrierGlassCard>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {data.documents.map((doc) => (
+                <CarrierGlassCard key={doc.document_type}>
+                  <p className="font-medium">{doc.document_type}</p>
+                  <p className="text-sm text-[var(--color-muted)]">Expires {doc.expiration_date}</p>
+                  <CarrierStatusBadge status={doc.status} />
+                </CarrierGlassCard>
+              ))}
+            </div>
+          </>
+        ) : null}
+      </div>
     </CarrierPageShell>
   );
 }

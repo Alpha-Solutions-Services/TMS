@@ -164,3 +164,81 @@ export async function fetchCarrierDocuments(
   }
   return (data ?? []) as CarrierDocumentRow[];
 }
+
+const CARRIER_DOC_MAX_BYTES = 10 * 1024 * 1024;
+
+const ALLOWED_DOC_MIMES = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+]);
+
+export function resolveCarrierDocMime(file: File): string | null {
+  const type = file.type?.trim().toLowerCase();
+  if (type && type !== "application/octet-stream" && ALLOWED_DOC_MIMES.has(type)) {
+    return type;
+  }
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".pdf")) return "application/pdf";
+  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+  if (name.endsWith(".png")) return "image/png";
+  if (name.endsWith(".webp")) return "image/webp";
+  if (name.endsWith(".heic")) return "image/heic";
+  return null;
+}
+
+/** True when every required type for preference exists and is approved. */
+export async function carrierRequiredDocumentsApproved(
+  carrierProfileId: string,
+  preference: CarrierPaymentPreference | null | undefined,
+): Promise<boolean> {
+  const required = requiredCarrierDocumentTypes(preference);
+  if (required.length < 4) return false;
+  const rows = await fetchCarrierDocuments(carrierProfileId);
+  if (!rows) return false;
+  const byType = new Map(rows.map((r) => [r.document_type, r]));
+  return required.every((t) => byType.get(t)?.status === "approved");
+}
+
+/**
+ * Upload the four required register docs from multipart FormData (service role).
+ * Field names: mc_authority, w9, coi, factoring_noa | voided_check
+ */
+export async function uploadRequiredCarrierDocumentsFromFormData(params: {
+  carrierProfileId: string;
+  preference: CarrierPaymentPreference;
+  form: FormData;
+}): Promise<{ ok: true } | { error: string }> {
+  const types = requiredCarrierDocumentTypes(params.preference);
+  for (const type of types) {
+    const entry = params.form.get(type);
+    if (!(entry instanceof File) || entry.size <= 0) {
+      return {
+        error: `Missing required document: ${CARRIER_DOCUMENT_LABELS[type]}`,
+      };
+    }
+    if (entry.size > CARRIER_DOC_MAX_BYTES) {
+      return {
+        error: `${CARRIER_DOCUMENT_LABELS[type]} must be 10MB or less`,
+      };
+    }
+    const mime = resolveCarrierDocMime(entry);
+    if (!mime) {
+      return {
+        error: `${CARRIER_DOCUMENT_LABELS[type]} must be PDF or image`,
+      };
+    }
+    const buf = Buffer.from(await entry.arrayBuffer());
+    const result = await uploadCarrierDocument({
+      carrierProfileId: params.carrierProfileId,
+      type,
+      file: buf,
+      filename: entry.name || `${type}.pdf`,
+      contentType: mime,
+    });
+    if ("error" in result) return { error: result.error };
+  }
+  return { ok: true };
+}
