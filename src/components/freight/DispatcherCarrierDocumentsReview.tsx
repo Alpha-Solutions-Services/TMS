@@ -8,8 +8,12 @@ type DocItem = {
   label: string;
   status: string;
   uploaded_at: string;
+  reviewed_at: string | null;
   rejection_reason: string | null;
+  file_purged_at: string | null;
+  filePurged: boolean;
   viewUrl: string | null;
+  reviewed_by: { full_name?: string | null; email?: string | null } | null;
   carrier: {
     company_name: string | null;
     full_name: string | null;
@@ -19,18 +23,29 @@ type DocItem = {
   } | null;
 };
 
+type StatusFilter = "pending" | "approved" | "rejected" | "all";
+
+const FILTERS: { key: StatusFilter; label: string }[] = [
+  { key: "pending", label: "Pending" },
+  { key: "approved", label: "Approved" },
+  { key: "rejected", label: "Rejected" },
+  { key: "all", label: "All" },
+];
+
 function DocRow({
   doc,
   onChanged,
+  filter,
 }: {
   doc: DocItem;
   onChanged: () => void;
+  filter: StatusFilter;
 }) {
   const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState("");
   const [err, setErr] = useState<string | null>(null);
 
-  async function act(decision: "approve" | "reject") {
+  async function act(decision: "approve" | "reject" | "revert") {
     setBusy(true);
     setErr(null);
     try {
@@ -55,6 +70,7 @@ function DocRow({
 
   const carrierName =
     doc.carrier?.company_name || doc.carrier?.full_name || "Carrier";
+  const isPending = filter === "pending" || doc.status === "pending";
 
   return (
     <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/40 px-6 py-5">
@@ -64,6 +80,13 @@ function DocRow({
           <p className="text-sm font-bold text-[var(--color-text)]">{carrierName}</p>
           <p className="text-[11px] uppercase tracking-[0.12em] text-[var(--color-muted)]">
             MC #{doc.carrier?.mc_number ?? "?"} · {doc.label}
+            <span className="ml-2 normal-case tracking-normal">
+              ({doc.status}
+              {doc.carrier?.carrier_status
+                ? ` · carrier ${doc.carrier.carrier_status}`
+                : ""}
+              )
+            </span>
           </p>
           <p className="mt-3 text-xs text-[var(--color-muted)]">
             {doc.carrier?.email ?? "—"} · uploaded{" "}
@@ -78,40 +101,72 @@ function DocRow({
             >
               View file
             </a>
+          ) : doc.filePurged ? (
+            <p className="mt-3 text-xs text-[var(--color-muted)]">
+              File purged (7-day retention)
+            </p>
+          ) : null}
+          {doc.reviewed_at ? (
+            <p className="mt-2 text-xs text-[var(--color-muted)]">
+              Reviewed {new Date(doc.reviewed_at).toLocaleString()}
+              {doc.reviewed_by?.full_name || doc.reviewed_by?.email
+                ? ` by ${doc.reviewed_by.full_name || doc.reviewed_by.email}`
+                : ""}
+            </p>
+          ) : null}
+          {doc.rejection_reason ? (
+            <p className="mt-2 text-xs text-red-200">{doc.rejection_reason}</p>
           ) : null}
         </div>
+        {isPending ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void act("approve")}
+            className="h-fit rounded-lg bg-emerald-400 px-5 py-2 text-[11px] font-bold uppercase text-[#052210]"
+          >
+            Approve
+          </button>
+        ) : null}
+      </div>
+      {isPending ? (
+        <>
+          <label className="mt-6 block text-[11px] text-[var(--color-muted)]">
+            Rejection note (required to reject)
+          </label>
+          <textarea
+            className="mt-2 w-full rounded-lg border border-[var(--color-border)] bg-[#050912] px-3 py-2 text-xs"
+            rows={3}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void act("reject")}
+            className="mt-4 rounded-lg border border-red-500/35 bg-red-500/15 px-4 py-2 text-[11px] font-bold uppercase text-red-100"
+          >
+            Reject
+          </button>
+        </>
+      ) : null}
+      {doc.status !== "pending" ? (
         <button
           type="button"
           disabled={busy}
-          onClick={() => void act("approve")}
-          className="h-fit rounded-lg bg-emerald-400 px-5 py-2 text-[11px] font-bold uppercase text-[#052210]"
+          onClick={() => void act("revert")}
+          className="mt-4 rounded-lg border border-amber-500/35 bg-amber-500/10 px-4 py-2 text-[11px] font-bold uppercase text-amber-100"
         >
-          Approve
+          Revert to pending
         </button>
-      </div>
-      <label className="mt-6 block text-[11px] text-[var(--color-muted)]">
-        Rejection note (required to reject)
-      </label>
-      <textarea
-        className="mt-2 w-full rounded-lg border border-[var(--color-border)] bg-[#050912] px-3 py-2 text-xs"
-        rows={3}
-        value={reason}
-        onChange={(e) => setReason(e.target.value)}
-      />
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => void act("reject")}
-        className="mt-4 rounded-lg border border-red-500/35 bg-red-500/15 px-4 py-2 text-[11px] font-bold uppercase text-red-100"
-      >
-        Reject
-      </button>
+      ) : null}
     </div>
   );
 }
 
 export function DispatcherCarrierDocumentsReview() {
-  const [pending, setPending] = useState<DocItem[]>([]);
+  const [filter, setFilter] = useState<StatusFilter>("pending");
+  const [docs, setDocs] = useState<DocItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -120,17 +175,17 @@ export function DispatcherCarrierDocumentsReview() {
     setErr(null);
     try {
       const res = await fetch(
-        "/api/freight/dispatcher/carrier-documents?status=pending",
+        `/api/freight/dispatcher/carrier-documents?status=${filter}`,
       );
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Could not load documents");
-      setPending((json.documents ?? []) as DocItem[]);
+      setDocs((json.documents ?? []) as DocItem[]);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Load failed");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filter]);
 
   useEffect(() => {
     void load();
@@ -140,23 +195,40 @@ export function DispatcherCarrierDocumentsReview() {
     <section className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--color-accent)]/25 bg-[var(--color-accent)]/5 px-6 py-4">
         <h2 className="text-xs font-black uppercase tracking-[0.36em] text-[var(--color-accent)]">
-          Pending document review
+          Document review
         </h2>
         <p className="text-[11px] text-[var(--color-muted)]">
-          Approve MC, W-9, COI, and pay docs before verifying the carrier.
+          Approve MC, W-9, COI, and pay docs before verifying the carrier. Super
+          can revert decisions; verified carriers demote if docs fall incomplete.
         </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {FILTERS.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            onClick={() => setFilter(f.key)}
+            className={
+              filter === f.key
+                ? "rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-[#052210]"
+                : "rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]/40 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-[var(--color-muted)]"
+            }
+          >
+            {f.label}
+          </button>
+        ))}
       </div>
       {err ? <p className="text-xs text-red-200">{err}</p> : null}
       <div className="space-y-4">
         {loading ? (
           <p className="text-center text-xs text-[var(--color-muted)]">Loading…</p>
-        ) : pending.length === 0 ? (
+        ) : docs.length === 0 ? (
           <p className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/30 px-4 py-6 text-center text-xs text-[var(--color-muted)]">
-            No pending documents.
+            No {filter === "all" ? "" : `${filter} `}documents.
           </p>
         ) : (
-          pending.map((d) => (
-            <DocRow key={d.id} doc={d} onChanged={load} />
+          docs.map((d) => (
+            <DocRow key={d.id} doc={d} filter={filter} onChanged={load} />
           ))
         )}
       </div>

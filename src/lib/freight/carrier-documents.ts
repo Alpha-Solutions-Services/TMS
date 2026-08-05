@@ -269,6 +269,43 @@ export async function carrierRequiredDocumentsApproved(
 }
 
 /**
+ * C1: if carrier is verified but required docs are no longer all approved,
+ * demote carrier_status → pending (service role).
+ */
+export async function maybeDemoteVerifiedCarrierIfDocsIncomplete(
+  carrierProfileId: string,
+): Promise<{ demoted: boolean }> {
+  const admin = getServiceRoleClient();
+  if (!admin) return { demoted: false };
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("carrier_status, carrier_payment_preference")
+    .eq("id", carrierProfileId)
+    .maybeSingle();
+
+  if (profile?.carrier_status !== "verified") return { demoted: false };
+
+  const ready = await carrierRequiredDocumentsApproved(
+    carrierProfileId,
+    profile.carrier_payment_preference as CarrierPaymentPreference | null,
+  );
+  if (ready) return { demoted: false };
+
+  const { error } = await admin
+    .from("profiles")
+    .update({ carrier_status: "pending" })
+    .eq("id", carrierProfileId)
+    .eq("carrier_status", "verified");
+
+  if (error) {
+    console.error("[carrier-documents] demote verified carrier", error);
+    return { demoted: false };
+  }
+  return { demoted: true };
+}
+
+/**
  * Upload the four required register docs from multipart FormData (service role).
  * Field names: mc_authority, w9, coi, factoring_noa | voided_check
  */
