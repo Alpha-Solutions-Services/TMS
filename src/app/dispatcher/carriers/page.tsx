@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { DispatcherCarrierReview } from "@/components/freight/DispatcherCarrierReview";
 import { DispatcherCarrierDocumentsReview } from "@/components/freight/DispatcherCarrierDocumentsReview";
+import { DispatcherCarrierInvitesPanel } from "@/components/freight/DispatcherCarrierInvitesPanel";
 import { DispatcherCarrierManage } from "@/components/freight/DispatcherCarrierManage";
 import { DispatcherCarrierRoster } from "@/components/freight/DispatcherCarrierRoster";
 import { getPortalUser } from "@/lib/portal/auth";
@@ -38,6 +39,10 @@ function CarriersContent({
       </div>
 
       <DispatcherCarrierRoster showAdd={showAdd && canManage} canManage={canManage} />
+
+      <section className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)]/40 p-5 sm:p-8">
+        <DispatcherCarrierInvitesPanel />
+      </section>
 
       <DispatcherCarrierManage />
 

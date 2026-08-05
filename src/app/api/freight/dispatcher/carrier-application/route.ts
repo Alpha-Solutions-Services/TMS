@@ -52,24 +52,27 @@ export async function POST(req: NextRequest) {
       const { data: prefRow } = admin
         ? await admin
             .from("profiles")
-            .select("carrier_payment_preference")
+            .select("carrier_payment_preference, carrier_documents_required")
             .eq("id", body.carrierProfileId)
             .maybeSingle()
         : { data: null };
-      const ready = await carrierRequiredDocumentsApproved(
-        body.carrierProfileId,
-        prefRow?.carrier_payment_preference as
-          | CarrierPaymentPreference
-          | null,
-      );
-      if (!ready) {
-        return NextResponse.json(
-          {
-            error:
-              "Cannot verify carrier until MC, W-9, COI, and pay document are all approved.",
-          },
-          { status: 400 },
+      const docsRequired = prefRow?.carrier_documents_required !== false;
+      if (docsRequired) {
+        const ready = await carrierRequiredDocumentsApproved(
+          body.carrierProfileId,
+          prefRow?.carrier_payment_preference as
+            | CarrierPaymentPreference
+            | null,
         );
+        if (!ready) {
+          return NextResponse.json(
+            {
+              error:
+                "Cannot verify carrier until MC, W-9, COI, and pay document are all approved.",
+            },
+            { status: 400 },
+          );
+        }
       }
     }
 

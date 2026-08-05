@@ -69,6 +69,33 @@ export async function sendDriverInvitationEmail(
   });
 }
 
+export async function sendCarrierInvitationEmail(params: {
+  to: string;
+  inviteeName: string;
+  inviterName: string;
+  inviteUrl: string;
+  requiresDocuments: boolean;
+}) {
+  const docLine = params.requiresDocuments
+    ? "You'll upload MC authority, W-9, COI, and your pay document during registration."
+    : "Dispatch pre-approved your onboarding — no document uploads are required at registration.";
+  const html = brandedEmailWrap(
+    "Carrier invitation",
+    `<p>Hi ${escapeHtml(params.inviteeName || "there")},</p>
+     <p><strong>${escapeHtml(params.inviterName)}</strong> invited you to register as a carrier on Alpha Freight.</p>
+     <p>${escapeHtml(docLine)}</p>
+     ${cta("Complete carrier registration", params.inviteUrl)}
+     <p style="color:#6a8caf;font-size:13px;">This invitation expires in 7 days. If you did not expect this, you can ignore this email.</p>`,
+  );
+
+  await sendTransactional({
+    to: params.to,
+    subject: "You're invited to register on Alpha Freight",
+    html,
+    text: `You're invited to register as a carrier on Alpha Freight.\n${docLine}\nRegister: ${params.inviteUrl}`,
+  });
+}
+
 export async function sendCarrierApprovedEmail(to: string, carrierName: string) {
   const loginUrl = `${PUBLIC_SITE_URL}/login`;
   const html = brandedEmailWrap(

@@ -5,6 +5,10 @@ import {
   uploadRequiredCarrierDocumentsFromFormData,
   type CarrierPaymentPreference,
 } from "@/lib/freight/carrier-documents";
+import {
+  acceptCarrierInvite,
+  validateCarrierInviteToken,
+} from "@/lib/freight/carrier-invitations";
 import { sendCarrierPendingEmail } from "@/lib/freight/emails";
 import {
   lookupCarrierByMcDocket,
@@ -28,7 +32,7 @@ const schema = z.object({
   companyName: z.string().min(2),
   companyAddress: z.string().min(5).optional().or(z.literal("")),
   allowManualVerification: z.boolean().optional(),
-  carrierPaymentPreference: z.enum(["factoring", "quick_pay"]),
+  carrierPaymentPreference: z.enum(["factoring", "quick_pay"]).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -50,13 +54,43 @@ export async function POST(req: NextRequest) {
       companyName: String(form.get("companyName") ?? ""),
       companyAddress: String(form.get("companyAddress") ?? ""),
       allowManualVerification: form.get("allowManualVerification") === "true",
-      carrierPaymentPreference: String(
-        form.get("carrierPaymentPreference") ?? "",
-      ),
+      carrierPaymentPreference: (() => {
+        const v = String(form.get("carrierPaymentPreference") ?? "").trim();
+        return v === "" ? undefined : v;
+      })(),
     });
     const normalizedMc = normalizeMcNumber(body.mcNumber);
     const emailNorm = body.email.trim().toLowerCase();
-    const preference = body.carrierPaymentPreference as CarrierPaymentPreference;
+    const inviteToken = String(form.get("inviteToken") ?? "").trim() || null;
+    let docsRequired = true;
+    let assignedDispatcherId: string | null = null;
+
+    if (inviteToken) {
+      const inviteCtx = await validateCarrierInviteToken(inviteToken);
+      if (!inviteCtx.valid) {
+        return NextResponse.json(
+          { error: "Invite link invalid or expired" },
+          { status: 400 },
+        );
+      }
+      if (emailNorm !== inviteCtx.invitedEmail) {
+        return NextResponse.json(
+          { error: "Email must match the invited address on this link" },
+          { status: 400 },
+        );
+      }
+      docsRequired = inviteCtx.requiresDocuments;
+      assignedDispatcherId = inviteCtx.assignedDispatcherId;
+    }
+
+    const preferenceRaw = body.carrierPaymentPreference;
+    if (docsRequired && !preferenceRaw) {
+      return NextResponse.json(
+        { error: "Payment preference required" },
+        { status: 400 },
+      );
+    }
+    const preference = preferenceRaw as CarrierPaymentPreference | undefined;
 
     const { data: emailExists } = await admin.rpc("check_freight_email_registered", {
       candidate: emailNorm,
@@ -216,7 +250,9 @@ export async function POST(req: NextRequest) {
       fmcsa_verified_at: fmcsaVerified ? new Date().toISOString() : null,
       fmcsa_data: fmcsData,
       enrollment_status: "unpaid",
-      carrier_payment_preference: preference,
+      carrier_payment_preference: docsRequired ? preference ?? null : null,
+      carrier_documents_required: docsRequired,
+      assigned_dispatcher_id: assignedDispatcherId,
     } as const;
 
     const { data: existingProfileByUser } = await admin
@@ -250,26 +286,38 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const docs = await uploadRequiredCarrierDocumentsFromFormData({
-      carrierProfileId: userId,
-      preference,
-      form,
-    });
-    if ("error" in docs) {
-      console.error("[register-carrier] docs", docs.error);
-      await rollbackFailedCarrierRegistration({
-        admin,
-        userId,
-        createdNewAuthUser,
-        profileInserted,
-        priorSnapshot,
+    if (docsRequired && preference) {
+      const docs = await uploadRequiredCarrierDocumentsFromFormData({
+        carrierProfileId: userId,
+        preference,
+        form,
       });
-      return NextResponse.json(
-        {
-          error: `${docs.error} Registration was not completed — please try again from the start.`,
-        },
-        { status: 400 },
-      );
+      if ("error" in docs) {
+        console.error("[register-carrier] docs", docs.error);
+        await rollbackFailedCarrierRegistration({
+          admin,
+          userId,
+          createdNewAuthUser,
+          profileInserted,
+          priorSnapshot,
+        });
+        return NextResponse.json(
+          {
+            error: `${docs.error} Registration was not completed — please try again from the start.`,
+          },
+          { status: 400 },
+        );
+      }
+    }
+
+    if (inviteToken) {
+      const accepted = await acceptCarrierInvite({
+        token: inviteToken,
+        profileId: userId,
+      });
+      if ("error" in accepted) {
+        console.error("[register-carrier] invite accept", accepted.error);
+      }
     }
 
     await admin.auth.admin

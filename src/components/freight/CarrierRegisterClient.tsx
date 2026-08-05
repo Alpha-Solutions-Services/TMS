@@ -8,7 +8,11 @@ import type { CarrierPaymentPreference } from "@/lib/freight/carrier-documents";
 import { createClient } from "@/lib/supabase/client";
 import { setTmsOAuthHints } from "@/lib/tms/oauth-hints";
 
-export function CarrierRegisterClient() {
+export function CarrierRegisterClient({
+  inviteToken = null,
+}: {
+  inviteToken?: string | null;
+}) {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
   const [mc, setMc] = useState("");
@@ -18,6 +22,16 @@ export function CarrierRegisterClient() {
   const [fallback, setFallback] = useState(false);
   const [oauthUserId, setOauthUserId] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [inviteInfo, setInviteInfo] = useState<{
+    email: string;
+    name: string;
+    requiresDocuments: boolean;
+    inviterName: string;
+  } | null>(null);
+  const [inviteErr, setInviteErr] = useState<string | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(Boolean(inviteToken));
+
+  const docsRequired = inviteInfo ? inviteInfo.requiresDocuments : true;
 
   const [companyNameDisplay, setCompanyNameDisplay] = useState("");
   const [companyAddressDisplay, setCompanyAddressDisplay] = useState("");
@@ -38,6 +52,35 @@ export function CarrierRegisterClient() {
   const [fileW9, setFileW9] = useState<File | null>(null);
   const [fileCoi, setFileCoi] = useState<File | null>(null);
   const [filePayDoc, setFilePayDoc] = useState<File | null>(null);
+
+  useEffect(() => {
+    if (!inviteToken) {
+      setInviteLoading(false);
+      return;
+    }
+    setInviteLoading(true);
+    setInviteErr(null);
+    void fetch(
+      `/api/freight/validate-carrier-invite?token=${encodeURIComponent(inviteToken)}`,
+    )
+      .then((r) => r.json())
+      .then((json) => {
+        if (!json.valid) {
+          setInviteErr("This invite link is invalid or expired.");
+          return;
+        }
+        setInviteInfo({
+          email: json.invitedEmail as string,
+          name: (json.inviteeName as string) ?? "",
+          requiresDocuments: Boolean(json.requiresDocuments),
+          inviterName: (json.inviterName as string) ?? "Alpha Freight",
+        });
+        setEmail(json.invitedEmail as string);
+        if (json.inviteeName) setContactName(json.inviteeName as string);
+      })
+      .catch(() => setInviteErr("Could not validate invite link."))
+      .finally(() => setInviteLoading(false));
+  }, [inviteToken]);
 
   useEffect(() => {
     void (async () => {
@@ -61,7 +104,10 @@ export function CarrierRegisterClient() {
         return;
       }
       const origin = window.location.origin;
-      setTmsOAuthHints("/carrier/register", "carrier");
+      const nextPath = inviteToken
+        ? `/carrier/register?invite=${encodeURIComponent(inviteToken)}`
+        : "/carrier/register";
+      setTmsOAuthHints(nextPath, "carrier");
       const { data: oauthData, error: oauthError } = await sb.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -133,18 +179,21 @@ export function CarrierRegisterClient() {
       setErr("Terms acceptance required.");
       return;
     }
-    if (paymentPreference !== "factoring" && paymentPreference !== "quick_pay") {
-      setErr("Select factoring or quick pay.");
-      return;
-    }
-    if (!fileMc || !fileW9 || !fileCoi || !filePayDoc) {
-      setErr("Upload MC authority, W-9, COI, and your pay document.");
-      return;
+    if (docsRequired) {
+      if (paymentPreference !== "factoring" && paymentPreference !== "quick_pay") {
+        setErr("Select factoring or quick pay.");
+        return;
+      }
+      if (!fileMc || !fileW9 || !fileCoi || !filePayDoc) {
+        setErr("Upload MC authority, W-9, COI, and your pay document.");
+        return;
+      }
     }
     setLoading(true);
     try {
       const fd = new FormData();
       fd.append("email", email);
+      if (inviteToken) fd.append("inviteToken", inviteToken);
       if (!oauthUserId) fd.append("password", password);
       fd.append("contactName", contactName);
       fd.append("phone", phone);
@@ -158,14 +207,16 @@ export function CarrierRegisterClient() {
         fallback ? addrManual : companyAddressDisplay,
       );
       if (fallback) fd.append("allowManualVerification", "true");
-      fd.append("carrierPaymentPreference", paymentPreference);
-      fd.append("mc_authority", fileMc);
-      fd.append("w9", fileW9);
-      fd.append("coi", fileCoi);
-      fd.append(
-        paymentPreference === "factoring" ? "factoring_noa" : "voided_check",
-        filePayDoc,
-      );
+      if (docsRequired) {
+        fd.append("carrierPaymentPreference", paymentPreference);
+        fd.append("mc_authority", fileMc!);
+        fd.append("w9", fileW9!);
+        fd.append("coi", fileCoi!);
+        fd.append(
+          paymentPreference === "factoring" ? "factoring_noa" : "voided_check",
+          filePayDoc!,
+        );
+      }
 
       const endpoint = oauthUserId
         ? "/api/freight/register-carrier-oauth"
@@ -200,6 +251,25 @@ export function CarrierRegisterClient() {
       <p className="mx-auto mt-4 max-w-lg text-center text-sm text-[var(--color-muted)]">
         We cross-check FMCSA filings so only active motor carriers with matching authority email can auto-verify.
       </p>
+
+      {inviteLoading ? (
+        <p className="mt-6 text-center text-sm text-[var(--color-muted)]">
+          Validating invitation…
+        </p>
+      ) : null}
+      {inviteErr ? (
+        <p className="mx-auto mt-6 max-w-md rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          {inviteErr}
+        </p>
+      ) : null}
+      {inviteInfo ? (
+        <div className="mx-auto mt-6 max-w-md rounded-xl border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5 px-4 py-3 text-sm text-[var(--color-text)]">
+          Invited by <strong>{inviteInfo.inviterName}</strong>
+          {inviteInfo.requiresDocuments
+            ? " — upload onboarding documents during registration."
+            : " — no document uploads required at registration."}
+        </div>
+      ) : null}
 
       {step === 1 ? (
         <div className="mx-auto mt-12 max-w-md space-y-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/40 px-8 py-10">
@@ -236,7 +306,8 @@ export function CarrierRegisterClient() {
           <label className="block text-xs text-[var(--color-muted)]">Email registered with FMCSA</label>
           <input
             type="email"
-            className="w-full rounded-lg border border-[var(--color-border)] bg-[#050912] px-3 py-2"
+            readOnly={Boolean(inviteInfo)}
+            className={`w-full rounded-lg border border-[var(--color-border)] bg-[#050912] px-3 py-2 ${inviteInfo ? "cursor-not-allowed opacity-80" : ""}`}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
@@ -320,6 +391,8 @@ export function CarrierRegisterClient() {
               </p>
             )}
 
+            {docsRequired ? (
+              <>
             <label className="text-xs text-[var(--color-muted)]">Payment preference</label>
             <select
               required
@@ -380,6 +453,13 @@ export function CarrierRegisterClient() {
               className={`${fileInputClass} disabled:opacity-40`}
               onChange={(e) => setFilePayDoc(e.target.files?.[0] ?? null)}
             />
+              </>
+            ) : (
+              <p className="text-xs text-[var(--color-muted)]">
+                Document uploads were waived for this invitation. Dispatch will still
+                review your application manually before approval.
+              </p>
+            )}
 
             <label className="inline-flex gap-3 text-xs text-[var(--color-muted)]">
               <input type="checkbox" checked={tos} onChange={(e) => setTos(e.target.checked)} />

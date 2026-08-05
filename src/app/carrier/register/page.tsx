@@ -7,10 +7,14 @@ export const metadata: Metadata = {
     "Verify your FMCSA MC number against active authority filings before opening an Alpha Freight carrier workspace.",
 };
 
-export default function CarrierRegisterPage() {
+export default function CarrierRegisterPage({
+  searchParams,
+}: {
+  searchParams: { invite?: string };
+}) {
   return (
     <main className="min-h-screen bg-[var(--color-bg)]">
-      <CarrierRegisterClient />
+      <CarrierRegisterClient inviteToken={searchParams.invite ?? null} />
     </main>
   );
 }
