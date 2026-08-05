@@ -149,5 +149,18 @@ export async function POST(req: NextRequest) {
   if ("error" in result) {
     return NextResponse.json({ error: result.error }, { status: 500 });
   }
+
+  // Rejected carriers who re-upload should return to the approval queue.
+  if (profile.carrier_status === "rejected") {
+    await admin
+      .from("profiles")
+      .update({
+        carrier_status: "pending",
+        carrier_review_note: null,
+      })
+      .eq("id", user.id)
+      .eq("carrier_status", "rejected");
+  }
+
   return NextResponse.json({ ok: true, row: result.row });
 }

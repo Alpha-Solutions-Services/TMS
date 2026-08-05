@@ -11,6 +11,7 @@ type Carrier = {
   email: string | null;
   created_at: string;
   fmcsa_verified: boolean | null;
+  carrier_status: string | null;
 };
 
 function CarrierRow({
@@ -61,6 +62,9 @@ function CarrierRow({
           <p className="text-[11px] uppercase tracking-[0.12em] text-[var(--color-muted)]">
             MC #{carrier.mc_number ?? "?"}{" "}
             · {(carrier.fmcsa_verified ?? false) ? "FMCSA auto-check" : "Manual"}
+            {carrier.carrier_status
+              ? ` · ${carrier.carrier_status}`
+              : ""}
           </p>
           <p className="mt-3 text-xs text-[var(--color-muted)]">
             {(carrier.full_name ?? "Contact") + " · "}{carrier.email ?? "—"}
@@ -108,10 +112,10 @@ export function DispatcherCarrierReview() {
     const { data } = await sb
       .from("profiles")
       .select(
-        "id,full_name,company_name,mc_number,email,created_at,fmcsa_verified",
+        "id,full_name,company_name,mc_number,email,created_at,fmcsa_verified,carrier_status",
       )
       .eq("role", "carrier")
-      .eq("carrier_status", "pending")
+      .in("carrier_status", ["pending", "rejected"])
       .order("created_at", { ascending: true });
     setPending((data ?? []) as Carrier[]);
   }
@@ -124,9 +128,12 @@ export function DispatcherCarrierReview() {
     <section className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--color-accent)]/25 bg-[var(--color-accent)]/5 px-6 py-4">
         <h2 className="text-xs font-black uppercase tracking-[0.36em] text-[var(--color-accent)]">
-          Pending approvals
+          Pending & rejected approvals
         </h2>
-        <p className="text-[11px] text-[var(--color-muted)]">Review filings before brokers see this tenant.</p>
+        <p className="text-[11px] text-[var(--color-muted)]">
+          Review filings before brokers see this tenant. Rejected carriers stay
+          here so you can approve after docs are fixed.
+        </p>
       </div>
       <div className="space-y-4">
         {pending.length === 0 ? (

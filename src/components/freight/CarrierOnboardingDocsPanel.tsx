@@ -33,8 +33,14 @@ export function CarrierOnboardingDocsPanel({
   const load = useCallback(async () => {
     setErr(null);
     try {
-      const res = await fetch("/api/freight/carrier/documents");
-      const json = await res.json();
+      const res = await fetch("/api/freight/carrier/documents", {
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        throw new Error("Please log in again to view your documents.");
+      }
       if (!res.ok) throw new Error(json.error ?? "Could not load documents");
       setDocs((json.documents ?? []) as DocRow[]);
     } catch (e) {

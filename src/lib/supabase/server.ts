@@ -10,6 +10,9 @@ export async function createClient() {
   if (!url || !anon) return null;
 
   return createServerClient(url, anon, {
+    // Must match browser client + /auth/callback (base64url), or getUser() fails
+    // in RSC/API routes → "Unauthorized" on carrier documents, etc.
+    cookieEncoding: "base64url",
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -17,7 +20,7 @@ export async function createClient() {
       setAll(cookiesToSet) {
         try {
           cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
+            cookieStore.set(name, value, options),
           );
         } catch {
           /* RSC */

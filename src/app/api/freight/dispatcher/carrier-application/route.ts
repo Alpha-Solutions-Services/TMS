@@ -8,6 +8,8 @@ import { startCarrierTrialIso } from "@/lib/freight/carrier-subscription";
 import { sendCarrierApprovedEmail, sendCarrierRejectedEmail } from "@/lib/freight/emails";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
+import { resolveTmsRole } from "@/lib/tms/auth";
+import { isDispatcherRole } from "@/lib/tms/roles";
 
 const schema = z.object({
   carrierProfileId: z.string().uuid(),
@@ -25,20 +27,21 @@ export async function POST(req: NextRequest) {
   if (!user?.id)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: me } = await sb
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (!me || me.role !== "dispatcher") {
+  const tmsRole = await resolveTmsRole(user);
+  if (!isDispatcherRole(tmsRole)) {
     return NextResponse.json({ error: "Dispatcher only" }, { status: 403 });
+  }
+
+  const admin = getServiceRoleClient();
+  if (!admin) {
+    return NextResponse.json({ error: "DB unavailable" }, { status: 500 });
   }
 
   try {
     const body = schema.parse(await req.json());
-    const { data: target } = await sb
+    const { data: target } = await admin
       .from("profiles")
-      .select("id,role,email,company_name,full_name")
+      .select("id,role,email,company_name,full_name,carrier_status")
       .eq("id", body.carrierProfileId)
       .eq("role", "carrier")
       .maybeSingle();
@@ -48,14 +51,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (body.decision === "approve") {
-      const admin = getServiceRoleClient();
-      const { data: prefRow } = admin
-        ? await admin
-            .from("profiles")
-            .select("carrier_payment_preference, carrier_documents_required")
-            .eq("id", body.carrierProfileId)
-            .maybeSingle()
-        : { data: null };
+      const { data: prefRow } = await admin
+        .from("profiles")
+        .select("carrier_payment_preference, carrier_documents_required")
+        .eq("id", body.carrierProfileId)
+        .maybeSingle();
       const docsRequired = prefRow?.carrier_documents_required !== false;
       if (docsRequired) {
         const ready = await carrierRequiredDocumentsApproved(
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     const nextStatus =
       body.decision === "approve" ? "verified" : "rejected";
 
-    const { error } = await sb
+    const { error } = await admin
       .from("profiles")
       .update({
         carrier_status: nextStatus,
