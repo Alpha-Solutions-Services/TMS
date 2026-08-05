@@ -140,10 +140,10 @@ export function CarrierDashboardClient() {
         <div className="grid gap-4 lg:grid-cols-12">
           <CarrierGlassCard glow className="relative overflow-hidden lg:col-span-7 xl:col-span-8">
             <div
-              className="absolute inset-0 bg-cover bg-center opacity-40"
+              className="absolute inset-0 bg-cover bg-center opacity-50"
               style={{
                 backgroundImage:
-                  "linear-gradient(90deg, rgba(5,8,15,0.92) 0%, rgba(5,8,15,0.55) 50%, rgba(5,8,15,0.85) 100%), url('https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=1200&q=80')",
+                  "linear-gradient(90deg, rgba(5,8,15,0.92) 0%, rgba(5,8,15,0.45) 45%, rgba(5,8,15,0.8) 100%), url('/afn-fleet-hero.png')",
               }}
             />
             <div className="relative z-10 grid min-h-[280px] gap-4 md:grid-cols-2">
