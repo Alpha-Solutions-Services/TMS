@@ -1,6 +1,6 @@
 import { readFile } from "fs/promises";
 import path from "path";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import {
   CARRIER_AGREEMENT_TERMS_VERSION,
   buildCarrierAgreementOnlySections,
@@ -11,11 +11,15 @@ import {
 const ACCENT = rgb(0.22, 0.64, 1); // #38a3ff
 const INK = rgb(0.05, 0.08, 0.12);
 const MUTED = rgb(0.35, 0.42, 0.5);
+const PAGE_W = 612;
+const PAGE_H = 792;
+const MARGIN = 50;
+const CONTENT_W = PAGE_W - MARGIN * 2;
 
 function stripHtml(html: string): string {
   return html
     .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
     .replace(/<\/li>/gi, "\n")
     .replace(/<li[^>]*>/gi, "• ")
     .replace(/<[^>]+>/g, "")
@@ -23,34 +27,87 @@ function stripHtml(html: string): string {
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
+    .replace(/\u00a0/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
-function wrapLines(text: string, maxChars: number): string[] {
-  const cleaned = text
+function sanitizePdfText(text: string): string {
+  return text
     .replace(/[“”]/g, '"')
     .replace(/[‘’]/g, "'")
     .replace(/[–—]/g, "-")
     .replace(/…/g, "...")
+    .replace(/·/g, "|")
     .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, "");
-  const out: string[] = [];
-  for (const raw of cleaned.split("\n")) {
-    const line = raw.trimEnd();
-    if (!line) {
-      out.push("");
+}
+
+/** Wrap by measured font width so long URLs / lines never overflow the page. */
+function wrapByWidth(
+  text: string,
+  font: PDFFont,
+  size: number,
+  maxWidth: number,
+): string[] {
+  const cleaned = sanitizePdfText(text);
+  const paragraphs = cleaned.split("\n");
+  const lines: string[] = [];
+
+  for (const paragraph of paragraphs) {
+    const raw = paragraph.trimEnd();
+    if (!raw) {
+      lines.push("");
       continue;
     }
-    let remaining = line;
-    while (remaining.length > maxChars) {
-      let breakAt = remaining.lastIndexOf(" ", maxChars);
-      if (breakAt < maxChars * 0.5) breakAt = maxChars;
-      out.push(remaining.slice(0, breakAt).trimEnd());
-      remaining = remaining.slice(breakAt).trimStart();
+
+    const words = raw.split(/\s+/).filter(Boolean);
+    // No spaces (e.g. long URL) — hard-break by width
+    if (words.length === 1) {
+      let chunk = "";
+      for (const ch of words[0]) {
+        const next = chunk + ch;
+        if (font.widthOfTextAtSize(next, size) <= maxWidth) {
+          chunk = next;
+        } else {
+          if (chunk) lines.push(chunk);
+          chunk = ch;
+        }
+      }
+      if (chunk) lines.push(chunk);
+      continue;
     }
-    if (remaining) out.push(remaining);
+
+    let current = "";
+    for (const word of words) {
+      const candidate = current ? `${current} ${word}` : word;
+      if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
+        current = candidate;
+        continue;
+      }
+
+      if (current) lines.push(current);
+
+      // Single word wider than maxWidth — hard-break the word
+      if (font.widthOfTextAtSize(word, size) > maxWidth) {
+        let piece = "";
+        for (const ch of word) {
+          const next = piece + ch;
+          if (font.widthOfTextAtSize(next, size) <= maxWidth) {
+            piece = next;
+          } else {
+            if (piece) lines.push(piece);
+            piece = ch;
+          }
+        }
+        current = piece;
+      } else {
+        current = word;
+      }
+    }
+    if (current) lines.push(current);
   }
-  return out;
+
+  return lines;
 }
 
 function termsOfServiceUrl(): string {
@@ -83,105 +140,115 @@ export async function buildCarrierAgreementPdf(params: {
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const logo = await embedAfnLogo(doc);
 
-  const pageWidth = 612;
-  const pageHeight = 792;
-  const margin = 48;
-  const maxWidth = pageWidth - margin * 2;
-  const fontSize = 10;
-  const lineHeight = 13;
-  const charsPerLine = Math.floor(maxWidth / 5.15);
+  let page: PDFPage = doc.addPage([PAGE_W, PAGE_H]);
+  let y = PAGE_H - MARGIN;
 
-  let page = doc.addPage([pageWidth, pageHeight]);
-  let y = pageHeight - margin;
+  const newPage = () => {
+    page = doc.addPage([PAGE_W, PAGE_H]);
+    y = PAGE_H - MARGIN;
+  };
 
   const ensureSpace = (needed: number) => {
-    if (y < margin + needed) {
-      page = doc.addPage([pageWidth, pageHeight]);
-      y = pageHeight - margin;
-    }
+    if (y < MARGIN + needed) newPage();
   };
 
-  const drawLine = (
+  const drawWrapped = (
     text: string,
-    opts?: { bold?: boolean; size?: number; color?: ReturnType<typeof rgb> },
+    opts?: {
+      bold?: boolean;
+      size?: number;
+      color?: ReturnType<typeof rgb>;
+      gapAfter?: number;
+    },
   ) => {
-    ensureSpace(lineHeight + 2);
-    page.drawText(text, {
-      x: margin,
-      y,
-      size: opts?.size ?? fontSize,
-      font: opts?.bold ? bold : font,
-      color: opts?.color ?? INK,
-      maxWidth,
-    });
-    y -= (opts?.size ?? fontSize) + 3;
+    const size = opts?.size ?? 10;
+    const useFont = opts?.bold ? bold : font;
+    const color = opts?.color ?? INK;
+    const lineGap = size + 3.5;
+    const lines = wrapByWidth(text, useFont, size, CONTENT_W);
+
+    for (const line of lines) {
+      ensureSpace(lineGap + 2);
+      if (line) {
+        page.drawText(line, {
+          x: MARGIN,
+          y,
+          size,
+          font: useFont,
+          color,
+        });
+      }
+      y -= lineGap;
+    }
+    if (opts?.gapAfter) y -= opts.gapAfter;
   };
 
-  // Colored brand header bar
+  // Brand header
   page.drawRectangle({
     x: 0,
-    y: pageHeight - 96,
-    width: pageWidth,
+    y: PAGE_H - 96,
+    width: PAGE_W,
     height: 96,
     color: rgb(0.02, 0.05, 0.1),
   });
   page.drawRectangle({
     x: 0,
-    y: pageHeight - 100,
-    width: pageWidth,
+    y: PAGE_H - 100,
+    width: PAGE_W,
     height: 4,
     color: ACCENT,
   });
 
   if (logo) {
     const logoH = 64;
-    const logoW = (logo.width / logo.height) * logoH;
+    const logoW = Math.min((logo.width / logo.height) * logoH, 72);
     page.drawImage(logo, {
-      x: margin,
-      y: pageHeight - 88,
-      width: Math.min(logoW, 72),
+      x: MARGIN,
+      y: PAGE_H - 88,
+      width: logoW,
       height: logoH,
     });
+    const textX = MARGIN + logoW + 14;
     page.drawText("ALPHA FREIGHT NETWORK", {
-      x: margin + Math.min(logoW, 72) + 14,
-      y: pageHeight - 48,
-      size: 14,
+      x: textX,
+      y: PAGE_H - 48,
+      size: 13,
       font: bold,
       color: rgb(1, 1, 1),
     });
     page.drawText("Electronically signed carrier agreement", {
-      x: margin + Math.min(logoW, 72) + 14,
-      y: pageHeight - 66,
+      x: textX,
+      y: PAGE_H - 66,
       size: 9,
       font,
       color: ACCENT,
     });
   } else {
     page.drawText("ALPHA FREIGHT NETWORK", {
-      x: margin,
-      y: pageHeight - 48,
+      x: MARGIN,
+      y: PAGE_H - 48,
       size: 16,
       font: bold,
       color: rgb(1, 1, 1),
     });
   }
 
-  y = pageHeight - 120;
+  y = PAGE_H - 118;
 
-  drawLine("Carrier Dispatch Services Agreement", {
+  drawWrapped("Carrier Dispatch Services Agreement", {
     bold: true,
-    size: 15,
+    size: 14,
     color: ACCENT,
+    gapAfter: 4,
   });
-  y -= 4;
 
-  drawLine(`Terms version: ${CARRIER_AGREEMENT_TERMS_VERSION}`, {
+  drawWrapped(`Terms version: ${CARRIER_AGREEMENT_TERMS_VERSION}`, {
     bold: true,
     size: 9,
     color: MUTED,
   });
   if (params.acceptedAt) {
-    drawLine(
+    drawWrapped(
       `Electronically accepted: ${new Date(params.acceptedAt).toLocaleString(
         "en-US",
         { dateStyle: "long", timeStyle: "short" },
@@ -190,73 +257,87 @@ export async function buildCarrierAgreementPdf(params: {
     );
   }
   if (params.acceptedIp) {
-    drawLine(`Acceptance IP: ${params.acceptedIp}`, { size: 9, color: MUTED });
+    drawWrapped(`Acceptance IP: ${params.acceptedIp}`, {
+      size: 9,
+      color: MUTED,
+    });
   }
   if (params.signedUrl) {
-    drawLine(`Signed record: ${params.signedUrl}`, { size: 8, color: ACCENT });
+    drawWrapped(`Signed record: ${params.signedUrl}`, {
+      size: 8,
+      color: ACCENT,
+    });
   }
   if (params.inviteUrl) {
-    drawLine(`TMS invite: ${params.inviteUrl}`, { size: 8, color: MUTED });
+    drawWrapped(`TMS invite: ${params.inviteUrl}`, { size: 8, color: MUTED });
   }
 
   y -= 6;
+  ensureSpace(8);
   page.drawRectangle({
-    x: margin,
-    y: y - 2,
-    width: maxWidth,
+    x: MARGIN,
+    y: y - 1,
+    width: CONTENT_W,
     height: 1.5,
     color: ACCENT,
   });
   y -= 14;
 
-  const sections = buildCarrierAgreementOnlySections(params.input);
-  for (const section of sections) {
-    ensureSpace(40);
-    drawLine(section.title, { bold: true, size: 11, color: ACCENT });
-    for (const line of wrapLines(stripHtml(section.bodyHtml), charsPerLine)) {
-      drawLine(line, { size: 9.5 });
-    }
-    y -= 6;
+  for (const section of buildCarrierAgreementOnlySections(params.input)) {
+    ensureSpace(36);
+    drawWrapped(section.title, {
+      bold: true,
+      size: 11,
+      color: ACCENT,
+      gapAfter: 2,
+    });
+    drawWrapped(stripHtml(section.bodyHtml), { size: 9.5, gapAfter: 8 });
   }
 
-  y -= 4;
-  ensureSpace(50);
-  drawLine("Terms of Service", { bold: true, size: 12, color: ACCENT });
-  drawLine(
+  ensureSpace(40);
+  drawWrapped("Terms of Service", {
+    bold: true,
+    size: 12,
+    color: ACCENT,
+    gapAfter: 2,
+  });
+  drawWrapped(
     "The following Terms of Service are incorporated into and form part of this Agreement.",
     { size: 9.5 },
   );
-  drawLine(`Also published at: ${termsOfServiceUrl()}`, {
+  drawWrapped(`Also published at: ${termsOfServiceUrl()}`, {
     size: 8.5,
     color: MUTED,
+    gapAfter: 6,
   });
-  y -= 4;
 
   for (const section of buildCarrierTermsOfServiceSections()) {
-    ensureSpace(36);
-    drawLine(section.title, { bold: true, size: 10.5, color: ACCENT });
-    for (const line of wrapLines(stripHtml(section.bodyHtml), charsPerLine)) {
-      drawLine(line, { size: 9.5 });
-    }
-    y -= 5;
+    ensureSpace(32);
+    drawWrapped(section.title, {
+      bold: true,
+      size: 10.5,
+      color: ACCENT,
+      gapAfter: 2,
+    });
+    drawWrapped(stripHtml(section.bodyHtml), { size: 9.5, gapAfter: 7 });
   }
 
-  y -= 10;
-  ensureSpace(40);
-  drawLine("Electronic signature certificate", {
+  ensureSpace(48);
+  drawWrapped("Electronic signature certificate", {
     bold: true,
     size: 10,
     color: ACCENT,
+    gapAfter: 2,
   });
-  drawLine(
+  drawWrapped(
     `Signed by ${params.input.contactName || "Carrier contact"} on behalf of ${params.input.companyName || "Carrier"}.`,
     { size: 9 },
   );
-  drawLine(
-    `Email: ${params.input.email}${params.input.phone ? `  ·  Phone: ${params.input.phone}` : ""}`,
+  drawWrapped(
+    `Email: ${params.input.email}${params.input.phone ? ` | Phone: ${params.input.phone}` : ""}`,
     { size: 9, color: MUTED },
   );
-  drawLine(
+  drawWrapped(
     "This PDF is the official electronically signed record retained by Alpha Freight Network.",
     { size: 8, color: MUTED },
   );
