@@ -105,23 +105,27 @@ export async function createCarrierInvitation(params: {
   inviteeName?: string;
   requiresDocuments: boolean;
   assignedDispatcherId?: string | null;
-}): Promise<{ token: string; inviteUrl: string } | { error: string }> {
+}): Promise<{ id: string; token: string; inviteUrl: string } | { error: string }> {
   const admin = getServiceRoleClient();
   if (!admin) return { error: "DB unavailable" };
 
   const token = randomBytes(32).toString("hex");
   const email = params.invitedEmail.trim().toLowerCase();
 
-  const { error } = await admin.from("tms_carrier_invitations").insert({
-    invited_by: params.invitedBy,
-    invited_email: email,
-    invitee_name: params.inviteeName?.trim() || null,
-    requires_documents: params.requiresDocuments,
-    assigned_dispatcher_id: params.assignedDispatcherId ?? null,
-    token,
-    status: "pending",
-  });
+  const { data, error } = await admin
+    .from("tms_carrier_invitations")
+    .insert({
+      invited_by: params.invitedBy,
+      invited_email: email,
+      invitee_name: params.inviteeName?.trim() || null,
+      requires_documents: params.requiresDocuments,
+      assigned_dispatcher_id: params.assignedDispatcherId ?? null,
+      token,
+      status: "pending",
+    })
+    .select("id")
+    .single();
 
-  if (error) return { error: error.message };
-  return { token, inviteUrl: buildCarrierInviteUrl(token) };
+  if (error || !data) return { error: error?.message ?? "Insert failed" };
+  return { id: data.id as string, token, inviteUrl: buildCarrierInviteUrl(token) };
 }

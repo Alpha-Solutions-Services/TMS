@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { LoadPasteParser } from "@/components/freight/LoadPasteParser";
 import { FreightAiAssistant } from "@/components/freight/FreightAiAssistant";
@@ -194,6 +194,37 @@ export function LoadFormPanel({
   const [carrierPreview, setCarrierPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [agreementHint, setAgreementHint] = useState<string | null>(null);
+  const lastLookedUpCompany = useRef("");
+
+  useEffect(() => {
+    if (mode !== "create") return;
+    const company = form.companyName.trim();
+    if (company.length < 2 || company === lastLookedUpCompany.current) return;
+
+    const handle = window.setTimeout(() => {
+      lastLookedUpCompany.current = company;
+      void (async () => {
+        try {
+          const res = await fetch(
+            `/api/dispatcher/agreement-percent?company=${encodeURIComponent(company)}`,
+          );
+          const json = (await res.json()) as { dispatchPercent?: number | null };
+          if (!res.ok || json.dispatchPercent == null) {
+            setAgreementHint(null);
+            return;
+          }
+          const pct = String(json.dispatchPercent);
+          setForm((f) => ({ ...f, dispatchPercent: pct }));
+          setAgreementHint(`Filled from accepted agreement (${pct}%)`);
+        } catch {
+          setAgreementHint(null);
+        }
+      })();
+    }, 450);
+
+    return () => window.clearTimeout(handle);
+  }, [form.companyName, mode]);
 
   const computedFee = useMemo(() => {
     const rc = parseNum(form.rcInvoice) ?? 0;
@@ -318,7 +349,9 @@ export function LoadFormPanel({
       </div>
 
       <p className="mt-2 text-[10px] text-[var(--color-muted)]">
-        Calculated dispatch fee: ${computedFee.toFixed(2)} · Balance: ${computedBalance.toFixed(2)} (used on save if left blank)
+        Calculated dispatch fee: ${computedFee.toFixed(2)} · Balance: $
+        {computedBalance.toFixed(2)} (used on save if left blank)
+        {agreementHint ? ` · ${agreementHint}` : ""}
       </p>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">

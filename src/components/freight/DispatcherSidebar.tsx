@@ -6,10 +6,12 @@ import clsx from "clsx";
 import {
   AlertTriangle,
   BarChart3,
+  FileSignature,
   FileText,
   LayoutDashboard,
   MessageSquare,
   Package,
+  Shield,
   ShieldCheck,
   UserPlus,
   Users,
@@ -24,7 +26,9 @@ import { canAccessDispatcherNavItem } from "@/lib/tms/permissions";
 const NAV = [
   { href: "/dispatcher/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dispatcher/loads", label: "Loads", icon: Package },
+  { href: "/dispatcher/agreements", label: "Agreements", icon: FileSignature },
   { href: "/dispatcher/carriers", label: "Carriers", icon: Users },
+  { href: "/dispatcher/carrier-control", label: "Carrier control", icon: Shield },
   { href: "/dispatcher/chat", label: "Chat", icon: MessageSquare },
   { href: "/dispatcher/carrier-portal", label: "Carrier portal", icon: Users },
   { href: "/dispatcher/invoices", label: "Invoices", icon: FileText },

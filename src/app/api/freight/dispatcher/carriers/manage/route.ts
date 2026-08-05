@@ -5,7 +5,7 @@ import { assertDispatcher } from "@/lib/freight/dispatch-roster";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
 import { canViewContactDetails, maskCarrierRow } from "@/lib/tms/contact-privacy";
-import { isSuperDispatcherEmail } from "@/lib/tms/roles";
+import { canAccessCarrierControl } from "@/lib/tms/permissions";
 import { resolveTmsRole } from "@/lib/tms/auth";
 
 const patchSchema = z.object({
@@ -23,7 +23,7 @@ const patchSchema = z.object({
   assignedDispatcherId: z.string().uuid().nullable().optional(),
 });
 
-async function requireDispatcher() {
+async function requireSuperCarrierControl() {
   const sb = await createClient();
   if (!sb) return { error: NextResponse.json({ error: "Supabase unavailable" }, { status: 500 }) };
 
@@ -36,33 +36,32 @@ async function requireDispatcher() {
     return { error: NextResponse.json({ error: "Dispatcher only" }, { status: 403 }) };
   }
 
-  return { user };
+  const role = await resolveTmsRole(user);
+  if (!canAccessCarrierControl(role)) {
+    return { error: NextResponse.json({ error: "Super dispatcher only" }, { status: 403 }) };
+  }
+
+  return { user, role };
 }
 
 export async function GET() {
-  const auth = await requireDispatcher();
+  const auth = await requireSuperCarrierControl();
   if ("error" in auth) return auth.error;
 
-  const role = await resolveTmsRole(auth.user);
-  const viewContacts = canViewContactDetails(role, auth.user.email);
-  const isSuper = isSuperDispatcherEmail(auth.user.email) || role === "super_dispatcher";
+  const viewContacts = canViewContactDetails(auth.role, auth.user.email);
 
   const admin = getServiceRoleClient();
   if (!admin) {
     return NextResponse.json({ error: "Service role unavailable" }, { status: 500 });
   }
 
-  let query = admin
+  const query = admin
     .from("profiles")
     .select(
       "id,email,full_name,company_name,phone,mc_number,dot_number,company_address,carrier_status,carrier_subscription_status,carrier_trial_ends_at,carrier_billing_mode,carrier_billing_note,assigned_dispatcher_id,created_at",
     )
     .eq("role", "carrier")
     .order("company_name", { ascending: true });
-
-  if (!isSuper) {
-    query = query.eq("assigned_dispatcher_id", auth.user.id);
-  }
 
   const { data, error } = await query;
 
@@ -79,7 +78,7 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
-  const auth = await requireDispatcher();
+  const auth = await requireSuperCarrierControl();
   if ("error" in auth) return auth.error;
 
   const admin = getServiceRoleClient();
@@ -119,9 +118,6 @@ export async function PATCH(req: NextRequest) {
       row.carrier_billing_mode = "standard";
     }
     if (body.assignedDispatcherId !== undefined) {
-      if (!isSuperDispatcherEmail(auth.user.email)) {
-        return NextResponse.json({ error: "Super dispatcher only" }, { status: 403 });
-      }
       row.assigned_dispatcher_id = body.assignedDispatcherId;
     }
 

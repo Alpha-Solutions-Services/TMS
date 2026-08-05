@@ -9,6 +9,7 @@ import {
   acceptCarrierInvite,
   validateCarrierInviteToken,
 } from "@/lib/freight/carrier-invitations";
+import { lookupDefaultDispatchPercentByInviteToken } from "@/lib/freight/carrier-agreements";
 import { sendCarrierPendingEmail } from "@/lib/freight/emails";
 import {
   lookupCarrierByMcDocket,
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
     const inviteToken = String(form.get("inviteToken") ?? "").trim() || null;
     let docsRequired = true;
     let assignedDispatcherId: string | null = null;
+    let defaultDispatchPercent: number | null = null;
 
     if (inviteToken) {
       const inviteCtx = await validateCarrierInviteToken(inviteToken);
@@ -81,6 +83,8 @@ export async function POST(req: NextRequest) {
       }
       docsRequired = inviteCtx.requiresDocuments;
       assignedDispatcherId = inviteCtx.assignedDispatcherId;
+      defaultDispatchPercent =
+        (await lookupDefaultDispatchPercentByInviteToken(inviteToken)) ?? null;
     }
 
     const preferenceRaw = body.carrierPaymentPreference;
@@ -253,6 +257,9 @@ export async function POST(req: NextRequest) {
       carrier_payment_preference: docsRequired ? preference ?? null : null,
       carrier_documents_required: docsRequired,
       assigned_dispatcher_id: assignedDispatcherId,
+      ...(defaultDispatchPercent != null
+        ? { default_dispatch_percent: defaultDispatchPercent }
+        : {}),
     } as const;
 
     const { data: existingProfileByUser } = await admin

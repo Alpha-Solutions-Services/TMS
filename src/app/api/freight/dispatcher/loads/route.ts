@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { checkRateLimit } from "@/lib/freight/api-security";
+import { lookupDefaultDispatchPercentByCompany } from "@/lib/freight/carrier-agreements";
 import { assertDispatcher, resolveDispatcherTmsRole } from "@/lib/freight/dispatch-roster";
 import { insertDispatchLoadApproval } from "@/lib/freight/dispatch-load-approvals";
 import {
@@ -175,6 +176,12 @@ export async function POST(req: NextRequest) {
     const needsApproval = requiresSuperApproval(auth.role);
     const loadStatus = needsApproval ? "Pending Approval" : body.status ?? "Unpaid";
 
+    let dispatchPercent = body.dispatchPercent;
+    if (dispatchPercent == null) {
+      dispatchPercent =
+        (await lookupDefaultDispatchPercentByCompany(body.companyName)) ?? 5;
+    }
+
     const result = await insertDispatchLoad(
       {
         monthTab,
@@ -190,7 +197,7 @@ export async function POST(req: NextRequest) {
         loadNumber: body.loadNumber,
         states: body.states,
         rcInvoice: body.rcInvoice,
-        dispatchPercent: body.dispatchPercent ?? 5,
+        dispatchPercent,
         dispatchFee: body.dispatchFee,
         invoice: body.invoice,
         received: body.received,

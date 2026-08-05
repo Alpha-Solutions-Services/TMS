@@ -69,6 +69,68 @@ export async function sendDriverInvitationEmail(
   });
 }
 
+export async function sendCarrierAgreementLinkEmail(params: {
+  to: string;
+  inviterName: string;
+  agreementUrl: string;
+  dispatchPercent: number;
+}) {
+  const html = brandedEmailWrap(
+    "Dispatch services agreement",
+    `<p>Hi there,</p>
+     <p><strong>${escapeHtml(params.inviterName)}</strong> invited you to review and accept the Alpha Freight Network Carrier Dispatch Services Agreement.</p>
+     <p>The default dispatch fee on this agreement is <strong>${escapeHtml(String(params.dispatchPercent))}%</strong>.</p>
+     ${cta("Review & accept agreement", params.agreementUrl)}
+     <p style="color:#6a8caf;font-size:13px;">This link expires in 14 days. After you accept, you will receive a separate TMS registration invite.</p>`,
+  );
+  await sendTransactional({
+    to: params.to,
+    subject: "Alpha Freight — Carrier Dispatch Services Agreement",
+    html,
+    text: `Review and accept your Carrier Dispatch Services Agreement (${params.dispatchPercent}%):\n${params.agreementUrl}`,
+  });
+}
+
+export async function sendCarrierAgreementAcceptedSuperEmail(params: {
+  to: string;
+  companyName: string;
+  contactName: string;
+  carrierEmail: string;
+  carrierPhone: string;
+  dispatchPercent: number;
+  inviteUrl: string;
+  acceptedAt: string;
+  pdf: Buffer;
+  pdfFilename: string;
+}) {
+  const when = new Date(params.acceptedAt).toLocaleString("en-US", {
+    dateStyle: "long",
+    timeStyle: "short",
+  });
+  const html = brandedEmailWrap(
+    "Agreement accepted",
+    `<p>A carrier accepted the Dispatch Services Agreement.</p>
+     <ul>
+       <li><strong>Company:</strong> ${escapeHtml(params.companyName)}</li>
+       <li><strong>Contact:</strong> ${escapeHtml(params.contactName)}</li>
+       <li><strong>Email:</strong> ${escapeHtml(params.carrierEmail)}</li>
+       <li><strong>Phone:</strong> ${escapeHtml(params.carrierPhone)}</li>
+       <li><strong>Dispatch fee:</strong> ${escapeHtml(String(params.dispatchPercent))}%</li>
+       <li><strong>Accepted:</strong> ${escapeHtml(when)}</li>
+     </ul>
+     <p>A 7-day TMS registration invite was created automatically.</p>
+     ${cta("Open invite link", params.inviteUrl)}
+     <p style="font-size:13px;color:#6a8caf;">Signed agreement PDF is attached.</p>`,
+  );
+  await sendTransactional({
+    to: params.to,
+    subject: `Carrier agreement accepted — ${params.companyName} (${params.dispatchPercent}%)`,
+    html,
+    text: `Carrier agreement accepted: ${params.companyName} / ${params.contactName} <${params.carrierEmail}> / ${params.dispatchPercent}%.\nInvite: ${params.inviteUrl}`,
+    attachments: [{ filename: params.pdfFilename, content: params.pdf }],
+  });
+}
+
 export async function sendCarrierInvitationEmail(params: {
   to: string;
   inviteeName: string;

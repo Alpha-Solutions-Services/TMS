@@ -21,6 +21,7 @@ export const DISPATCHER_NAV_PATHS = [
   "/dispatcher/loads",
   "/dispatcher/chat",
   "/dispatcher/carrier-portal",
+  "/dispatcher/agreements",
   "/dispatcher/invoices",
   "/dispatcher/alerts",
   "/dispatcher/drivers",
@@ -29,6 +30,7 @@ export const DISPATCHER_NAV_PATHS = [
 /** Super-only nav (owner / full ops). */
 export const SUPER_DISPATCHER_ONLY_NAV_PATHS = [
   "/dispatcher/carriers",
+  "/dispatcher/carrier-control",
   "/dispatcher/reports",
   "/dispatcher/approvals",
   "/dispatcher/team",
@@ -74,6 +76,16 @@ export function canManageCarriersRoster(role: TmsRole): boolean {
   return role === "super_dispatcher";
 }
 
+/** Create / list / revoke carrier e-sign agreements. */
+export function canManageCarrierAgreements(role: TmsRole): boolean {
+  return role === "super_dispatcher" || role === "dispatcher";
+}
+
+/** Super-only carrier control (billing, status, trial). */
+export function canAccessCarrierControl(role: TmsRole): boolean {
+  return role === "super_dispatcher";
+}
+
 export function canManageDrivers(role: TmsRole): boolean {
   return role === "super_dispatcher" || role === "dispatcher";
 }
@@ -109,11 +121,13 @@ export function canAccessDispatcherNavItem(role: TmsRole, href: string): boolean
   if (role === "super_dispatcher") return true;
 
   if (role === "dispatcher") {
-    return (DISPATCHER_NAV_PATHS as readonly string[]).includes(path);
+    return (DISPATCHER_NAV_PATHS as readonly string[]).some(
+      (allowed) => path === allowed || path.startsWith(`${allowed}/`),
+    );
   }
 
   if (role === "sub_dispatcher") {
-    return path === "/dispatcher/loads";
+    return path === "/dispatcher/loads" || path.startsWith("/dispatcher/loads/");
   }
 
   return false;
