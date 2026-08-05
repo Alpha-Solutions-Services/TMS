@@ -29,9 +29,11 @@ export function CarrierAgreementSignClient({ token }: Props) {
   const [phone, setPhone] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<{ inviteUrl: string; percent: number } | null>(
-    null,
-  );
+  const [done, setDone] = useState<{
+    inviteUrl: string;
+    signedUrl?: string;
+    percent: number;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -107,6 +109,7 @@ export function CarrierAgreementSignClient({ token }: Props) {
       if (!res.ok) throw new Error(json.error ?? "Could not accept");
       setDone({
         inviteUrl: json.inviteUrl as string,
+        signedUrl: (json.signedUrl as string) || undefined,
         percent: Number(json.dispatchPercent) || dispatchPercent,
       });
     } catch (e) {
@@ -144,6 +147,17 @@ export function CarrierAgreementSignClient({ token }: Props) {
         >
           Continue to registration
         </a>
+        {done.signedUrl ? (
+          <p className="mt-4 text-xs text-[var(--color-muted)]">
+            Your signed record:{" "}
+            <a
+              href={done.signedUrl}
+              className="font-semibold text-[var(--color-accent)] underline-offset-2 hover:underline"
+            >
+              view electronically signed agreement
+            </a>
+          </p>
+        ) : null}
       </div>
     );
   }

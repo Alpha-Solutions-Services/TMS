@@ -22,6 +22,8 @@ type AgreementRow = {
   accepted_at: string | null;
   created_at: string;
   agreementUrl: string;
+  signedUrl: string | null;
+  pdfUrl: string | null;
 };
 
 export function DispatcherAgreementsPanel() {
@@ -294,9 +296,37 @@ export function DispatcherAgreementsPanel() {
                               Revoke
                             </button>
                           </>
-                        ) : (
+                        ) : null}
+                        {row.status === "accepted" && row.signedUrl ? (
+                          <>
+                            <a
+                              href={row.signedUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs font-semibold text-emerald-300 hover:underline"
+                            >
+                              View signed
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => void copyUrl(row.signedUrl!)}
+                              className="text-xs text-[var(--color-accent)] hover:underline"
+                            >
+                              Copy signed link
+                            </button>
+                            {row.pdfUrl ? (
+                              <a
+                                href={row.pdfUrl}
+                                className="text-xs text-[var(--color-muted)] hover:text-[var(--color-text)] hover:underline"
+                              >
+                                Download PDF
+                              </a>
+                            ) : null}
+                          </>
+                        ) : null}
+                        {row.status !== "pending" && row.status !== "accepted" ? (
                           <span className="text-xs text-[var(--color-muted)]">—</span>
-                        )}
+                        ) : null}
                       </div>
                     </td>
                   </tr>

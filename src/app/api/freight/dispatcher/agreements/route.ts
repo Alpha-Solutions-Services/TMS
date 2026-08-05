@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { checkRateLimit, sanitizeText } from "@/lib/freight/api-security";
 import {
+  buildCarrierAgreementSignedUrl,
   buildCarrierAgreementUrl,
   createCarrierAgreement,
   revokeCarrierAgreement,
@@ -90,11 +91,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Could not load agreements" }, { status: 500 });
   }
 
-  const agreements = (data ?? []).map((row) => ({
-    ...row,
-    dispatch_percent: Number(row.dispatch_percent),
-    agreementUrl: buildCarrierAgreementUrl(row.token as string),
-  }));
+  const agreements = (data ?? []).map((row) => {
+    const token = row.token as string;
+    const status = row.status as string;
+    return {
+      ...row,
+      dispatch_percent: Number(row.dispatch_percent),
+      agreementUrl: buildCarrierAgreementUrl(token),
+      signedUrl:
+        status === "accepted" ? buildCarrierAgreementSignedUrl(token) : null,
+      pdfUrl:
+        status === "accepted"
+          ? `/api/dispatcher/agreements/${row.id as string}/pdf`
+          : null,
+    };
+  });
 
   return NextResponse.json({ agreements });
 }

@@ -33,6 +33,11 @@ export function buildCarrierAgreementUrl(token: string): string {
   return `${base}/carrier/agreement/${encodeURIComponent(token)}`;
 }
 
+/** Permanent link to the electronically signed record (accepted agreements). */
+export function buildCarrierAgreementSignedUrl(token: string): string {
+  return `${buildCarrierAgreementUrl(token)}/signed`;
+}
+
 export async function createCarrierAgreement(params: {
   createdBy: string;
   dispatchPercent: number;
@@ -320,6 +325,42 @@ export async function lookupDefaultDispatchPercentByInviteToken(
 
   if (agreement?.dispatch_percent == null) return null;
   return clampAgreementPercent(Number(agreement.dispatch_percent));
+}
+
+/** Load an accepted agreement for the permanent signed record page. */
+export async function getAcceptedCarrierAgreementByToken(token: string) {
+  const admin = getServiceRoleClient();
+  if (!admin) return { ok: false as const, reason: "server" as const };
+
+  const { data: row, error } = await admin
+    .from("tms_carrier_agreements")
+    .select(
+      "id, dispatch_percent, token, status, terms_version, company_name, contact_name, carrier_email, carrier_phone, accepted_at, accepted_ip, created_at",
+    )
+    .eq("token", token)
+    .maybeSingle();
+
+  if (error || !row) return { ok: false as const, reason: "not_found" as const };
+  if (row.status !== "accepted") {
+    return { ok: false as const, reason: "not_accepted" as const, status: row.status as string };
+  }
+
+  return {
+    ok: true as const,
+    agreement: {
+      id: row.id as string,
+      token: row.token as string,
+      dispatch_percent: Number(row.dispatch_percent),
+      terms_version: row.terms_version as string,
+      company_name: (row.company_name as string) || "",
+      contact_name: (row.contact_name as string) || "",
+      carrier_email: (row.carrier_email as string) || "",
+      carrier_phone: (row.carrier_phone as string) || "",
+      accepted_at: row.accepted_at as string,
+      accepted_ip: (row.accepted_ip as string | null) ?? null,
+      created_at: row.created_at as string,
+    },
+  };
 }
 
 export { buildCarrierInviteUrl };

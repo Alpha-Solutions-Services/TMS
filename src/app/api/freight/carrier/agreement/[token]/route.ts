@@ -4,6 +4,7 @@ import { checkRateLimit, sanitizeText } from "@/lib/freight/api-security";
 import { buildCarrierAgreementPdf } from "@/lib/freight/carrier-agreement-pdf";
 import {
   acceptCarrierAgreement,
+  buildCarrierAgreementSignedUrl,
   validateCarrierAgreementToken,
 } from "@/lib/freight/carrier-agreements";
 import {
@@ -117,6 +118,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       requiresDocuments: result.requiresDocuments,
     }).catch(() => {});
 
+    const signedUrl = buildCarrierAgreementSignedUrl(token);
+
     const { pdf, filename } = await buildCarrierAgreementPdf({
       input: {
         companyName: result.companyName,
@@ -133,6 +136,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       acceptedAt: result.acceptedAt,
       acceptedIp: ip,
       inviteUrl: result.inviteUrl,
+      signedUrl,
     });
 
     const supers = await listSuperDispatcherEmails();
@@ -146,6 +150,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
           carrierPhone: result.phone,
           dispatchPercent: result.dispatchPercent,
           inviteUrl: result.inviteUrl,
+          signedUrl,
           acceptedAt: result.acceptedAt,
           pdf,
           pdfFilename: filename,
@@ -158,6 +163,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({
       ok: true,
       inviteUrl: result.inviteUrl,
+      signedUrl,
       dispatchPercent: result.dispatchPercent,
     });
   } catch (e) {

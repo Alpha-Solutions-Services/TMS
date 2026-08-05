@@ -99,6 +99,7 @@ export async function sendCarrierAgreementAcceptedSuperEmail(params: {
   carrierPhone: string;
   dispatchPercent: number;
   inviteUrl: string;
+  signedUrl: string;
   acceptedAt: string;
   pdf: Buffer;
   pdfFilename: string;
@@ -119,6 +120,7 @@ export async function sendCarrierAgreementAcceptedSuperEmail(params: {
        <li><strong>Accepted:</strong> ${escapeHtml(when)}</li>
      </ul>
      <p>A 7-day TMS registration invite was created automatically.</p>
+     ${cta("View signed agreement", params.signedUrl)}
      ${cta("Open invite link", params.inviteUrl)}
      <p style="font-size:13px;color:#6a8caf;">Signed agreement PDF is attached.</p>`,
   );
@@ -126,7 +128,7 @@ export async function sendCarrierAgreementAcceptedSuperEmail(params: {
     to: params.to,
     subject: `Carrier agreement accepted — ${params.companyName} (${params.dispatchPercent}%)`,
     html,
-    text: `Carrier agreement accepted: ${params.companyName} / ${params.contactName} <${params.carrierEmail}> / ${params.dispatchPercent}%.\nInvite: ${params.inviteUrl}`,
+    text: `Carrier agreement accepted: ${params.companyName} / ${params.contactName} <${params.carrierEmail}> / ${params.dispatchPercent}%.\nSigned: ${params.signedUrl}\nInvite: ${params.inviteUrl}`,
     attachments: [{ filename: params.pdfFilename, content: params.pdf }],
   });
 }
