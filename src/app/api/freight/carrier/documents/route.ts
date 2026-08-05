@@ -58,7 +58,7 @@ export async function GET() {
   const documents = await Promise.all(
     required.map(async (type) => {
       const row = rows.find((r) => r.document_type === type) ?? null;
-      const viewUrl = row
+      const viewUrl = row?.file_path
         ? await getCarrierDocumentSignedUrl(row.file_path)
         : null;
       return {
@@ -67,6 +67,7 @@ export async function GET() {
         status: row?.status ?? "missing",
         rejection_reason: row?.rejection_reason ?? null,
         uploaded_at: row?.uploaded_at ?? null,
+        file_purged_at: row?.file_purged_at ?? null,
         viewUrl,
       };
     }),

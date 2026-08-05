@@ -18,13 +18,16 @@ export type CarrierDocumentRow = {
   id: string;
   carrier_profile_id: string;
   document_type: CarrierDocumentType;
-  file_path: string;
+  file_path: string | null;
   status: CarrierDocumentStatus;
   uploaded_at: string;
   reviewed_by: string | null;
   reviewed_at: string | null;
   rejection_reason: string | null;
+  file_purged_at: string | null;
 };
+
+const REJECTED_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
 export const CARRIER_DOCUMENT_LABELS: Record<CarrierDocumentType, string> = {
   mc_authority: "MC Authority Letter",
@@ -110,11 +113,12 @@ export async function uploadCarrierDocument(params: {
         reviewed_by: null,
         reviewed_at: null,
         rejection_reason: null,
+        file_purged_at: null,
       },
       { onConflict: "carrier_profile_id,document_type" },
     )
     .select(
-      "id, carrier_profile_id, document_type, file_path, status, uploaded_at, reviewed_by, reviewed_at, rejection_reason",
+      "id, carrier_profile_id, document_type, file_path, status, uploaded_at, reviewed_by, reviewed_at, rejection_reason, file_purged_at",
     )
     .maybeSingle();
 
@@ -153,7 +157,7 @@ export async function fetchCarrierDocuments(
   const { data, error } = await admin
     .from("tms_carrier_documents")
     .select(
-      "id, carrier_profile_id, document_type, file_path, status, uploaded_at, reviewed_by, reviewed_at, rejection_reason",
+      "id, carrier_profile_id, document_type, file_path, status, uploaded_at, reviewed_by, reviewed_at, rejection_reason, file_purged_at",
     )
     .eq("carrier_profile_id", carrierProfileId)
     .order("document_type");
@@ -163,6 +167,68 @@ export async function fetchCarrierDocuments(
     return null;
   }
   return (data ?? []) as CarrierDocumentRow[];
+}
+
+/** Soft-purge storage for rejected docs older than 7 days. Keeps row + reason. */
+export async function purgeExpiredRejectedCarrierDocuments(limit = 50): Promise<{
+  scanned: number;
+  purged: number;
+  errors: string[];
+}> {
+  const admin = getServiceRoleClient();
+  if (!admin) return { scanned: 0, purged: 0, errors: ["DB unavailable"] };
+
+  const cutoff = new Date(Date.now() - REJECTED_RETENTION_MS).toISOString();
+  const { data: rows, error } = await admin
+    .from("tms_carrier_documents")
+    .select("id, file_path")
+    .eq("status", "rejected")
+    .is("file_purged_at", null)
+    .not("file_path", "is", null)
+    .lt("reviewed_at", cutoff)
+    .order("reviewed_at", { ascending: true })
+    .limit(limit);
+
+  if (error) {
+    console.error("[carrier-documents] purge list failed:", error);
+    return { scanned: 0, purged: 0, errors: [error.message] };
+  }
+
+  const list = rows ?? [];
+  const errors: string[] = [];
+  let purged = 0;
+
+  for (const row of list) {
+    const path = row.file_path as string | null;
+    if (!path) continue;
+
+    const { error: delErr } = await admin.storage
+      .from(CARRIER_DOCUMENTS_BUCKET)
+      .remove([path]);
+
+    if (delErr && !/not found|does not exist/i.test(delErr.message)) {
+      errors.push(`${row.id}: ${delErr.message}`);
+      continue;
+    }
+
+    const { error: upErr } = await admin
+      .from("tms_carrier_documents")
+      .update({
+        file_path: null,
+        file_purged_at: new Date().toISOString(),
+      })
+      .eq("id", row.id)
+      .eq("status", "rejected")
+      .is("file_purged_at", null);
+
+    if (upErr) {
+      errors.push(`${row.id}: ${upErr.message}`);
+      continue;
+    }
+    purged += 1;
+  }
+
+  return { scanned: list.length, purged, errors };
 }
 
 const CARRIER_DOC_MAX_BYTES = 10 * 1024 * 1024;
