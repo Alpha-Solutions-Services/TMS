@@ -4,6 +4,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import {
   CARRIER_AGREEMENT_TERMS_VERSION,
   buildCarrierAgreementOnlySections,
+  buildCarrierTermsOfServiceSections,
   type CarrierAgreementTermsInput,
 } from "@/lib/freight/carrier-agreement-terms";
 
@@ -220,15 +221,25 @@ export async function buildCarrierAgreementPdf(params: {
 
   y -= 4;
   ensureSpace(50);
-  drawLine("Terms of Service", { bold: true, size: 11, color: ACCENT });
+  drawLine("Terms of Service", { bold: true, size: 12, color: ACCENT });
   drawLine(
-    "The Alpha Freight Network Terms of Service are incorporated by reference and are not reprinted here.",
+    "The following Terms of Service are incorporated into and form part of this Agreement.",
     { size: 9.5 },
   );
-  drawLine(`Read Terms of Service: ${termsOfServiceUrl()}`, {
-    size: 9.5,
-    color: ACCENT,
+  drawLine(`Also published at: ${termsOfServiceUrl()}`, {
+    size: 8.5,
+    color: MUTED,
   });
+  y -= 4;
+
+  for (const section of buildCarrierTermsOfServiceSections()) {
+    ensureSpace(36);
+    drawLine(section.title, { bold: true, size: 10.5, color: ACCENT });
+    for (const line of wrapLines(stripHtml(section.bodyHtml), charsPerLine)) {
+      drawLine(line, { size: 9.5 });
+    }
+    y -= 5;
+  }
 
   y -= 10;
   ensureSpace(40);
