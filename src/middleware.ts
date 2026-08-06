@@ -44,7 +44,9 @@ export const config = {
   matcher: [
     /*
      * Skip static assets / images; run on pages + API so session cookies stay fresh.
+     * Do NOT run on /login or /auth/callback — getUser() can race with PKCE
+     * code-verifier cookies (see commit 8fd8679).
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|login(?:/|$)|auth/callback(?:/|$)|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
