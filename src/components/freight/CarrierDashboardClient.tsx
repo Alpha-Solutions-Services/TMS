@@ -39,7 +39,7 @@ function formatUsd(n: number, fraction = 0) {
 
 const QUICK_ACTIONS = [
   { label: "Upload POD", icon: Upload, href: "/carrier/documents?action=pod" },
-  { label: "Send Location", icon: MapPin, href: "/carrier/trucks" },
+  { label: "Send Location", icon: MapPin, href: "/carrier/tracking" },
   { label: "Contact Dispatcher", icon: MessageSquare, href: "/carrier/chat" },
   { label: "View Documents", icon: FileDown, href: "/carrier/documents" },
 ] as const;
@@ -201,11 +201,13 @@ export function CarrierDashboardClient() {
                   {data.trucks.length} trucks · {data.drivers.length} drivers
                 </p>
                 <p className="mt-1 text-sm text-[var(--color-muted)]">
-                  GPS tracking · {data.trucks.filter((t) => t.status !== "Available").length} units
-                  rolling
+                  GPS tracking ·{" "}
+                  {data.trucks.filter((t) => t.status.toLowerCase() !== "available").length ||
+                    data.summary.active_loads}{" "}
+                  units rolling
                 </p>
                 <Link
-                  href="/carrier/trucks"
+                  href="/carrier/tracking"
                   className="mt-4 inline-flex w-fit items-center gap-2 rounded-xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[#05080f]"
                 >
                   <Truck className="h-4 w-4" />

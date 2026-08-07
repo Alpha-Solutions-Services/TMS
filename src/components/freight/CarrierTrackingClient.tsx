@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { CarrierTopBar } from "@/components/freight/carrier/CarrierTopBar";
+import { DispatcherFleetMap } from "@/components/freight/DispatcherFleetMap";
 import { useCarrierDashboard } from "@/components/freight/useCarrierDashboard";
 
 const UsaTrackingMap = dynamic(
@@ -120,6 +121,9 @@ export function CarrierTrackingClient() {
     };
   }, [markers]);
 
+  const rolling =
+    data?.trucks.filter((t) => t.status.toLowerCase() !== "available").length ?? 0;
+
   return (
     <div className="min-h-screen bg-[var(--color-bg)]">
       <CarrierTopBar
@@ -127,9 +131,17 @@ export function CarrierTrackingClient() {
         companyName={data?.carrier.company_name ?? "Carrier"}
       />
       <div className="space-y-4 p-4 sm:p-6 lg:p-8">
+        <DispatcherFleetMap
+          inTransit={rolling || data?.summary.active_loads || 0}
+          totalMiles={data?.summary.miles_driven || 0}
+          carriersManaged={1}
+          trackingHref="/carrier/trucks"
+          footerNote={`${data?.trucks.length ?? 0} trucks · ${data?.drivers.length ?? 0} drivers · live GPS when drivers share`}
+        />
+
         <div className="flex items-center justify-between gap-2">
           <p className="text-sm text-[var(--color-muted)]">
-            See loads your drivers are tracking for dispatch — live GPS updates appear here.
+            Assigned load routes — live GPS updates when your driver shares location.
             {routeBusy ? " Building road route…" : null}
           </p>
           <button
@@ -147,7 +159,8 @@ export function CarrierTrackingClient() {
           <ul className="space-y-2">
             {sessions.length === 0 && !loading ? (
               <li className="rounded-xl border border-[var(--color-border)] px-3 py-4 text-sm text-[var(--color-muted)]">
-                No active tracking yet. When dispatch assigns tracking to your driver, it shows here.
+                No dedicated tracking session yet. Fleet pins above still show assigned drivers
+                (GPS or ZIP approx). When dispatch starts tracking, detailed routes appear here.
               </li>
             ) : null}
             {loading && sessions.length === 0 ? (

@@ -81,7 +81,7 @@ export function mergePortalConfig(
     summary: config.summary_overrides
       ? { ...base.summary, ...config.summary_overrides }
       : base.summary,
-    trucks: config.trucks ?? base.trucks,
+    trucks: config.trucks?.length ? config.trucks : base.trucks,
     compliance: { ...base.compliance, ...config.compliance },
     dispatcher: { ...base.dispatcher, ...config.dispatcher },
     payments: config.payments ? { ...base.payments, ...config.payments } : base.payments,

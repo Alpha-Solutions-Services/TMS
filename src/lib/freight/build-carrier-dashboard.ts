@@ -83,6 +83,30 @@ function buildRevenueFromLoads(loads: CarrierLoadRow[]): {
   };
 }
 
+function isClosedLoadStatus(status: string) {
+  const s = status.toLowerCase();
+  return (
+    s.includes("deliver") ||
+    s === "paid" ||
+    s === "completed" ||
+    s === "complete" ||
+    s.includes("cancel")
+  );
+}
+
+function pickCurrentLoad(loads: CarrierLoadRow[]): CarrierLoadRow | null {
+  const active = loads.filter((l) => !isClosedLoadStatus(l.status));
+  if (!active.length) return null;
+  return (
+    active.find((l) => l.status.toLowerCase().includes("transit")) ??
+    active.find((l) => {
+      const s = l.status.toLowerCase();
+      return s.includes("assign") || s.includes("book") || s.includes("dispatch");
+    }) ??
+    active[0]
+  );
+}
+
 function applyLoadsToDashboard(
   dashboard: CarrierDashboardData,
   loads: CarrierLoadRow[],
@@ -90,7 +114,7 @@ function applyLoadsToDashboard(
 ): CarrierDashboardData {
   const summary = computeSummaryFromLoads(loads, miles);
   const charts = buildRevenueFromLoads(loads);
-  const inTransit = loads.find((l) => l.status.toLowerCase().includes("transit"));
+  const current = pickCurrentLoad(loads);
 
   dashboard.loads = loads;
   dashboard.summary = summary;
@@ -103,13 +127,13 @@ function applyLoadsToDashboard(
     .reduce((s, l) => s + l.rate, 0);
   dashboard.payments.total_earnings_ytd = loads.reduce((s, l) => s + l.rate, 0);
 
-  if (inTransit) {
+  if (current) {
     dashboard.current_load = {
-      load_number: inTransit.load_number,
-      pickup: inTransit.pickup,
-      delivery: inTransit.delivery,
-      rate: inTransit.rate,
-      status: inTransit.status,
+      load_number: current.load_number,
+      pickup: current.pickup,
+      delivery: current.delivery,
+      rate: current.rate,
+      status: current.status,
       eta: "—",
       truck_location: dashboard.trucks[0]?.location,
     };
@@ -118,6 +142,80 @@ function applyLoadsToDashboard(
   }
 
   return dashboard;
+}
+
+function buildTrucksFromFleet(opts: {
+  dbRows?: { id: string; truck_trailer: string | null; status: string; states: string | null; assigned_driver_profile_id: string | null }[];
+  sheetRows?: { truckTrailer: string; status: string; states: string }[];
+  drivers: CarrierDashboardData["drivers"];
+  loads: CarrierLoadRow[];
+}): CarrierDashboardData["trucks"] {
+  const trucks: CarrierDashboardData["trucks"] = [];
+  const seen = new Set<string>();
+  const driverById = new Map(opts.drivers.map((d) => [d.driver_id, d]));
+
+  const pushTruck = (optsT: {
+    id: string;
+    number: string;
+    driverName: string;
+    location: string;
+    status: string;
+  }) => {
+    const key = optsT.number.toLowerCase();
+    if (!optsT.number || seen.has(key)) return;
+    seen.add(key);
+    trucks.push({
+      truck_id: optsT.id,
+      truck_number: optsT.number,
+      driver: optsT.driverName,
+      equipment: optsT.number,
+      location: optsT.location || "—",
+      status: optsT.status,
+    });
+  };
+
+  for (const row of opts.dbRows ?? []) {
+    const tt = (row.truck_trailer || "").trim();
+    if (!tt) continue;
+    const driver = row.assigned_driver_profile_id
+      ? driverById.get(row.assigned_driver_profile_id)
+      : undefined;
+    pushTruck({
+      id: row.id,
+      number: tt,
+      driverName: driver?.name || "—",
+      location: row.states || "—",
+      status: isClosedLoadStatus(row.status) ? "Available" : "In Transit",
+    });
+  }
+
+  for (const row of opts.sheetRows ?? []) {
+    const tt = (row.truckTrailer || "").trim();
+    if (!tt) continue;
+    pushTruck({
+      id: `sheet-${tt}`,
+      number: tt,
+      driverName: "—",
+      location: row.states || "—",
+      status: isClosedLoadStatus(row.status) ? "Available" : "In Transit",
+    });
+  }
+
+  // Fallback: one unit per active driver so Fleet overview isn't stuck at 0 trucks
+  if (!trucks.length) {
+    const activeLoadCount = opts.loads.filter((l) => !isClosedLoadStatus(l.status)).length;
+    for (const d of opts.drivers.filter((x) => x.status === "Active")) {
+      pushTruck({
+        id: d.driver_id,
+        number: d.name.split(/\s+/)[0] || "Unit",
+        driverName: d.name,
+        location: activeLoadCount > 0 ? "On load" : "Awaiting GPS",
+        status: activeLoadCount > 0 ? "In Transit" : "Available",
+      });
+    }
+  }
+
+  return trucks;
 }
 
 export async function buildCarrierDashboard(opts: {
@@ -240,6 +338,25 @@ export async function buildCarrierDashboard(opts: {
         });
       }
     }
+  }
+
+  // Build trucks after drivers so units can be attributed
+  if (dbRows.length > 0) {
+    dashboard.trucks = buildTrucksFromFleet({
+      dbRows,
+      drivers: dashboard.drivers,
+      loads: dashboard.loads,
+    });
+  } else if (dashboard.loads.length || dashboard.drivers.length) {
+    dashboard.trucks = buildTrucksFromFleet({
+      drivers: dashboard.drivers,
+      loads: dashboard.loads,
+    });
+  }
+
+  // Refresh current load location once trucks exist
+  if (dashboard.current_load && dashboard.trucks[0]?.location) {
+    dashboard.current_load.truck_location = dashboard.trucks[0].location;
   }
 
   const portalConfig = await fetchCarrierPortalConfig({

@@ -28,10 +28,16 @@ export function DispatcherFleetMap({
   inTransit,
   totalMiles,
   carriersManaged,
+  trackingHref = "/dispatcher/driver-tracking",
+  footerNote,
 }: {
   inTransit: number;
   totalMiles: number;
   carriersManaged: number;
+  /** Deep-link for full tracking UI */
+  trackingHref?: string;
+  /** Optional footer override (e.g. carrier portal) */
+  footerNote?: string;
 }) {
   const [pings, setPings] = useState<FleetPing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,7 +132,7 @@ export function DispatcherFleetMap({
         </div>
         <div className="flex items-center gap-2">
           <Link
-            href="/dispatcher/driver-tracking"
+            href={trackingHref}
             className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-accent)] hover:bg-[var(--color-accent-dim)]"
           >
             Open tracking
@@ -222,8 +228,8 @@ export function DispatcherFleetMap({
           <span className="mx-2 inline-block h-2 w-2 rounded-full bg-orange-400" /> ZIP approx
         </span>
         <span>
-          {inTransit} in transit · {totalMiles.toLocaleString()} mi board ·{" "}
-          {carriersManaged} carriers
+          {footerNote ??
+            `${inTransit} in transit · ${totalMiles.toLocaleString()} mi board · ${carriersManaged} carriers`}
         </span>
       </div>
     </div>

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { checkRateLimit } from "@/lib/freight/api-security";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
+import { isVerifiedCarrier } from "@/lib/freight/carrier-identity";
 import { assertDispatcher } from "@/lib/freight/dispatch-roster";
 import { geocodeUsZip } from "@/lib/freight/usa-map-geo";
 
@@ -78,7 +79,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/** GET — dispatcher sees latest driver locations */
+/** GET — dispatcher (all) or verified carrier (own drivers) see latest locations */
 export async function GET(req: NextRequest) {
   if (!checkRateLimit(req, "driver-location-get", 40)) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
@@ -90,18 +91,45 @@ export async function GET(req: NextRequest) {
     data: { user },
   } = await sb.auth.getUser();
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!(await assertDispatcher(user))) {
-    return NextResponse.json({ error: "Dispatcher only" }, { status: 403 });
+
+  const isDisp = await assertDispatcher(user);
+  const { data: profile } = await sb
+    .from("profiles")
+    .select("role, carrier_status")
+    .eq("id", user.id)
+    .maybeSingle();
+  const asCarrier = !isDisp && isVerifiedCarrier(profile);
+  if (!isDisp && !asCarrier) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const admin = getServiceRoleClient();
   if (!admin) return NextResponse.json({ error: "DB unavailable" }, { status: 500 });
 
-  const { data, error } = await admin
+  /** When carrier: only their drivers */
+  let carrierDriverIds: string[] | null = null;
+  if (asCarrier) {
+    const { data: myDrivers } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("role", "driver")
+      .eq("carrier_id", user.id);
+    carrierDriverIds = (myDrivers ?? []).map((d) => d.id as string).filter(Boolean);
+    if (!carrierDriverIds.length) {
+      return NextResponse.json({ locations: [], drivers: [] });
+    }
+  }
+
+  let locQuery = admin
     .from("tms_driver_locations")
     .select("driver_profile_id, load_id, lat, lng, accuracy_m, updated_at")
     .order("updated_at", { ascending: false })
     .limit(200);
+  if (carrierDriverIds) {
+    locQuery = locQuery.in("driver_profile_id", carrierDriverIds);
+  }
+
+  const { data, error } = await locQuery;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -184,15 +212,54 @@ export async function GET(req: NextRequest) {
     });
 
   // Also list drivers currently assigned to non-delivered loads (for tracking picker)
-  const { data: assignedLoads } = await admin
-    .from("dispatch_loads")
-    .select(
-      "id, load_number, assigned_driver_profile_id, company_name, status, states, pickup_zips, delivery_zips",
-    )
-    .not("assigned_driver_profile_id", "is", null)
-    .is("deleted_at", null)
-    .order("updated_at", { ascending: false })
-    .limit(100);
+  let assignedLoads: {
+    id: string;
+    load_number: string | null;
+    assigned_driver_profile_id: string | null;
+    company_name: string;
+    status: string;
+    states: string | null;
+    pickup_zips: string[] | null;
+    delivery_zips: string[] | null;
+    carrier_profile_id?: string | null;
+  }[] = [];
+
+  if (asCarrier && carrierDriverIds?.length) {
+    const byId = new Map<string, (typeof assignedLoads)[number]>();
+    const { data: byCarrier } = await admin
+      .from("dispatch_loads")
+      .select(
+        "id, load_number, assigned_driver_profile_id, company_name, status, states, pickup_zips, delivery_zips, carrier_profile_id",
+      )
+      .eq("carrier_profile_id", user.id)
+      .not("assigned_driver_profile_id", "is", null)
+      .is("deleted_at", null)
+      .order("updated_at", { ascending: false })
+      .limit(100);
+    for (const row of byCarrier ?? []) byId.set(row.id as string, row as (typeof assignedLoads)[number]);
+    const { data: byDrivers } = await admin
+      .from("dispatch_loads")
+      .select(
+        "id, load_number, assigned_driver_profile_id, company_name, status, states, pickup_zips, delivery_zips, carrier_profile_id",
+      )
+      .in("assigned_driver_profile_id", carrierDriverIds)
+      .is("deleted_at", null)
+      .order("updated_at", { ascending: false })
+      .limit(100);
+    for (const row of byDrivers ?? []) byId.set(row.id as string, row as (typeof assignedLoads)[number]);
+    assignedLoads = Array.from(byId.values());
+  } else {
+    const { data } = await admin
+      .from("dispatch_loads")
+      .select(
+        "id, load_number, assigned_driver_profile_id, company_name, status, states, pickup_zips, delivery_zips, carrier_profile_id",
+      )
+      .not("assigned_driver_profile_id", "is", null)
+      .is("deleted_at", null)
+      .order("updated_at", { ascending: false })
+      .limit(100);
+    assignedLoads = (data ?? []) as typeof assignedLoads;
+  }
 
   const assignedDriverIds = Array.from(
     new Set(

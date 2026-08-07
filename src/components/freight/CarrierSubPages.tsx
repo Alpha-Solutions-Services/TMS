@@ -6,6 +6,7 @@ import { Mail, MapPin, Phone, RefreshCw, Sparkles, Upload } from "lucide-react";
 import { InviteDriverModal } from "@/components/freight/InviteDriverModal";
 import { DriverInvitationList } from "@/components/freight/DriverInvitationList";
 import { LoadDocumentsPanel } from "@/components/freight/LoadDocumentsPanel";
+import { DispatcherFleetMap } from "@/components/freight/DispatcherFleetMap";
 import {
   CarrierGlassCard,
   CarrierStatusBadge,
@@ -91,14 +92,27 @@ export function CarrierLoadsPage() {
                   <th className="px-4 py-3 text-left">Rate</th>
                   <th className="px-4 py-3 text-left">Status</th>
                   <th className="px-4 py-3 text-left">Dispatcher</th>
-                  <th className="px-4 py-3 text-left">Docs</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--color-border)]">
                 {data.loads.map((l) => (
                   <tr key={l.load_id}>
                     <td className="px-4 py-3 font-medium text-[var(--color-accent)]">
-                      {l.load_number}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>{l.load_number}</span>
+                        {l.db_id ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDocsLoadId(l.db_id!);
+                              setDocsLabel(`#${l.load_number}`);
+                            }}
+                            className="rounded-lg border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--color-accent)]"
+                          >
+                            Docs
+                          </button>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       {l.pickup} → {l.delivery}
@@ -109,22 +123,6 @@ export function CarrierLoadsPage() {
                       <CarrierStatusBadge status={l.status} />
                     </td>
                     <td className="px-4 py-3 text-[var(--color-muted)]">{l.dispatcher}</td>
-                    <td className="px-4 py-3">
-                      {l.db_id ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setDocsLoadId(l.db_id!);
-                            setDocsLabel(`#${l.load_number}`);
-                          }}
-                          className="rounded-lg border border-[var(--color-accent)]/40 px-2.5 py-1 text-xs font-semibold text-[var(--color-accent)]"
-                        >
-                          Docs
-                        </button>
-                      ) : (
-                        <span className="text-xs text-[var(--color-muted)]">—</span>
-                      )}
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -144,31 +142,50 @@ export function CarrierLoadsPage() {
 
 export function CarrierTrucksPage() {
   const { data, loading, company } = useCarrierPage();
+  const rolling =
+    data?.trucks.filter((t) => t.status.toLowerCase() !== "available").length ?? 0;
   return (
     <CarrierPageShell title="Trucks & GPS" loading={loading && !data} companyName={company}>
       {data ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          {data.trucks.map((t) => (
-            <CarrierGlassCard key={t.truck_id} glow>
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-lg font-bold text-[var(--color-text)]">Truck #{t.truck_number}</p>
-                  <p className="text-sm text-[var(--color-muted)]">{t.equipment}</p>
-                </div>
-                <CarrierStatusBadge status={t.status} />
-              </div>
-              <p className="mt-3 text-sm">
-                Driver: <strong>{t.driver}</strong>
-              </p>
-              <p className="mt-1 flex items-center gap-1 text-sm text-[var(--color-accent)]">
-                <MapPin className="h-4 w-4" />
-                {t.location}
-              </p>
-              <p className="mt-2 text-xs text-[var(--color-muted)]">
-                Live GPS · updated moments ago
-              </p>
-            </CarrierGlassCard>
-          ))}
+        <div className="space-y-6">
+          <DispatcherFleetMap
+            inTransit={rolling || data.summary.active_loads}
+            totalMiles={data.summary.miles_driven}
+            carriersManaged={1}
+            trackingHref="/carrier/tracking"
+            footerNote={`${data.trucks.length} trucks · ${data.drivers.length} drivers · ${rolling || data.summary.active_loads} rolling`}
+          />
+          {data.trucks.length === 0 ? (
+            <p className="rounded-xl border border-[var(--color-border)] px-4 py-6 text-center text-sm text-[var(--color-muted)]">
+              No truck units yet. Invite drivers and assign loads — units appear here with live GPS.
+            </p>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {data.trucks.map((t) => (
+                <CarrierGlassCard key={t.truck_id} glow>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-lg font-bold text-[var(--color-text)]">
+                        Truck #{t.truck_number}
+                      </p>
+                      <p className="text-sm text-[var(--color-muted)]">{t.equipment}</p>
+                    </div>
+                    <CarrierStatusBadge status={t.status} />
+                  </div>
+                  <p className="mt-3 text-sm">
+                    Driver: <strong>{t.driver}</strong>
+                  </p>
+                  <p className="mt-1 flex items-center gap-1 text-sm text-[var(--color-accent)]">
+                    <MapPin className="h-4 w-4" />
+                    {t.location}
+                  </p>
+                  <p className="mt-2 text-xs text-[var(--color-muted)]">
+                    Live GPS on map above when the driver shares location
+                  </p>
+                </CarrierGlassCard>
+              ))}
+            </div>
+          )}
         </div>
       ) : null}
     </CarrierPageShell>

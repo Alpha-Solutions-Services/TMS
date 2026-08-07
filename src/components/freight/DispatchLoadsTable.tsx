@@ -103,6 +103,10 @@ export function DispatchLoadsTable({
         <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-accent)]">
           Load board
         </p>
+        <p className="mt-1 text-[11px] text-[var(--color-muted)]">
+          Use the blue <span className="font-semibold text-[var(--color-accent)]">Docs</span> button
+          next to SR# for BOL, commodity photo, POD, and rate confirmation.
+        </p>
       </div>
 
       {!compact ? (
@@ -135,10 +139,13 @@ export function DispatchLoadsTable({
         <table className="min-w-[1400px] text-left text-xs sm:text-sm">
           <thead className="bg-[var(--color-surface)]/80 text-[10px] uppercase tracking-wider text-[var(--color-muted)] sm:text-xs">
             <tr>
-              <th className="whitespace-nowrap px-3 py-3 font-medium">
+              <th className="sticky left-0 z-20 whitespace-nowrap bg-[var(--color-surface)] px-3 py-3 font-medium shadow-[2px_0_8px_rgba(0,0,0,0.25)]">
                 <button type="button" onClick={() => toggleSort("sr")} className="hover:text-[var(--color-accent)]">
                   SR# <SortIcon col="sr" />
                 </button>
+              </th>
+              <th className="sticky left-[4.5rem] z-20 whitespace-nowrap bg-[var(--color-surface)] px-3 py-3 font-medium shadow-[2px_0_8px_rgba(0,0,0,0.25)]">
+                Docs
               </th>
               <th className="whitespace-nowrap px-3 py-3 font-medium">Booked By</th>
               <th className="whitespace-nowrap px-3 py-3 font-medium">RC Date</th>
@@ -179,15 +186,13 @@ export function DispatchLoadsTable({
               <th className="whitespace-nowrap px-3 py-3 font-medium">CPAY</th>
               {showActions ? (
                 <th className="whitespace-nowrap px-3 py-3 font-medium">Actions</th>
-              ) : (
-                <th className="whitespace-nowrap px-3 py-3 font-medium">Docs</th>
-              )}
+              ) : null}
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--color-border)]">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={19} className="px-4 py-10 text-center text-[var(--color-muted)]">
+                <td colSpan={showActions ? 20 : 19} className="px-4 py-10 text-center text-[var(--color-muted)]">
                   No loads on this month&apos;s dispatch sheet.
                 </td>
               </tr>
@@ -197,8 +202,22 @@ export function DispatchLoadsTable({
                   key={`${load.load_id}-${load.sr}`}
                   className="hover:bg-[var(--color-accent-dim)]/30"
                 >
-                  <td className="whitespace-nowrap px-3 py-2.5 tabular-nums font-medium text-[var(--color-text)]">
+                  <td className="sticky left-0 z-10 whitespace-nowrap bg-[var(--color-bg)] px-3 py-2.5 tabular-nums font-medium text-[var(--color-text)] shadow-[2px_0_8px_rgba(0,0,0,0.2)] group-hover:bg-[var(--color-surface)]">
                     {load.sr}
+                  </td>
+                  <td className="sticky left-[4.5rem] z-10 whitespace-nowrap bg-[var(--color-bg)] px-3 py-2.5 shadow-[2px_0_8px_rgba(0,0,0,0.2)]">
+                    {load.db_id ? (
+                      <button
+                        type="button"
+                        onClick={() => setDocsLoad(load)}
+                        className="rounded-lg border border-[var(--color-accent)]/50 bg-[var(--color-accent)]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[var(--color-accent)] hover:bg-[var(--color-accent)]/20"
+                        title="BOL · Commodity · POD · Rate con"
+                      >
+                        Docs
+                      </button>
+                    ) : (
+                      <span className="text-[10px] text-[var(--color-muted)]">—</span>
+                    )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2.5 text-[var(--color-muted)]">{load.booked_by}</td>
                   <td className="whitespace-nowrap px-3 py-2.5 text-[var(--color-muted)]">{load.rc_date}</td>
@@ -238,17 +257,9 @@ export function DispatchLoadsTable({
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-3 py-2.5 text-[var(--color-muted)]">{load.cpay}</td>
-                  <td className="whitespace-nowrap px-3 py-2.5">
+                  {showActions ? (
+                    <td className="whitespace-nowrap px-3 py-2.5">
                       <div className="flex flex-wrap gap-1">
-                        {load.db_id ? (
-                          <button
-                            type="button"
-                            onClick={() => setDocsLoad(load)}
-                            className="rounded-lg border border-[var(--color-accent)]/40 px-2 py-1 text-[10px] font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent-dim)]/30"
-                          >
-                            Docs
-                          </button>
-                        ) : null}
                         {onEdit && load.db_id ? (
                           <button
                             type="button"
@@ -278,6 +289,7 @@ export function DispatchLoadsTable({
                         ) : null}
                       </div>
                     </td>
+                  ) : null}
                 </tr>
               ))
             )}
