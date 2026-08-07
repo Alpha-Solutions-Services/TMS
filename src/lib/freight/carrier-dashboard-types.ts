@@ -91,6 +91,18 @@ export type RevenuePoint = {
   amount: number;
 };
 
+export type CarrierScorecard = {
+  load_count: number;
+  delivered_count: number;
+  avg_dispatch_percent: number | null;
+};
+
+export type CarrierAnnouncement = {
+  id: string;
+  title: string;
+  body: string;
+};
+
 export type CarrierDashboardData = {
   carrier: CarrierProfile;
   summary: CarrierSummary;
@@ -109,4 +121,6 @@ export type CarrierDashboardData = {
   maintenance_alerts: number;
   ai_load_recommendations: CarrierLoadRow[];
   data_source: "live" | "mock" | "hybrid";
+  scorecard?: CarrierScorecard | null;
+  announcements?: CarrierAnnouncement[];
 };

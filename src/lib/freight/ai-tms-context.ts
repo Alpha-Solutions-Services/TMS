@@ -2,6 +2,7 @@ import { getServiceRoleClient } from "@/lib/supabase/service-role";
 
 /**
  * Compact TMS snapshot for Ask Alpha / enhance — recent loads + optional focus load.
+ * Extra context comes only from tms_ai_* views (no tokens / secrets).
  */
 export async function buildTmsAiContext(opts: {
   userId: string;
@@ -59,6 +60,42 @@ export async function buildTmsAiContext(opts: {
       lines.push(
         `Carrier: ${carrier.company_name || carrier.full_name || "?"} | ${carrier.email ?? ""} | MC ${carrier.mc_number ?? "?"} | status=${carrier.carrier_status ?? "?"}`,
       );
+    }
+
+    const { data: score } = await db
+      .from("tms_ai_carrier_scorecard")
+      .select("load_count, delivered_count, avg_dispatch_percent, carrier_name")
+      .eq("carrier_profile_id", opts.carrierProfileId)
+      .maybeSingle();
+    if (score) {
+      lines.push(
+        `Scorecard: loads=${score.load_count ?? 0} delivered=${score.delivered_count ?? 0} avg_dispatch%=${score.avg_dispatch_percent ?? "n/a"}`,
+      );
+    }
+
+    const { data: advances } = await db
+      .from("tms_ai_open_advances")
+      .select("request_type, amount, status")
+      .eq("carrier_profile_id", opts.carrierProfileId)
+      .limit(5);
+    if (advances?.length) {
+      lines.push("Open advances:");
+      for (const a of advances) {
+        lines.push(
+          `- ${a.request_type} $${a.amount} [${a.status}]`,
+        );
+      }
+    }
+  }
+
+  const { data: announcements } = await db
+    .from("tms_ai_active_announcements")
+    .select("title, body_preview, audience")
+    .limit(3);
+  if (announcements?.length) {
+    lines.push("Announcements:");
+    for (const a of announcements) {
+      lines.push(`- [${a.audience}] ${a.title}: ${a.body_preview ?? ""}`);
     }
   }
 

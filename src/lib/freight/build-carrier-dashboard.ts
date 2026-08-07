@@ -17,6 +17,10 @@ import {
 import { fetchDispatchSheetCsv, parseDispatchCsv } from "./dispatch-sheet";
 import { loadDriverRoster } from "./dispatch-roster";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
+import {
+  fetchCarrierScorecard,
+  listActiveAnnouncements,
+} from "@/lib/freight/announcements";
 
 function mapSheetRowToLoad(row: {
   loadNumber: string;
@@ -209,5 +213,20 @@ export async function buildCarrierDashboard(opts: {
     carrierProfileId: opts.carrierProfileId,
   });
 
-  return mergePortalConfig(dashboard, portalConfig);
+  dashboard = mergePortalConfig(dashboard, portalConfig);
+
+  if (opts.carrierProfileId) {
+    const [scorecard, announcements] = await Promise.all([
+      fetchCarrierScorecard(opts.carrierProfileId),
+      listActiveAnnouncements("carrier"),
+    ]);
+    dashboard.scorecard = scorecard;
+    dashboard.announcements = announcements.map((a) => ({
+      id: a.id,
+      title: a.title,
+      body: a.body,
+    }));
+  }
+
+  return dashboard;
 }

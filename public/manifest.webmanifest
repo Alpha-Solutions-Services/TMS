@@ -8,6 +8,7 @@
   "orientation": "portrait-primary",
   "background_color": "#05080f",
   "theme_color": "#05080f",
+  "categories": ["business", "productivity"],
   "icons": [
     {
       "src": "/afn-logo.png",

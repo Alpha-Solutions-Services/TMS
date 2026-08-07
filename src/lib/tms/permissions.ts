@@ -24,6 +24,7 @@ export const DISPATCHER_NAV_PATHS = [
   "/dispatcher/agreements",
   "/dispatcher/invoices",
   "/dispatcher/alerts",
+  "/dispatcher/advances",
   "/dispatcher/drivers",
 ] as const;
 

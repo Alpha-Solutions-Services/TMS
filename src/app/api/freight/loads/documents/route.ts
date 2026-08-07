@@ -12,6 +12,7 @@ import {
   type LoadDocumentType,
 } from "@/lib/freight/load-documents";
 import { sendLoadDocumentUploadedEmail } from "@/lib/freight/emails";
+import { extractAndPersistLoadDocument } from "@/lib/freight/document-extractions";
 import { FREIGHT_TEAM_EMAIL, PUBLIC_SITE_URL } from "@/lib/freight/constants";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
@@ -219,7 +220,9 @@ export async function POST(req: NextRequest) {
 
   const { data: load } = await admin
     .from("dispatch_loads")
-    .select("id, company_name, carrier_profile_id, assigned_driver_profile_id, email")
+    .select(
+      "id, company_name, carrier_profile_id, assigned_driver_profile_id, email",
+    )
     .eq("id", loadId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -283,6 +286,20 @@ export async function POST(req: NextRequest) {
     uploaderLabel,
     uploaderEmail: user.email ?? undefined,
   });
+
+  // Best-effort OCR → tms_document_extractions (does not block upload)
+  if (docType === "pod" || docType === "bol" || docType === "rate_con") {
+    void extractAndPersistLoadDocument({
+      loadId,
+      storagePath: result.path,
+      loadDocType: docType,
+      buffer,
+      contentType: resolvedMime,
+      filename: file.name,
+      carrierProfileId: load.carrier_profile_id as string | null,
+      createdBy: user.id,
+    }).catch((err) => console.warn("[load-documents] OCR skipped", err));
+  }
 
   const url = await getLoadDocumentSignedUrl(result.path);
 

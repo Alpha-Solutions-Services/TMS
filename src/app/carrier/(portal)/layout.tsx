@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { CarrierSidebar } from "@/components/freight/CarrierSidebar";
+import { CarrierPwaInstallBanner } from "@/components/pwa/CarrierPwaInstallBanner";
 import { ResponsiveDashboardShell } from "@/components/layout/ResponsiveDashboardShell";
 import { isCarrierIdentity } from "@/lib/freight/carrier-identity";
 import { createClient } from "@/lib/supabase/server";
@@ -53,6 +54,7 @@ export default async function CarrierPortalLayout({
     >
       <main className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[var(--color-bg)]">
         {children}
+        <CarrierPwaInstallBanner />
       </main>
     </ResponsiveDashboardShell>
   );

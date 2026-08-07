@@ -80,6 +80,27 @@ export function CarrierDashboardClient() {
       <CarrierTopBar title="Carrier Dashboard" companyName={data.carrier.company_name} />
 
       <div className="space-y-6 p-4 pb-12 sm:p-6 lg:p-8">
+        {data.announcements && data.announcements.length > 0 ? (
+          <div className="space-y-2">
+            {data.announcements.slice(0, 3).map((a) => (
+              <div
+                key={a.id}
+                className="rounded-xl border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 px-4 py-3"
+              >
+                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-accent)]">
+                  Announcement
+                </p>
+                <p className="mt-1 text-sm font-semibold text-[var(--color-text)]">
+                  {a.title}
+                </p>
+                <p className="mt-1 text-xs text-[var(--color-muted)] line-clamp-3">
+                  {a.body}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-[var(--color-muted)]">
             MC {data.carrier.mc_number} · DOT {data.carrier.dot_number}
@@ -98,6 +119,31 @@ export function CarrierDashboardClient() {
             Refresh
           </button>
         </div>
+
+        {data.scorecard ? (
+          <div className="grid grid-cols-3 gap-3">
+            <CarrierKpiCard
+              label="Loads (all time)"
+              value={String(data.scorecard.load_count)}
+              icon={<Package className="h-4 w-4" />}
+            />
+            <CarrierKpiCard
+              label="Delivered"
+              value={String(data.scorecard.delivered_count)}
+              icon={<Truck className="h-4 w-4" />}
+              accent="green"
+            />
+            <CarrierKpiCard
+              label="Avg dispatch %"
+              value={
+                data.scorecard.avg_dispatch_percent == null
+                  ? "—"
+                  : `${data.scorecard.avg_dispatch_percent}%`
+              }
+              icon={<Gauge className="h-4 w-4" />}
+            />
+          </div>
+        ) : null}
 
         {/* KPI row */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">

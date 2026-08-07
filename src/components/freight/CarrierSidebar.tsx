@@ -14,6 +14,9 @@ import {
   Truck,
   Upload,
   Users,
+  UserPlus,
+  MessagesSquare,
+  Wallet,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useDashboardMobileNavClose } from "@/components/layout/ResponsiveDashboardShell";
@@ -28,6 +31,9 @@ const NAV = [
   { href: "/carrier/invoices", label: "Invoices", icon: FileText },
   { href: "/carrier/documents", label: "Documents", icon: Upload },
   { href: "/carrier/compliance", label: "Compliance", icon: ShieldCheck },
+  { href: "/carrier/advances", label: "Advances", icon: Wallet },
+  { href: "/carrier/referrals", label: "Referrals", icon: UserPlus },
+  { href: "/carrier/community", label: "Community", icon: MessagesSquare },
   { href: "/carrier/chat", label: "Chat", icon: MessageSquare },
   { href: "/carrier/settings", label: "Settings", icon: Settings },
 ] as const;

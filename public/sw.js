@@ -1,5 +1,5 @@
-/* AFN TMS — network-only; never cache HTML or auth */
-const CACHE = "afn-tms-v4";
+/* AFN TMS — network-first; do not cache HTML/auth. Carrier install UX only. */
+const CACHE = "afn-tms-v5-carrier";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
@@ -14,5 +14,6 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// Do not intercept fetches — install prompt UI is enough; caching broke login.
+// Intentionally empty fetch handler — caching navigations broke Google login.
+// Static assets may be browser-cached; we only need SW for installability.
 self.addEventListener("fetch", () => {});

@@ -16,6 +16,7 @@ import {
   UserPlus,
   Users,
   UsersRound,
+  Wallet,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useDashboardMobileNavClose } from "@/components/layout/ResponsiveDashboardShell";
@@ -34,6 +35,7 @@ const NAV = [
   { href: "/dispatcher/invoices", label: "Invoices", icon: FileText },
   { href: "/dispatcher/reports", label: "Reports", icon: BarChart3 },
   { href: "/dispatcher/alerts", label: "Alerts", icon: AlertTriangle },
+  { href: "/dispatcher/advances", label: "Advances", icon: Wallet },
   { href: "/dispatcher/drivers", label: "Drivers", icon: UserPlus },
   { href: "/dispatcher/approvals", label: "Approvals", icon: ShieldCheck },
   { href: "/dispatcher/team", label: "Team", icon: UsersRound },

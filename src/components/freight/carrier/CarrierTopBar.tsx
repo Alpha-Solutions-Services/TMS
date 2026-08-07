@@ -3,7 +3,13 @@
 import { Bell, Mail, Menu } from "lucide-react";
 import { PortalClock } from "@/components/freight/PortalClock";
 
-export function CarrierTopBar({ title, companyName }: { title: string; companyName: string }) {
+export function CarrierTopBar({
+  title,
+  companyName = "Carrier",
+}: {
+  title: string;
+  companyName?: string;
+}) {
   return (
     <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-[var(--color-border)] bg-[var(--color-bg)]/80 px-4 py-3 backdrop-blur-md sm:px-6 lg:px-8">
       <div className="min-w-0">

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { LoadPasteParser } from "@/components/freight/LoadPasteParser";
 import { FreightAiAssistant } from "@/components/freight/FreightAiAssistant";
+import { DispatcherLoadShareActions } from "@/components/freight/DispatcherLoadShareActions";
 import type { DashboardLoad } from "@/lib/freight/dispatch-dashboard-types";
 import { computeBalance, computeDispatchFee } from "@/lib/freight/load-notifications";
 
@@ -353,6 +354,13 @@ export function LoadFormPanel({
         {computedBalance.toFixed(2)} (used on save if left blank)
         {agreementHint ? ` · ${agreementHint}` : ""}
       </p>
+
+      {mode === "edit" && load?.db_id ? (
+        <DispatcherLoadShareActions
+          loadId={load.db_id}
+          defaultEmail={form.email}
+        />
+      ) : null}
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <button
