@@ -43,7 +43,47 @@ export function DispatcherFleetMap({
       const res = await fetch("/api/freight/driver/location", { cache: "no-store" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
-      setPings((json.drivers ?? []) as FleetPing[]);
+      const drivers = (json.drivers ?? []) as FleetPing[];
+      const locations = (json.locations ?? []) as {
+        driverId: string;
+        driverName: string;
+        carrierName: string;
+        loadNumber: string | null;
+        lat: number;
+        lng: number;
+        updatedAt: string;
+      }[];
+
+      // Prefer assigned drivers; also include any live GPS pings not already listed
+      const byId = new Map<string, FleetPing>();
+      for (const d of drivers) {
+        byId.set(d.driverId, d);
+      }
+      for (const loc of locations) {
+        const existing = byId.get(loc.driverId);
+        if (existing) {
+          byId.set(loc.driverId, {
+            ...existing,
+            lat: loc.lat,
+            lng: loc.lng,
+            updatedAt: loc.updatedAt,
+            pingSource: "gps",
+            loadNumber: existing.loadNumber || loc.loadNumber || "",
+          });
+        } else {
+          byId.set(loc.driverId, {
+            driverId: loc.driverId,
+            driverName: loc.driverName,
+            carrierName: loc.carrierName,
+            loadNumber: loc.loadNumber || "",
+            lat: loc.lat,
+            lng: loc.lng,
+            updatedAt: loc.updatedAt,
+            pingSource: "gps",
+          });
+        }
+      }
+      setPings(Array.from(byId.values()));
       setErr(null);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not load fleet pings");
@@ -60,10 +100,14 @@ export function DispatcherFleetMap({
 
   const plotted = pings
     .map((p) => {
-      if (p.lat == null || p.lng == null) return null;
-      const pos = conusLatLngToPercent(p.lat, p.lng);
+      const lat = p.lat == null ? null : Number(p.lat);
+      const lng = p.lng == null ? null : Number(p.lng);
+      if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return null;
+      }
+      const pos = conusLatLngToPercent(lat, lng);
       if (!pos) return null;
-      return { ...p, ...pos };
+      return { ...p, lat, lng, ...pos };
     })
     .filter(Boolean) as (FleetPing & { left: number; top: number })[];
 
@@ -98,16 +142,16 @@ export function DispatcherFleetMap({
         </div>
       </div>
 
-      <div className="relative aspect-[16/9] w-full bg-[#02040a] sm:aspect-[2/1]">
-        {/* Themed USA basemap (portal-matched dark network style) */}
+      <div className="relative w-full bg-[#02040a] aspect-[4/3] min-h-[240px]">
+        {/* Themed USA basemap — image is 4:3; cover fills the card edge-to-edge */}
         {/* eslint-disable-next-line @next/next/no-img-element -- static public asset map */}
         <img
           src="/usa-fleet-map.png"
           alt="United States fleet map"
-          className="absolute inset-0 h-full w-full object-contain object-center opacity-95"
+          className="absolute inset-0 h-full w-full object-cover object-center"
           draggable={false}
         />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#05080f]/70 via-transparent to-[#05080f]/20" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#05080f]/50 via-transparent to-[#05080f]/15" />
 
         {plotted.map((p) => {
           const isSel = selected === `${p.driverId}:${p.loadNumber}`;
