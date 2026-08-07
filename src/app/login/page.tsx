@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { FreightLoginForm } from "@/components/freight/FreightLoginForm";
+import { TmsInstallAppBanner } from "@/components/pwa/TmsInstallAppBanner";
 import { createClient } from "@/lib/supabase/server";
 import { resolveLoginDestination } from "@/lib/tms/resolve-destination";
 
@@ -42,6 +43,7 @@ export default async function LoginPage({
       >
         <FreightLoginForm />
       </Suspense>
+      <TmsInstallAppBanner audience="login" storageKey="afn-pwa-dismiss-login" />
     </main>
   );
 }

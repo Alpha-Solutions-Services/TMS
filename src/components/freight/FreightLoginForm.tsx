@@ -409,6 +409,10 @@ export function FreightLoginForm() {
         <p className="mt-3 text-center text-[11px] text-[var(--color-muted)]">
           After Google sign-in you are routed by your account type automatically.
         </p>
+        <p className="mt-2 text-center text-[11px] text-[var(--color-muted)]">
+          Carriers &amp; drivers: install AFN TMS to your home screen (use the install
+          prompt) — no App Store download needed.
+        </p>
       </div>
     </div>
   );

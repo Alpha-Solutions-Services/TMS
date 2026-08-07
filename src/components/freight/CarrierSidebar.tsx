@@ -97,6 +97,9 @@ export function CarrierSidebar({ email, companyName }: { email: string; companyN
 
       <div className="border-t border-[var(--color-border)] p-4">
         <p className="truncate text-xs text-[var(--color-muted)]">{email}</p>
+        <p className="mt-2 text-[10px] leading-snug text-[var(--color-muted)]">
+          Tip: Install AFN TMS to your phone or desktop for a one-tap shortcut.
+        </p>
         <button
           type="button"
           onClick={() => void signOut()}

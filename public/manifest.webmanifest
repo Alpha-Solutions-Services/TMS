@@ -1,11 +1,11 @@
 {
   "name": "Alpha Freight Network TMS",
   "short_name": "AFN TMS",
-  "description": "Dispatcher, carrier, and driver transportation management",
+  "description": "Install this app for dispatchers, carriers, and drivers — home screen shortcut, no App Store.",
   "start_url": "/login",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "background_color": "#05080f",
   "theme_color": "#05080f",
   "categories": ["business", "productivity"],

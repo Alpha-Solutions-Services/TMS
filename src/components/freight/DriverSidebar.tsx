@@ -62,6 +62,9 @@ export function DriverSidebar({ name, email }: { name: string; email: string }) 
       </nav>
       <div className="border-t border-[var(--color-border)] p-4">
         <p className="truncate text-xs text-[var(--color-muted)]">{email}</p>
+        <p className="mt-2 text-[10px] leading-snug text-[var(--color-muted)]">
+          Tip: Install AFN TMS to your home screen for live tracking alerts.
+        </p>
         <button
           type="button"
           onClick={() => void signOut()}
