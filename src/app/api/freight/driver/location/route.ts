@@ -57,6 +57,17 @@ export async function POST(req: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // Fulfill any pending dispatcher live-location requests
+    await admin
+      .from("tms_location_requests")
+      .update({
+        status: "fulfilled",
+        fulfilled_at: new Date().toISOString(),
+      })
+      .eq("driver_profile_id", user.id)
+      .eq("status", "pending");
+
     return NextResponse.json({ ok: true });
   } catch (e) {
     if (e instanceof z.ZodError) {
@@ -171,5 +182,85 @@ export async function GET(req: NextRequest) {
       };
     });
 
-  return NextResponse.json({ locations });
+  // Also list drivers currently assigned to non-delivered loads (for tracking picker)
+  const { data: assignedLoads } = await admin
+    .from("dispatch_loads")
+    .select("id, load_number, assigned_driver_profile_id, company_name, status, states")
+    .not("assigned_driver_profile_id", "is", null)
+    .is("deleted_at", null)
+    .order("updated_at", { ascending: false })
+    .limit(100);
+
+  const assignedDriverIds = Array.from(
+    new Set(
+      (assignedLoads ?? [])
+        .map((l) => l.assigned_driver_profile_id as string)
+        .filter(Boolean),
+    ),
+  );
+
+  const assignedNames = new Map<string, { name: string; carrier: string }>();
+  if (assignedDriverIds.length) {
+    const { data: drivers } = await admin
+      .from("profiles")
+      .select("id, full_name, carrier_id, company_name")
+      .in("id", assignedDriverIds);
+    const carrierIds = Array.from(
+      new Set(
+        (drivers ?? [])
+          .map((d) => d.carrier_id as string | null)
+          .filter(Boolean) as string[],
+      ),
+    );
+    const carriers = new Map<string, string>();
+    if (carrierIds.length) {
+      const { data: cs } = await admin
+        .from("profiles")
+        .select("id, company_name, full_name")
+        .in("id", carrierIds);
+      for (const c of cs ?? []) {
+        carriers.set(
+          c.id as string,
+          (c.company_name as string) || (c.full_name as string) || "Carrier",
+        );
+      }
+    }
+    for (const d of drivers ?? []) {
+      assignedNames.set(d.id as string, {
+        name: (d.full_name as string) || "Driver",
+        carrier: d.carrier_id
+          ? carriers.get(d.carrier_id as string) || "Carrier"
+          : (d.company_name as string) || "—",
+      });
+    }
+  }
+
+  const drivers = (assignedLoads ?? [])
+    .filter((l) => {
+      const s = String(l.status || "").toLowerCase();
+      return !(
+        s.includes("deliver") ||
+        s === "completed" ||
+        s === "complete" ||
+        s === "paid"
+      );
+    })
+    .map((l) => {
+      const did = l.assigned_driver_profile_id as string;
+      const meta = assignedNames.get(did);
+      const loc = locations.find((x) => x.driverId === did);
+      return {
+        driverId: did,
+        driverName: meta?.name || "Driver",
+        carrierName: meta?.carrier || (l.company_name as string) || "—",
+        loadId: l.id as string,
+        loadNumber: String(l.load_number || ""),
+        lane: (l.states as string) || "",
+        lat: loc?.lat ?? null,
+        lng: loc?.lng ?? null,
+        updatedAt: loc?.updatedAt ?? null,
+      };
+    });
+
+  return NextResponse.json({ locations, drivers });
 }

@@ -19,6 +19,7 @@ export function roleRank(role: TmsRole): number {
 export const DISPATCHER_NAV_PATHS = [
   "/dispatcher/dashboard",
   "/dispatcher/loads",
+  "/dispatcher/driver-tracking",
   "/dispatcher/chat",
   "/dispatcher/carrier-portal",
   "/dispatcher/agreements",

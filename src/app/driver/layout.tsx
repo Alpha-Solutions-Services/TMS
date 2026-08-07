@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
+import { DriverLocationWatcher } from "@/components/freight/DriverLocationWatcher";
 import { DriverSidebar } from "@/components/freight/DriverSidebar";
 import { ResponsiveDashboardShell } from "@/components/layout/ResponsiveDashboardShell";
 import { createClient } from "@/lib/supabase/server";
@@ -43,6 +44,7 @@ export default async function DriverLayout({ children }: Readonly<{ children: Re
       }
     >
       <main className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[var(--color-bg)]">
+        <DriverLocationWatcher />
         {children}
       </main>
     </ResponsiveDashboardShell>

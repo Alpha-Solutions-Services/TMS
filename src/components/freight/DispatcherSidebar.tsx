@@ -9,6 +9,7 @@ import {
   FileSignature,
   FileText,
   LayoutDashboard,
+  MapPin,
   MessageSquare,
   Package,
   Shield,
@@ -27,6 +28,7 @@ import { canAccessDispatcherNavItem } from "@/lib/tms/permissions";
 const NAV = [
   { href: "/dispatcher/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dispatcher/loads", label: "Loads", icon: Package },
+  { href: "/dispatcher/driver-tracking", label: "Driver tracking", icon: MapPin },
   { href: "/dispatcher/agreements", label: "Agreements", icon: FileSignature },
   { href: "/dispatcher/carriers", label: "Carriers", icon: Users },
   { href: "/dispatcher/carrier-control", label: "Carrier control", icon: Shield },

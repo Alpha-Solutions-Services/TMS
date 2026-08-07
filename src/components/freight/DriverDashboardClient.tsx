@@ -239,6 +239,10 @@ export function DriverDashboardClient() {
           </button>
         </div>
       </header>
+      <p className="text-xs text-[var(--color-muted)]">
+        Keep this app open to share GPS automatically when dispatch requests live location
+        (location permission must be allowed once).
+      </p>
 
       <div className="flex gap-2">
         <button

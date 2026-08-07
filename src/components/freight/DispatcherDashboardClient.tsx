@@ -19,10 +19,10 @@ import { InvoiceAgingPanel } from "@/components/freight/InvoiceAgingPanel";
 import { PortalClock } from "@/components/freight/PortalClock";
 import { SubDispatcherPerformancePanel } from "@/components/freight/SubDispatcherPerformancePanel";
 import { TopBookersPanel } from "@/components/freight/TopBookersPanel";
-import { DispatcherDriverTrackingPanel } from "@/components/freight/DispatcherDriverTrackingPanel";
 import { useDispatchDashboard } from "@/components/freight/useDispatchDashboard";
 import type { SummaryCard } from "@/lib/freight/dispatch-dashboard-types";
 import type { InvoiceAgingReport } from "@/lib/freight/dispatch-reports";
+import { MapPin } from "lucide-react";
 
 const ICONS: Record<string, typeof Truck> = {
   truck: Truck,
@@ -221,7 +221,21 @@ export function DispatcherDashboardClient({ weeklyOnly = false }: { weeklyOnly?:
         ))}
       </div>
 
-      <DispatcherDriverTrackingPanel />
+      <Link
+        href="/dispatcher/driver-tracking"
+        className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 px-4 py-3 transition hover:bg-[var(--color-accent)]/15"
+      >
+        <div className="flex items-center gap-3">
+          <MapPin className="h-5 w-5 text-[var(--color-accent)]" />
+          <div>
+            <p className="text-sm font-semibold text-[var(--color-text)]">Driver tracking</p>
+            <p className="text-xs text-[var(--color-muted)]">
+              USA map · ZIP route · get live location from driver phone
+            </p>
+          </div>
+        </div>
+        <span className="text-xs font-semibold text-[var(--color-accent)]">Open →</span>
+      </Link>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="relative overflow-hidden rounded-3xl border border-[var(--color-border)] bg-gradient-to-br from-[var(--color-surface)] to-[var(--color-bg)] lg:col-span-2">

@@ -769,6 +769,28 @@ export async function sendInvoicePaymentReceivedEmail(params: {
   });
 }
 
+/** Wake the driver to open the app so GPS can be read (browsers block background GPS). */
+export async function sendDriverLiveLocationRequestEmail(params: {
+  to: string;
+  driverName: string;
+  openUrl: string;
+}) {
+  const html = brandedEmailWrap(
+    "Live location requested",
+    `<p>Hi ${escapeHtml(params.driverName || "there")},</p>
+     <p>Dispatch needs your <strong>live GPS location</strong> right now.</p>
+     <p>Phones block GPS while the browser is closed — tap below to open the driver app. Location will send automatically.</p>
+     ${cta("Share live location now", params.openUrl)}
+     <p style="color:#6a8caf;font-size:13px;">Tip: Add Alpha Freight to your home screen and keep Live Tracking on during loads.</p>`,
+  );
+  return sendTransactional({
+    to: params.to,
+    subject: "Dispatch needs your live location — tap to open",
+    html,
+    text: `Dispatch needs your live location. Open: ${params.openUrl}`,
+  });
+}
+
 function escapeHtml(s: string) {
   return s
     .replaceAll("&", "&amp;")
