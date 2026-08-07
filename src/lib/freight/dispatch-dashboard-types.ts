@@ -87,6 +87,8 @@ export type DashboardLoad = {
   /** Supabase dispatch_loads.id when sourced from DB */
   db_id?: string;
   data_source?: "supabase" | "sheet";
+  pickup_zips?: string[];
+  delivery_zips?: string[];
 };
 
 export type DashboardCarrier = {

@@ -7,6 +7,7 @@ import { FreightAiAssistant } from "@/components/freight/FreightAiAssistant";
 import { DispatcherLoadShareActions } from "@/components/freight/DispatcherLoadShareActions";
 import type { DashboardLoad } from "@/lib/freight/dispatch-dashboard-types";
 import { computeBalance, computeDispatchFee } from "@/lib/freight/load-notifications";
+import { normalizeZipList } from "@/lib/freight/zip-utils";
 
 export type LoadFormValues = {
   bookedBy: string;
@@ -34,6 +35,9 @@ export type LoadFormValues = {
   brokerAgentName: string;
   email: string;
   phone: string;
+  /** Comma-separated US ZIPs — AI fills these when parsing a load */
+  pickupZips: string;
+  deliveryZips: string;
 };
 
 const FIELD_ROWS: { key: keyof LoadFormValues; label: string; required?: boolean; type?: string }[] = [
@@ -45,6 +49,8 @@ const FIELD_ROWS: { key: keyof LoadFormValues; label: string; required?: boolean
   { key: "loadDetails", label: "Load Details / Lane" },
   { key: "pickupDateTime", label: "Pickup Date & Time" },
   { key: "deliveryDateTime", label: "Delivery Date & Time" },
+  { key: "pickupZips", label: "Pickup ZIP(s) — comma for multi-stop" },
+  { key: "deliveryZips", label: "Delivery ZIP(s) — comma for multi-stop" },
   { key: "miles", label: "Miles", type: "number" },
   { key: "loadNumber", label: "Load #" },
   { key: "states", label: "States" },
@@ -95,6 +101,8 @@ export function emptyLoadForm(defaultBookedBy = ""): LoadFormValues {
     brokerAgentName: "",
     email: "",
     phone: "",
+    pickupZips: "",
+    deliveryZips: "",
   };
 }
 
@@ -125,6 +133,8 @@ export function loadToFormValues(load: DashboardLoad): LoadFormValues {
     brokerAgentName: dash(load.broker_agent),
     email: dash(load.email),
     phone: dash(load.phone),
+    pickupZips: (load.pickup_zips ?? []).join(", "),
+    deliveryZips: (load.delivery_zips ?? []).join(", "),
   };
 }
 
@@ -169,6 +179,8 @@ export function formValuesToPayload(form: LoadFormValues, monthTab: string) {
     brokerAgentName: form.brokerAgentName.trim() || undefined,
     email: form.email.trim() || undefined,
     phone: form.phone.trim() || undefined,
+    pickupZips: normalizeZipList(form.pickupZips),
+    deliveryZips: normalizeZipList(form.deliveryZips),
   };
 }
 

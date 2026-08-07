@@ -7,6 +7,7 @@ import {
   CreditCard,
   FileText,
   LayoutDashboard,
+  MapPin,
   MessageSquare,
   Package,
   Settings,
@@ -25,6 +26,7 @@ import { PortalClock } from "@/components/freight/PortalClock";
 const NAV = [
   { href: "/carrier/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/carrier/loads", label: "Loads", icon: Package },
+  { href: "/carrier/tracking", label: "Tracking", icon: MapPin },
   { href: "/carrier/trucks", label: "Trucks", icon: Truck },
   { href: "/carrier/drivers", label: "Drivers", icon: Users },
   { href: "/carrier/payments", label: "Payments", icon: CreditCard },

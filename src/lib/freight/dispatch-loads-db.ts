@@ -42,6 +42,8 @@ export type DbDispatchLoad = {
   pod_path: string | null;
   deleted_at: string | null;
   created_at?: string | null;
+  pickup_zips?: string[] | null;
+  delivery_zips?: string[] | null;
 };
 
 export type LoadInsertPayload = {
@@ -73,6 +75,8 @@ export type LoadInsertPayload = {
   cpay?: string;
   dtp?: string;
   brokerAgentName?: string;
+  pickupZips?: string[];
+  deliveryZips?: string[];
 };
 
 export function dbDispatchLoadToSheetRow(row: DbDispatchLoad): DispatchSheetRow {
@@ -142,6 +146,8 @@ export function dbLoadToDashboardLoad(row: DbDispatchLoad, index: number): Dashb
     phone: sheet.phone || "—",
     db_id: row.id,
     data_source: "supabase",
+    pickup_zips: row.pickup_zips ?? [],
+    delivery_zips: row.delivery_zips ?? [],
   };
 }
 
@@ -414,6 +420,8 @@ export async function insertDispatchLoad(
       broker_agent_name: payload.brokerAgentName
         ? sanitizeText(payload.brokerAgentName, 120)
         : null,
+      pickup_zips: payload.pickupZips?.length ? payload.pickupZips : [],
+      delivery_zips: payload.deliveryZips?.length ? payload.deliveryZips : [],
     })
     .select("id,sr")
     .single();
@@ -514,6 +522,8 @@ export async function updateDispatchLoad(
       ? sanitizeText(patch.brokerAgentName, 120)
       : null;
   }
+  if (patch.pickupZips !== undefined) row.pickup_zips = patch.pickupZips;
+  if (patch.deliveryZips !== undefined) row.delivery_zips = patch.deliveryZips;
   if (patch.assignedDriverProfileId !== undefined) {
     row.assigned_driver_profile_id = patch.assignedDriverProfileId || null;
     // When assigning a portal driver, also stamp carrier_profile_id so the

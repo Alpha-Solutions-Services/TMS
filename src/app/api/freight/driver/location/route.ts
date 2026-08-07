@@ -185,7 +185,9 @@ export async function GET(req: NextRequest) {
   // Also list drivers currently assigned to non-delivered loads (for tracking picker)
   const { data: assignedLoads } = await admin
     .from("dispatch_loads")
-    .select("id, load_number, assigned_driver_profile_id, company_name, status, states")
+    .select(
+      "id, load_number, assigned_driver_profile_id, company_name, status, states, pickup_zips, delivery_zips",
+    )
     .not("assigned_driver_profile_id", "is", null)
     .is("deleted_at", null)
     .order("updated_at", { ascending: false })
@@ -259,6 +261,8 @@ export async function GET(req: NextRequest) {
         lat: loc?.lat ?? null,
         lng: loc?.lng ?? null,
         updatedAt: loc?.updatedAt ?? null,
+        pickupZips: (l.pickup_zips as string[]) ?? [],
+        deliveryZips: (l.delivery_zips as string[]) ?? [],
       };
     });
 
