@@ -88,8 +88,14 @@ export function canAccessCarrierControl(role: TmsRole): boolean {
   return role === "super_dispatcher";
 }
 
+/** Terminate / suspend / revive / set pay — super + full dispatcher. */
 export function canManageDrivers(role: TmsRole): boolean {
   return role === "super_dispatcher" || role === "dispatcher";
+}
+
+/** Super has unrestricted driver ops (all carriers, all statuses). */
+export function canManageAllDrivers(role: TmsRole): boolean {
+  return role === "super_dispatcher";
 }
 
 export function canAccessCarrierPortal(role: TmsRole): boolean {

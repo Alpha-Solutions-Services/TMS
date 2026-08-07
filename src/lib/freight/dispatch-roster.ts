@@ -123,33 +123,21 @@ export type DriverRosterEntry = {
   defaultDriverPayPercent?: number | null;
 };
 
-export async function loadDriverRoster(): Promise<DriverRosterEntry[]> {
-  const sb = getServiceRoleClient();
-  if (!sb) return [];
+type RosterRow = {
+  id: string;
+  driver_name: string;
+  driver_email: string | null;
+  driver_phone: string | null;
+  carrier_company_name: string;
+  carrier_roster_id: string | null;
+  carrier_profile_id: string | null;
+  assigned_dispatcher_id: string | null;
+  active: boolean;
+  notes: string | null;
+};
 
-  const { data, error } = await sb
-    .from("dispatch_driver_roster")
-    .select("*")
-    .eq("active", true)
-    .order("driver_name", { ascending: true });
-
-  if (error) {
-    console.warn("[driver-roster] DB read skipped:", error.message);
-    return [];
-  }
-
-  const roster: DriverRosterEntry[] = ((data ?? []) as {
-    id: string;
-    driver_name: string;
-    driver_email: string | null;
-    driver_phone: string | null;
-    carrier_company_name: string;
-    carrier_roster_id: string | null;
-    carrier_profile_id: string | null;
-    assigned_dispatcher_id: string | null;
-    active: boolean;
-    notes: string | null;
-  }[]).map((row) => ({
+function mapRosterRow(row: RosterRow): DriverRosterEntry {
+  return {
     id: row.id,
     driverName: row.driver_name,
     driverEmail: row.driver_email ?? "",
@@ -164,17 +152,42 @@ export async function loadDriverRoster(): Promise<DriverRosterEntry[]> {
     profileId: null,
     driverStatus: null,
     defaultDriverPayPercent: null,
-  }));
+  };
+}
 
-  // Merge invited/portal drivers (profiles) so super dispatcher sees them
-  // even when they were never added to dispatch_driver_roster.
+export async function loadDriverRoster(): Promise<DriverRosterEntry[]> {
+  const sb = getServiceRoleClient();
+  if (!sb) return [];
+
+  // Active + inactive so terminated drivers stay visible for revive.
+  const { data, error } = await sb
+    .from("dispatch_driver_roster")
+    .select("*")
+    .order("driver_name", { ascending: true });
+
+  if (error) {
+    console.warn("[driver-roster] DB read skipped:", error.message);
+    return [];
+  }
+
+  const allRows = (data ?? []) as RosterRow[];
+  const activeRows = allRows.filter((r) => r.active);
+  const inactiveByEmail = new Map<string, RosterRow>();
+  for (const row of allRows) {
+    if (row.active) continue;
+    const email = (row.driver_email ?? "").trim().toLowerCase();
+    if (email) inactiveByEmail.set(email, row);
+  }
+
+  const roster: DriverRosterEntry[] = activeRows.map(mapRosterRow);
+
+  // Include terminated/suspended portal drivers so supers/dispatchers can revive.
   const { data: portalDrivers } = await sb
     .from("profiles")
     .select(
       "id, full_name, email, phone, carrier_id, driver_status, default_driver_pay_percent, company_name",
     )
-    .eq("role", "driver")
-    .or("driver_status.is.null,driver_status.neq.terminated");
+    .eq("role", "driver");
 
   const carrierIds = Array.from(
     new Set(
@@ -209,12 +222,11 @@ export async function loadDriverRoster(): Promise<DriverRosterEntry[]> {
   for (const d of portalDrivers ?? []) {
     const email = ((d.email as string) || "").trim().toLowerCase();
     const carrierId = (d.carrier_id as string) || null;
+    const status = ((d.driver_status as string) || "active").toLowerCase();
     const dedupeKey = `${email}|${carrierId}`;
+
     if (email && byEmail.has(email) && (!carrierId || byProfileCarrier.has(dedupeKey))) {
-      // Enrich matching roster row
-      const match = roster.find(
-        (r) => r.driverEmail.trim().toLowerCase() === email,
-      );
+      const match = roster.find((r) => r.driverEmail.trim().toLowerCase() === email);
       if (match) {
         match.profileId = d.id as string;
         match.driverStatus = (d.driver_status as string) || "active";
@@ -230,6 +242,28 @@ export async function loadDriverRoster(): Promise<DriverRosterEntry[]> {
       continue;
     }
 
+    // Re-surface inactive roster row (preserves assigned dispatcher).
+    const inactive = email ? inactiveByEmail.get(email) : undefined;
+    if (inactive) {
+      const restored = mapRosterRow(inactive);
+      restored.profileId = d.id as string;
+      restored.driverStatus = (d.driver_status as string) || "active";
+      restored.defaultDriverPayPercent =
+        d.default_driver_pay_percent == null
+          ? null
+          : Number(d.default_driver_pay_percent);
+      if (carrierId) {
+        restored.carrierProfileId = restored.carrierProfileId || carrierId;
+        restored.carrierCompanyName =
+          restored.carrierCompanyName ||
+          carrierNames.get(carrierId) ||
+          restored.carrierCompanyName;
+      }
+      roster.push(restored);
+      if (email) byEmail.add(email);
+      continue;
+    }
+
     roster.push({
       id: `portal-${d.id}`,
       driverName: (d.full_name as string) || "Driver",
@@ -241,7 +275,7 @@ export async function loadDriverRoster(): Promise<DriverRosterEntry[]> {
       carrierRosterId: null,
       carrierProfileId: carrierId,
       assignedDispatcherId: null,
-      active: true,
+      active: status === "active",
       notes: "Portal driver",
       source: "portal",
       profileId: d.id as string,

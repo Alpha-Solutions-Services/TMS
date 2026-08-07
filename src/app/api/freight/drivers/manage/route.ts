@@ -6,7 +6,8 @@ import { isCarrierIdentity } from "@/lib/freight/carrier-identity";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
 import { resolveTmsRole } from "@/lib/tms/auth";
-import { isDispatcherRole } from "@/lib/tms/roles";
+import { canManageDrivers } from "@/lib/tms/permissions";
+import { isSuperDispatcherEmail } from "@/lib/tms/roles";
 
 const patchSchema = z.object({
   driverProfileId: z.string().uuid(),
@@ -70,11 +71,17 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Only super/dispatcher for terminate of any driver; carriers only their own (checked above)
+    // Super + full dispatcher may terminate / suspend / revive any driver.
+    // Carriers only manage their own (checked above). Sub-dispatchers cannot.
     if (access.as === "dispatcher") {
       const role = await resolveTmsRole(user);
-      if (!isDispatcherRole(role)) {
-        return NextResponse.json({ error: "Dispatcher only" }, { status: 403 });
+      const allowed =
+        canManageDrivers(role) || isSuperDispatcherEmail(user.email);
+      if (!allowed) {
+        return NextResponse.json(
+          { error: "Dispatcher or super dispatcher required" },
+          { status: 403 },
+        );
       }
     }
 
@@ -115,18 +122,24 @@ export async function PATCH(req: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    // Soft-deactivate matching roster rows when terminated
-    if (status === "terminated") {
-      const { data: driver } = await admin
-        .from("profiles")
-        .select("email")
-        .eq("id", body.driverProfileId)
-        .maybeSingle();
-      const email = (driver?.email as string)?.trim().toLowerCase();
-      if (email) {
+    // Soft-deactivate matching roster rows when terminated; revive when activated
+    const { data: driver } = await admin
+      .from("profiles")
+      .select("email")
+      .eq("id", body.driverProfileId)
+      .maybeSingle();
+    const email = (driver?.email as string)?.trim().toLowerCase();
+    if (email) {
+      if (status === "terminated") {
         await admin
           .from("dispatch_driver_roster")
           .update({ active: false })
+          .ilike("driver_email", email);
+      }
+      if (status === "active") {
+        await admin
+          .from("dispatch_driver_roster")
+          .update({ active: true })
           .ilike("driver_email", email);
       }
     }

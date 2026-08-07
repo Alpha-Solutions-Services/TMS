@@ -178,13 +178,34 @@ export async function buildCarrierDashboard(opts: {
 
   const driverRoster = await loadDriverRoster();
   const companyDrivers = driverRoster
-    .filter((d) => normalizeCompanyKey(d.carrierCompanyName) === key)
-    .map((d) => ({
-      driver_id: d.id,
-      name: d.driverName,
-      phone: d.driverPhone,
-      status: "Active",
-    }));
+    .filter((d) => {
+      if (opts.carrierProfileId && d.carrierProfileId === opts.carrierProfileId) {
+        return true;
+      }
+      return normalizeCompanyKey(d.carrierCompanyName) === key;
+    })
+    .map((d) => {
+      const profileId =
+        d.profileId ||
+        (d.id.startsWith("portal-") ? d.id.slice("portal-".length) : null);
+      const raw = (d.driverStatus || "active").toLowerCase();
+      const status =
+        raw === "terminated"
+          ? "Terminated"
+          : raw === "suspended"
+            ? "Suspended"
+            : "Active";
+      return {
+        driver_id: profileId || d.id,
+        name: d.driverName,
+        phone: d.driverPhone,
+        status,
+      };
+    })
+    .filter((d) => {
+      // Prefer profile UUIDs for manage actions; keep roster-only rows without portal
+      return Boolean(d.driver_id);
+    });
   if (companyDrivers.length) {
     dashboard.drivers = companyDrivers;
   }
@@ -193,16 +214,28 @@ export async function buildCarrierDashboard(opts: {
   if (admin && opts.carrierProfileId) {
     const { data: driverProfiles } = await admin
       .from("profiles")
-      .select("id,full_name,phone")
+      .select("id,full_name,phone,driver_status")
       .eq("role", "driver")
       .eq("carrier_id", opts.carrierProfileId);
     for (const dp of driverProfiles ?? []) {
-      if (!dashboard.drivers.some((d) => d.driver_id === dp.id)) {
+      const raw = String(dp.driver_status || "active").toLowerCase();
+      const status =
+        raw === "terminated"
+          ? "Terminated"
+          : raw === "suspended"
+            ? "Suspended"
+            : "Active";
+      const existing = dashboard.drivers.find((d) => d.driver_id === dp.id);
+      if (existing) {
+        existing.status = status;
+        existing.name = (dp.full_name as string) || existing.name;
+        existing.phone = (dp.phone as string) || existing.phone;
+      } else {
         dashboard.drivers.push({
           driver_id: dp.id,
           name: (dp.full_name as string) || "Driver",
           phone: (dp.phone as string) || "—",
-          status: "Active",
+          status,
         });
       }
     }

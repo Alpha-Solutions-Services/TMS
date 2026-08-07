@@ -75,6 +75,14 @@ export function FreightLoginForm() {
       return "Sign-in failed. Try Continue with Google, or use your invite password for dispatchers/drivers.";
     }
     if (urlError === "terminated") return "Your dispatcher access has been terminated.";
+    if (urlError === "account") {
+      const reason = sp?.get("reason");
+      if (reason === "driver_inactive") {
+        return "Your driver account is suspended or terminated. Ask your carrier or dispatcher to revive access.";
+      }
+      if (reason) return decodeURIComponent(reason);
+      return "This account cannot access the portal right now.";
+    }
     return null;
   });
   const [loading, setLoading] = useState(false);

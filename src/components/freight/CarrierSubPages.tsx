@@ -196,7 +196,9 @@ export function CarrierDriversPage() {
       setMsg(
         action === "set_pay_percent"
           ? `Driver pay set to ${payPercent}%`
-          : `Driver ${action}d.`,
+          : action === "activate"
+            ? "Driver revived — they can sign in again."
+            : `Driver ${action}d.`,
       );
       await refresh();
     } catch (e) {
@@ -222,7 +224,7 @@ export function CarrierDriversPage() {
         <div className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <p className="text-sm text-[var(--color-muted)]">
-              Manage drivers, settle pay % (like Excel Driver Pay), and terminate access.
+              Manage drivers, settle pay %, terminate/suspend, or revive access.
             </p>
             <InviteDriverModal mode="carrier" />
           </div>
@@ -263,43 +265,66 @@ export function CarrierDriversPage() {
                   </button>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={busyId === d.driver_id}
-                    onClick={() => {
-                      void (async () => {
-                        const ok = await ui.confirm({
-                          title: `Terminate ${d.name}?`,
-                          message: "They will lose portal access.",
-                          confirmLabel: "Terminate",
-                          danger: true,
-                        });
-                        if (ok) void manageDriver(d.driver_id, "terminate");
-                      })();
-                    }}
-                    className="rounded-lg border border-red-500/30 px-2 py-1 text-[10px] text-red-300"
-                  >
-                    Terminate
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busyId === d.driver_id}
-                    onClick={() => {
-                      void (async () => {
-                        const ok = await ui.confirm({
-                          title: `Suspend ${d.name}?`,
-                          message:
-                            "They will be unable to use the driver portal until reactivated.",
-                          confirmLabel: "Suspend",
-                          danger: true,
-                        });
-                        if (ok) void manageDriver(d.driver_id, "suspend");
-                      })();
-                    }}
-                    className="rounded-lg border border-orange-500/30 px-2 py-1 text-[10px] text-orange-300"
-                  >
-                    Suspend
-                  </button>
+                  {String(d.status || "").toLowerCase() === "terminated" ||
+                  String(d.status || "").toLowerCase() === "suspended" ? (
+                    <button
+                      type="button"
+                      disabled={busyId === d.driver_id}
+                      onClick={() => {
+                        void (async () => {
+                          const ok = await ui.confirm({
+                            title: `Revive ${d.name}?`,
+                            message: "Restore portal access so they can sign in again.",
+                            confirmLabel: "Revive",
+                          });
+                          if (ok) void manageDriver(d.driver_id, "activate");
+                        })();
+                      }}
+                      className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold text-emerald-200"
+                    >
+                      Revive
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        disabled={busyId === d.driver_id}
+                        onClick={() => {
+                          void (async () => {
+                            const ok = await ui.confirm({
+                              title: `Terminate ${d.name}?`,
+                              message: "They will lose portal access.",
+                              confirmLabel: "Terminate",
+                              danger: true,
+                            });
+                            if (ok) void manageDriver(d.driver_id, "terminate");
+                          })();
+                        }}
+                        className="rounded-lg border border-red-500/30 px-2 py-1 text-[10px] text-red-300"
+                      >
+                        Terminate
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busyId === d.driver_id}
+                        onClick={() => {
+                          void (async () => {
+                            const ok = await ui.confirm({
+                              title: `Suspend ${d.name}?`,
+                              message:
+                                "They will be unable to use the driver portal until reactivated.",
+                              confirmLabel: "Suspend",
+                              danger: true,
+                            });
+                            if (ok) void manageDriver(d.driver_id, "suspend");
+                          })();
+                        }}
+                        className="rounded-lg border border-orange-500/30 px-2 py-1 text-[10px] text-orange-300"
+                      >
+                        Suspend
+                      </button>
+                    </>
+                  )}
                 </div>
               </CarrierGlassCard>
             ))}

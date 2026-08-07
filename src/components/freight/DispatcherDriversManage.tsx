@@ -7,7 +7,14 @@ import { useDispatchDashboard } from "@/components/freight/useDispatchDashboard"
 import { useUi } from "@/components/ui/UiProvider";
 import { createClient } from "@/lib/supabase/client";
 
-export function DispatcherDriversManage({ canInvite = false }: { canInvite?: boolean }) {
+export function DispatcherDriversManage({
+  canInvite = false,
+  canManage = false,
+}: {
+  canInvite?: boolean;
+  /** Terminate / suspend / revive / set pay — dispatcher + super */
+  canManage?: boolean;
+}) {
   const ui = useUi();
   const { data, loading, refresh, canViewContacts } = useDispatchDashboard();
   const [verifiedCarriers, setVerifiedCarriers] = useState<
@@ -155,6 +162,14 @@ export function DispatcherDriversManage({ canInvite = false }: { canInvite?: boo
       });
       if (!ok) return;
     }
+    if (action === "activate") {
+      const ok = await ui.confirm({
+        title: `Revive ${driverLabel || "driver"}?`,
+        message: "Restore portal access so they can sign in again.",
+        confirmLabel: "Revive",
+      });
+      if (!ok) return;
+    }
     setBusy(true);
     setMsg(null);
     try {
@@ -172,7 +187,9 @@ export function DispatcherDriversManage({ canInvite = false }: { canInvite?: boo
       setMsg(
         action === "set_pay_percent"
           ? `Pay set to ${payPercent}%`
-          : `Driver ${action}d.`,
+          : action === "activate"
+            ? "Driver revived — they can sign in again."
+            : `Driver ${action}d.`,
       );
       await refresh();
     } catch (e) {
@@ -188,8 +205,8 @@ export function DispatcherDriversManage({ canInvite = false }: { canInvite?: boo
         <div>
           <h2 className="text-lg font-bold text-[var(--color-text)]">Drivers by carrier</h2>
           <p className="mt-1 text-sm text-[var(--color-muted)]">
-            Roster entries plus portal drivers (invited under a carrier) — even if not on the
-            manual roster.
+            Roster plus portal drivers. Terminate, suspend (break), or revive access —
+            super dispatcher can manage every driver.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -207,7 +224,7 @@ export function DispatcherDriversManage({ canInvite = false }: { canInvite?: boo
             </>
           ) : (
             <p className="text-xs text-[var(--color-muted)]">
-              Only super dispatchers can invite or add drivers.
+              Invite / add requires dispatcher or super dispatcher access.
             </p>
           )}
         </div>
@@ -320,7 +337,7 @@ export function DispatcherDriversManage({ canInvite = false }: { canInvite?: boo
                       {d.source === "portal" ? "portal" : "roster"}
                     </td>
                     <td className="px-4 py-3">
-                      {profileId && canInvite ? (
+                      {profileId && canManage ? (
                         <div className="flex items-center gap-1">
                           <input
                             className="w-14 rounded border border-[var(--color-border)] bg-[#050912] px-1 py-0.5 text-xs"
@@ -360,32 +377,73 @@ export function DispatcherDriversManage({ canInvite = false }: { canInvite?: boo
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs capitalize text-[var(--color-muted)]">
-                      {d.driverStatus || "active"}
+                      <span
+                        className={
+                          d.driverStatus === "terminated"
+                            ? "text-red-300"
+                            : d.driverStatus === "suspended"
+                              ? "text-orange-300"
+                              : "text-emerald-300"
+                        }
+                      >
+                        {d.driverStatus || "active"}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap items-center gap-1">
-                        {profileId && canInvite ? (
+                        {profileId && canManage ? (
                           <>
-                            <button
-                              type="button"
-                              disabled={busy}
-                              onClick={() =>
-                                void manageDriver(profileId, "terminate", undefined, d.driverName)
-                              }
-                              className="rounded px-2 py-1 text-[10px] text-red-300 hover:bg-red-500/10"
-                            >
-                              Terminate
-                            </button>
-                            <button
-                              type="button"
-                              disabled={busy}
-                              onClick={() =>
-                                void manageDriver(profileId, "suspend", undefined, d.driverName)
-                              }
-                              className="rounded px-2 py-1 text-[10px] text-orange-300 hover:bg-orange-500/10"
-                            >
-                              Suspend
-                            </button>
+                            {d.driverStatus === "terminated" ||
+                            d.driverStatus === "suspended" ? (
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() =>
+                                  void manageDriver(
+                                    profileId,
+                                    "activate",
+                                    undefined,
+                                    d.driverName,
+                                  )
+                                }
+                                className="rounded px-2 py-1 text-[10px] font-semibold text-emerald-300 hover:bg-emerald-500/10"
+                              >
+                                Revive
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    void manageDriver(
+                                      profileId,
+                                      "terminate",
+                                      undefined,
+                                      d.driverName,
+                                    )
+                                  }
+                                  className="rounded px-2 py-1 text-[10px] text-red-300 hover:bg-red-500/10"
+                                >
+                                  Terminate
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    void manageDriver(
+                                      profileId,
+                                      "suspend",
+                                      undefined,
+                                      d.driverName,
+                                    )
+                                  }
+                                  className="rounded px-2 py-1 text-[10px] text-orange-300 hover:bg-orange-500/10"
+                                >
+                                  Suspend
+                                </button>
+                              </>
+                            )}
                           </>
                         ) : null}
                         {!d.id.startsWith("portal-") && canInvite ? (

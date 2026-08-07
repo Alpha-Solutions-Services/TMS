@@ -23,8 +23,8 @@ export default async function LoginPage({
     const {
       data: { user },
     } = await sb.auth.getUser();
-    // If already signed in and not currently showing an auth error, go to portal.
-    if (user?.id && searchParams?.error !== "auth") {
+    // If already signed in and not currently showing an auth/account error, go to portal.
+    if (user?.id && searchParams?.error !== "auth" && searchParams?.error !== "account") {
       const dest = await resolveLoginDestination(user);
       if (dest.path && dest.path !== "/login") {
         redirect(dest.path);

@@ -4,8 +4,11 @@ import { Suspense } from "react";
 import { DispatcherDriversManage } from "@/components/freight/DispatcherDriversManage";
 import { getPortalUser } from "@/lib/portal/auth";
 import { resolveTmsRole } from "@/lib/tms/auth";
-import { canInviteCarriersAndDrivers } from "@/lib/tms/permissions";
-import { isDispatcherRole } from "@/lib/tms/roles";
+import {
+  canInviteCarriersAndDrivers,
+  canManageDrivers,
+} from "@/lib/tms/permissions";
+import { isDispatcherRole, isSuperDispatcherEmail } from "@/lib/tms/roles";
 
 export const metadata: Metadata = {
   title: "Drivers — Dispatcher",
@@ -20,12 +23,15 @@ export default async function DispatcherDriversPage() {
     redirect("/login");
   }
 
-  const canInvite = canInviteCarriersAndDrivers(role);
+  const isSuper =
+    role === "super_dispatcher" || isSuperDispatcherEmail(user.email);
+  const canInvite = isSuper || canInviteCarriersAndDrivers(role);
+  const canManage = isSuper || canManageDrivers(role);
 
   return (
     <Suspense fallback={<p className="p-8 text-[var(--color-muted)]">Loading…</p>}>
       <div className="p-4 sm:p-6 lg:p-8">
-        <DispatcherDriversManage canInvite={canInvite} />
+        <DispatcherDriversManage canInvite={canInvite} canManage={canManage} />
       </div>
     </Suspense>
   );

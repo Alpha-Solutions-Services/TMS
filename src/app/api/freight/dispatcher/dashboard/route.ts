@@ -4,7 +4,6 @@ import { assertDispatcher } from "@/lib/freight/dispatch-roster";
 import { createClient } from "@/lib/supabase/server";
 import { canViewContactDetails, maskCarrierRosterEntry, maskDriverRow } from "@/lib/tms/contact-privacy";
 import { resolveTmsRole } from "@/lib/tms/auth";
-import { isSuperDispatcherEmail } from "@/lib/tms/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +25,6 @@ export async function GET(req: Request) {
   }
 
   const tmsRole = await resolveTmsRole(user);
-  const isSuper = isSuperDispatcherEmail(user.email) || tmsRole === "super_dispatcher";
   const viewContacts = canViewContactDetails(tmsRole, user.email);
 
   try {
@@ -34,7 +32,9 @@ export async function GET(req: Request) {
     const tab = searchParams.get("tab");
     const dashboard = await buildDispatchDashboard(tab);
 
-    if (!isSuper) {
+    // Super + full dispatcher see all drivers (revive / terminate / suspend).
+    // Sub-dispatchers only see drivers assigned to them.
+    if (tmsRole === "sub_dispatcher") {
       dashboard.driver_roster = dashboard.driver_roster.filter(
         (d) => (d as { assignedDispatcherId?: string }).assignedDispatcherId === user.id,
       );
