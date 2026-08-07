@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { PortalClock } from "@/components/freight/PortalClock";
 import { useAutoRefresh } from "@/lib/hooks/useAutoRefresh";
+import { useUi } from "@/components/ui/UiProvider";
 
 type DriverLoad = {
   id: string;
@@ -65,6 +66,7 @@ function isDelivered(status: string) {
 }
 
 export function DriverDashboardClient() {
+  const ui = useUi();
   const [data, setData] = useState<DriverDashboardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -123,14 +125,19 @@ export function DriverDashboardClient() {
     } catch (e) {
       const message = e instanceof Error ? e.message : "Upload failed";
       setMsg(message);
-      alert(message);
+      ui.toast({ kind: "error", title: "Upload failed", message });
     } finally {
       setUploading(null);
     }
   }
 
   async function markDelivered(loadId: string) {
-    if (!confirm("Mark this load as delivered?")) return;
+    const ok = await ui.confirm({
+      title: "Mark delivered?",
+      message: "Mark this load as delivered?",
+      confirmLabel: "Mark delivered",
+    });
+    if (!ok) return;
     setBusyId(loadId);
     setMsg(null);
     try {

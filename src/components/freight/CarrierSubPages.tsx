@@ -11,6 +11,7 @@ import {
 } from "@/components/freight/carrier/CarrierGlassCard";
 import { CarrierTopBar } from "@/components/freight/carrier/CarrierTopBar";
 import { useCarrierDashboard } from "@/components/freight/useCarrierDashboard";
+import { useUi } from "@/components/ui/UiProvider";
 
 function formatUsd(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -146,6 +147,7 @@ export function CarrierTrucksPage() {
 }
 
 export function CarrierDriversPage() {
+  const ui = useUi();
   const { data, loading, company, refresh } = useCarrierPage();
   const searchParams = useSearchParams();
   const [paidMsg, setPaidMsg] = useState<string | null>(null);
@@ -265,9 +267,15 @@ export function CarrierDriversPage() {
                     type="button"
                     disabled={busyId === d.driver_id}
                     onClick={() => {
-                      if (confirm(`Terminate ${d.name}? They will lose portal access.`)) {
-                        void manageDriver(d.driver_id, "terminate");
-                      }
+                      void (async () => {
+                        const ok = await ui.confirm({
+                          title: `Terminate ${d.name}?`,
+                          message: "They will lose portal access.",
+                          confirmLabel: "Terminate",
+                          danger: true,
+                        });
+                        if (ok) void manageDriver(d.driver_id, "terminate");
+                      })();
                     }}
                     className="rounded-lg border border-red-500/30 px-2 py-1 text-[10px] text-red-300"
                   >
@@ -276,7 +284,18 @@ export function CarrierDriversPage() {
                   <button
                     type="button"
                     disabled={busyId === d.driver_id}
-                    onClick={() => void manageDriver(d.driver_id, "suspend")}
+                    onClick={() => {
+                      void (async () => {
+                        const ok = await ui.confirm({
+                          title: `Suspend ${d.name}?`,
+                          message:
+                            "They will be unable to use the driver portal until reactivated.",
+                          confirmLabel: "Suspend",
+                          danger: true,
+                        });
+                        if (ok) void manageDriver(d.driver_id, "suspend");
+                      })();
+                    }}
                     className="rounded-lg border border-orange-500/30 px-2 py-1 text-[10px] text-orange-300"
                   >
                     Suspend

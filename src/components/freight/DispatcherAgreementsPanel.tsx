@@ -6,6 +6,7 @@ import {
   CARRIER_AGREEMENT_PERCENT_MAX,
   CARRIER_AGREEMENT_PERCENT_MIN,
 } from "@/lib/freight/carrier-agreement-terms";
+import { useUi } from "@/components/ui/UiProvider";
 
 type AgreementRow = {
   id: string;
@@ -27,6 +28,7 @@ type AgreementRow = {
 };
 
 export function DispatcherAgreementsPanel() {
+  const ui = useUi();
   const [rows, setRows] = useState<AgreementRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -108,7 +110,13 @@ export function DispatcherAgreementsPanel() {
   }
 
   async function revoke(id: string) {
-    if (!confirm("Revoke this pending agreement link?")) return;
+    const ok = await ui.confirm({
+      title: "Revoke agreement?",
+      message: "Revoke this pending agreement link?",
+      confirmLabel: "Revoke",
+      danger: true,
+    });
+    if (!ok) return;
     setBusy(true);
     setErr(null);
     try {

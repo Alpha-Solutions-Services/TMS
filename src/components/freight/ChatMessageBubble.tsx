@@ -4,6 +4,7 @@ import { useState } from "react";
 import clsx from "clsx";
 import { FileText, Pencil, Trash2 } from "lucide-react";
 import type { ChatAttachment, ChatMessage } from "@/lib/freight/chat-types";
+import { useUi } from "@/components/ui/UiProvider";
 
 function isOwnMessage(message: ChatMessage, viewerRole: string): boolean {
   if (message.mine === true) return true;
@@ -25,6 +26,7 @@ export function ChatMessageBubble({
   onEdit?: (id: string, body: string) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
 }) {
+  const ui = useUi();
   const own = isOwnMessage(message, viewerRole);
   const deleted = Boolean(message.deleted_at);
   const [editing, setEditing] = useState(false);
@@ -42,7 +44,11 @@ export function ChatMessageBubble({
       await onEdit(message.id, draft.trim());
       setEditing(false);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Could not edit message");
+      ui.toast({
+        kind: "error",
+        title: "Could not edit message",
+        message: e instanceof Error ? e.message : undefined,
+      });
     } finally {
       setBusy(false);
     }
@@ -50,12 +56,22 @@ export function ChatMessageBubble({
 
   async function remove() {
     if (!onDelete) return;
-    if (!window.confirm("Delete this message?")) return;
+    const ok = await ui.confirm({
+      title: "Delete message?",
+      message: "This message will be removed from the thread.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       await onDelete(message.id);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Could not delete message");
+      ui.toast({
+        kind: "error",
+        title: "Could not delete message",
+        message: e instanceof Error ? e.message : undefined,
+      });
     } finally {
       setBusy(false);
     }

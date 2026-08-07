@@ -86,14 +86,12 @@ export function FileLibrary({
   }
 
   async function remove(id: string, name: string) {
-    const ok = ui
-      ? await ui.confirm({
-          title: "Delete file?",
-          message: `Remove “${name}” from your portal library.`,
-          confirmLabel: "Delete",
-          danger: true,
-        })
-      : window.confirm(`Delete ${name}?`);
+    const ok = await (ui?.confirm({
+      title: "Delete file?",
+      message: `Remove “${name}” from your portal library.`,
+      confirmLabel: "Delete",
+      danger: true,
+    }) ?? Promise.resolve(false));
     if (!ok) return;
     const res = await fetch(`/api/files/${id}`, { method: "DELETE" });
     if (!res.ok) {

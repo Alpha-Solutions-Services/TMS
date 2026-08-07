@@ -10,8 +10,10 @@ import { PortalClock } from "@/components/freight/PortalClock";
 import { RcUploadPanel } from "@/components/freight/RcUploadPanel";
 import { useDispatchDashboard } from "@/components/freight/useDispatchDashboard";
 import type { DashboardLoad } from "@/lib/freight/dispatch-dashboard-types";
+import { useUi } from "@/components/ui/UiProvider";
 
 export function DispatcherLoadsPage() {
+  const ui = useUi();
   const { data, loading, error, refresh, activeTab, changeTab } = useDispatchDashboard();
   const searchParams = useSearchParams();
   const showBook = searchParams.get("action") === "book";
@@ -21,13 +23,23 @@ export function DispatcherLoadsPage() {
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
   async function removeLoad(id: string) {
-    if (!window.confirm("Remove this load? Carrier will be notified if Email is on the load.")) return;
+    const ok = await ui.confirm({
+      title: "Remove load?",
+      message: "Carrier will be notified if Email is on the load.",
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!ok) return;
     const res = await fetch(`/api/dispatcher/loads?id=${encodeURIComponent(id)}`, {
       method: "DELETE",
     });
     if (!res.ok) {
       const json = (await res.json()) as { error?: string };
-      alert(json.error ?? "Delete failed");
+      ui.toast({
+        kind: "error",
+        title: "Delete failed",
+        message: json.error ?? "Delete failed",
+      });
       return;
     }
     await refresh();

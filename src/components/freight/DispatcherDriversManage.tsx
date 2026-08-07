@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { InviteDriverModal } from "@/components/freight/InviteDriverModal";
 import { useDispatchDashboard } from "@/components/freight/useDispatchDashboard";
+import { useUi } from "@/components/ui/UiProvider";
 import { createClient } from "@/lib/supabase/client";
 
 export function DispatcherDriversManage({ canInvite = false }: { canInvite?: boolean }) {
+  const ui = useUi();
   const { data, loading, refresh, canViewContacts } = useDispatchDashboard();
   const [verifiedCarriers, setVerifiedCarriers] = useState<
     { id: string; company_name: string | null; full_name: string | null }[]
@@ -110,7 +112,13 @@ export function DispatcherDriversManage({ canInvite = false }: { canInvite?: boo
       setMsg("Use Terminate for portal drivers.");
       return;
     }
-    if (!confirm("Remove this driver from the roster?")) return;
+    const ok = await ui.confirm({
+      title: "Remove driver?",
+      message: "Remove this driver from the roster?",
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/dispatcher/drivers?id=${id}`, { method: "DELETE" });
@@ -127,7 +135,26 @@ export function DispatcherDriversManage({ canInvite = false }: { canInvite?: boo
     profileId: string,
     action: "terminate" | "suspend" | "activate" | "set_pay_percent",
     payPercent?: number,
+    driverLabel?: string,
   ) {
+    if (action === "terminate") {
+      const ok = await ui.confirm({
+        title: `Terminate ${driverLabel || "driver"}?`,
+        message: "They will lose portal access.",
+        confirmLabel: "Terminate",
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    if (action === "suspend") {
+      const ok = await ui.confirm({
+        title: `Suspend ${driverLabel || "driver"}?`,
+        message: "They will be unable to use the driver portal until reactivated.",
+        confirmLabel: "Suspend",
+        danger: true,
+      });
+      if (!ok) return;
+    }
     setBusy(true);
     setMsg(null);
     try {
@@ -342,7 +369,9 @@ export function DispatcherDriversManage({ canInvite = false }: { canInvite?: boo
                             <button
                               type="button"
                               disabled={busy}
-                              onClick={() => void manageDriver(profileId, "terminate")}
+                              onClick={() =>
+                                void manageDriver(profileId, "terminate", undefined, d.driverName)
+                              }
                               className="rounded px-2 py-1 text-[10px] text-red-300 hover:bg-red-500/10"
                             >
                               Terminate
@@ -350,7 +379,9 @@ export function DispatcherDriversManage({ canInvite = false }: { canInvite?: boo
                             <button
                               type="button"
                               disabled={busy}
-                              onClick={() => void manageDriver(profileId, "suspend")}
+                              onClick={() =>
+                                void manageDriver(profileId, "suspend", undefined, d.driverName)
+                              }
                               className="rounded px-2 py-1 text-[10px] text-orange-300 hover:bg-orange-500/10"
                             >
                               Suspend

@@ -150,14 +150,12 @@ export function ProjectProgressView({
   }
 
   async function deleteProject() {
-    const ok = ui
-      ? await ui.confirm({
-          title: "Delete project?",
-          message: `“${project.title}” will be permanently removed. This cannot be undone.`,
-          confirmLabel: "Delete project",
-          danger: true,
-        })
-      : window.confirm(`Delete "${project.title}"? This cannot be undone.`);
+    const ok = await (ui?.confirm({
+      title: "Delete project?",
+      message: `“${project.title}” will be permanently removed. This cannot be undone.`,
+      confirmLabel: "Delete project",
+      danger: true,
+    }) ?? Promise.resolve(false));
     if (!ok) return;
     setActionBusy("delete");
     try {

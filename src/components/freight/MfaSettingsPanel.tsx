@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useUi } from "@/components/ui/UiProvider";
 
 type Factor = {
   id: string;
@@ -11,6 +12,7 @@ type Factor = {
 };
 
 export function MfaSettingsPanel() {
+  const ui = useUi();
   const [factors, setFactors] = useState<Factor[]>([]);
   const [enrolling, setEnrolling] = useState(false);
   const [factorId, setFactorId] = useState<string | null>(null);
@@ -103,7 +105,13 @@ export function MfaSettingsPanel() {
   }
 
   async function unenroll(id: string) {
-    if (!window.confirm("Remove this authenticator?")) return;
+    const ok = await ui.confirm({
+      title: "Remove authenticator?",
+      message: "You will need to set up a new authenticator app to use 2FA again.",
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!ok) return;
     setBusy(true);
     setError(null);
     try {

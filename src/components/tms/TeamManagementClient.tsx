@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Link2, Trash2, UserPlus } from "lucide-react";
+import { useUi } from "@/components/ui/UiProvider";
 
 type TmsUser = {
   id: string;
@@ -43,6 +44,7 @@ function displayName(u: TmsUser) {
 }
 
 export function TeamManagementClient() {
+  const ui = useUi();
   const [users, setUsers] = useState<TmsUser[]>([]);
   const [assignCarriers, setAssignCarriers] = useState<AssignCarrier[]>([]);
   const [assignDrivers, setAssignDrivers] = useState<AssignDriver[]>([]);
@@ -152,7 +154,13 @@ export function TeamManagementClient() {
   }
 
   async function terminate(id: string, emailLabel: string) {
-    if (!confirm(`Terminate ${emailLabel}? They will lose dispatcher access immediately.`)) return;
+    const ok = await ui.confirm({
+      title: `Terminate ${emailLabel}?`,
+      message: "They will lose dispatcher access immediately.",
+      confirmLabel: "Terminate",
+      danger: true,
+    });
+    if (!ok) return;
     setBusy(true);
     setMsg(null);
     try {

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import clsx from "clsx";
 import { Plus, Trash2 } from "lucide-react";
 import { useDispatchDashboard } from "@/components/freight/useDispatchDashboard";
+import { useUi } from "@/components/ui/UiProvider";
 
 const EMPTY_FORM = {
   mc: "",
@@ -31,6 +32,7 @@ export function DispatcherCarrierRoster({
   showAdd?: boolean;
   canManage?: boolean;
 }) {
+  const ui = useUi();
   const { data, loading, refresh, canViewContacts } = useDispatchDashboard();
   const [formOpen, setFormOpen] = useState(showAdd);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -125,7 +127,13 @@ export function DispatcherCarrierRoster({
 
   async function removeCarrier(id: string) {
     if (!id.startsWith("sheet-")) {
-      if (!confirm("Remove this carrier from the dispatcher roster?")) return;
+      const ok = await ui.confirm({
+        title: "Remove carrier?",
+        message: "Remove this carrier from the dispatcher roster?",
+        confirmLabel: "Remove",
+        danger: true,
+      });
+      if (!ok) return;
       setBusy(true);
       try {
         const res = await fetch(`/api/dispatcher/carriers?id=${id}`, {

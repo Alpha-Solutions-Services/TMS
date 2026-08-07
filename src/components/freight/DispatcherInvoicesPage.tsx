@@ -23,6 +23,7 @@ import {
   enrichLoadsWithCarrierRoster,
   resolveCarrierEmail,
 } from "@/lib/freight/carrier-contact";
+import { useUi } from "@/components/ui/UiProvider";
 import {
   INVOICE_PAYMENT_OPTIONS,
   type InvoicePaymentMethod,
@@ -47,6 +48,7 @@ function statusBadge(status: SentInvoiceRecord["paymentStatus"]) {
 }
 
 export function DispatcherInvoicesPage() {
+  const ui = useUi();
   const { data, loading, error, activeTab, changeTab, refresh } = useDispatchDashboard();
   const searchParams = useSearchParams();
   const generateMode = searchParams.get("action") === "generate";
@@ -337,7 +339,13 @@ export function DispatcherInvoicesPage() {
   }
 
   async function deleteSentInvoice(id: string) {
-    if (!window.confirm("Remove this sent invoice record?")) return;
+    const ok = await ui.confirm({
+      title: "Remove invoice?",
+      message: "Remove this sent invoice record?",
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!ok) return;
     setSentError(null);
     try {
       const res = await fetch(`/api/dispatcher/invoices/sent?id=${encodeURIComponent(id)}`, {
