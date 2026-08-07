@@ -84,8 +84,12 @@ export function UsaTrackingMap({
       if (route.length >= 2) {
         const line = L.polyline(route as LatLngExpression[], {
           color: "#38a3ff",
-          weight: 4,
-          opacity: 0.9,
+          weight: 5,
+          opacity: 0.95,
+          // Keep road shape visible; do not over-simplify into a chord
+          smoothFactor: 0.5,
+          lineJoin: "round",
+          lineCap: "round",
         }).addTo(layers);
         bounds.push(...(line.getLatLngs() as LatLngExpression[]));
       }

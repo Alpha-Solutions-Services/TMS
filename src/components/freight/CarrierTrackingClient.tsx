@@ -27,6 +27,8 @@ export function CarrierTrackingClient() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [route, setRoute] = useState<[number, number][]>([]);
+  const [routeBusy, setRouteBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -53,14 +55,14 @@ export function CarrierTrackingClient() {
 
   const selected = sessions.find((s) => s.id === selectedId) ?? sessions[0] ?? null;
 
-  const { route, markers } = useMemo(() => {
+  const markers = useMemo(() => {
     type M = {
       lat: number;
       lng: number;
       label: string;
       kind: "pickup" | "delivery" | "driver";
     };
-    if (!selected) return { route: [] as [number, number][], markers: [] as M[] };
+    if (!selected) return [] as M[];
     const mapped: M[] = selected.stops
       .filter((s) => s.lat != null && s.lng != null)
       .map((s) => ({
@@ -77,14 +79,46 @@ export function CarrierTrackingClient() {
         kind: "driver",
       });
     }
-    const routeLine =
-      mapped.length >= 2
-        ? mapped
-            .filter((m) => m.kind !== "driver")
-            .map((m) => [m.lat, m.lng] as [number, number])
-        : [];
-    return { route: routeLine, markers: mapped };
+    return mapped;
   }, [selected]);
+
+  useEffect(() => {
+    const stops = markers.filter((m) => m.kind !== "driver");
+    if (stops.length < 2) {
+      setRoute([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      setRouteBusy(true);
+      try {
+        const res = await fetch("/api/freight/geo/route", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            waypoints: stops.map((s) => ({ lat: s.lat, lng: s.lng })),
+          }),
+        });
+        const json = (await res.json()) as {
+          coordinates?: [number, number][];
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!res.ok || !json.coordinates || json.coordinates.length < 3) {
+          setRoute([]);
+          return;
+        }
+        setRoute(json.coordinates);
+      } catch {
+        if (!cancelled) setRoute([]);
+      } finally {
+        if (!cancelled) setRouteBusy(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [markers]);
 
   return (
     <div className="min-h-screen bg-[var(--color-bg)]">
@@ -96,6 +130,7 @@ export function CarrierTrackingClient() {
         <div className="flex items-center justify-between gap-2">
           <p className="text-sm text-[var(--color-muted)]">
             See loads your drivers are tracking for dispatch — live GPS updates appear here.
+            {routeBusy ? " Building road route…" : null}
           </p>
           <button
             type="button"

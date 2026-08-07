@@ -1,19 +1,63 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { checkRateLimit } from "@/lib/freight/api-security";
+import { isCarrierIdentity } from "@/lib/freight/carrier-identity";
 import { assertDispatcher } from "@/lib/freight/dispatch-roster";
+import { fetchDrivingRoute } from "@/lib/freight/road-route";
 import { createClient } from "@/lib/supabase/server";
+import { getServiceRoleClient } from "@/lib/supabase/service-role";
 
-const schema = z.object({
-  fromLat: z.number(),
-  fromLng: z.number(),
-  toLat: z.number(),
-  toLng: z.number(),
+const pointSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
 });
 
-/** POST — driving route polyline between two points (OSRM). */
+const schema = z
+  .object({
+    /** Preferred: ordered stops (PU1 → PU2 → DEL1 → …) */
+    waypoints: z.array(pointSchema).min(2).max(25).optional(),
+    fromLat: z.number().optional(),
+    fromLng: z.number().optional(),
+    toLat: z.number().optional(),
+    toLng: z.number().optional(),
+  })
+  .superRefine((body, ctx) => {
+    if (body.waypoints?.length) return;
+    if (
+      body.fromLat == null ||
+      body.fromLng == null ||
+      body.toLat == null ||
+      body.toLng == null
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "waypoints or from/to required",
+      });
+    }
+  });
+
+async function canUseGeo(userId: string): Promise<boolean> {
+  const sb = await createClient();
+  if (!sb) return false;
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  if (!user?.id || user.id !== userId) return false;
+  if (await assertDispatcher(user)) return true;
+
+  const admin = getServiceRoleClient();
+  if (!admin) return false;
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("role, carrier_status")
+    .eq("id", userId)
+    .maybeSingle();
+  return Boolean(profile && isCarrierIdentity(profile));
+}
+
+/** POST — driving route polyline along roads (OSRM). Never invents a straight line. */
 export async function POST(req: NextRequest) {
-  if (!checkRateLimit(req, "geo-route", 30)) {
+  if (!checkRateLimit(req, "geo-route", 40)) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
@@ -23,61 +67,42 @@ export async function POST(req: NextRequest) {
     data: { user },
   } = await sb.auth.getUser();
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!(await assertDispatcher(user))) {
-    return NextResponse.json({ error: "Dispatcher only" }, { status: 403 });
+  if (!(await canUseGeo(user.id))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   try {
     const body = schema.parse(await req.json());
-    const url =
-      `https://router.project-osrm.org/route/v1/driving/` +
-      `${body.fromLng},${body.fromLat};${body.toLng},${body.toLat}` +
-      `?overview=full&geometries=geojson`;
+    const points =
+      body.waypoints ??
+      ([
+        { lat: body.fromLat!, lng: body.fromLng! },
+        { lat: body.toLat!, lng: body.toLng! },
+      ] as const);
 
-    const res = await fetch(url, {
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) {
-      return NextResponse.json({ error: "Router unavailable" }, { status: 502 });
-    }
-
-    const json = (await res.json()) as {
-      routes?: {
-        distance: number;
-        duration: number;
-        geometry: { coordinates: [number, number][] };
-      }[];
-    };
-
-    const route = json.routes?.[0];
+    const route = await fetchDrivingRoute([...points]);
     if (!route) {
-      // Fallback straight line
-      return NextResponse.json({
-        coordinates: [
-          [body.fromLat, body.fromLng],
-          [body.toLat, body.toLng],
-        ],
-        distanceMiles: null,
-        durationMin: null,
-        fallback: true,
-      });
+      return NextResponse.json(
+        {
+          error:
+            "Road router unavailable — could not build a driving route. Try again in a moment.",
+        },
+        { status: 502 },
+      );
     }
-
-    // GeoJSON is [lng, lat] → Leaflet wants [lat, lng]
-    const coordinates = route.geometry.coordinates.map(
-      ([lng, lat]) => [lat, lng] as [number, number],
-    );
 
     return NextResponse.json({
-      coordinates,
-      distanceMiles: Math.round((route.distance / 1609.344) * 10) / 10,
-      durationMin: Math.round(route.duration / 60),
+      coordinates: route.coordinates,
+      distanceMiles: route.distanceMiles,
+      durationMin: route.durationMin,
+      pointCount: route.coordinates.length,
       fallback: false,
     });
   } catch (e) {
     if (e instanceof z.ZodError) {
       return NextResponse.json({ error: "Invalid coordinates" }, { status: 400 });
     }
+    console.error("[geo/route]", e);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

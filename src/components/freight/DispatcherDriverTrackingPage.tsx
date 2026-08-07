@@ -183,32 +183,45 @@ export function DispatcherDriverTrackingPage() {
       }
       setMarkers(nextMarkers);
 
-      // Route: first pickup → last delivery (or through all stops in order)
+      // Road route through every stop in order (PU… then DEL…) — never a straight line
       if (geos.length >= 2) {
-        const from = geos[0];
-        const to = geos[geos.length - 1];
         const res = await fetch("/api/freight/geo/route", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            fromLat: from.lat,
-            fromLng: from.lng,
-            toLat: to.lat,
-            toLng: to.lng,
+            waypoints: geos.map((g) => ({ lat: g.lat, lng: g.lng })),
           }),
         });
-        const json = await res.json();
-        if (res.ok) {
-          setRoute((json.coordinates as [number, number][]) ?? []);
-          if (json.distanceMiles != null) {
-            setRouteMeta(
-              `${puList.length} PU · ${delList.length} DEL · ${json.distanceMiles} mi`,
-            );
-          }
-        } else {
-          setRoute(geos.map((g) => [g.lat, g.lng] as [number, number]));
-          setRouteMeta("Straight-line multi-stop route");
+        const json = (await res.json()) as {
+          error?: string;
+          coordinates?: [number, number][];
+          distanceMiles?: number | null;
+          durationMin?: number | null;
+          pointCount?: number;
+        };
+        if (!res.ok || !json.coordinates || json.coordinates.length < 3) {
+          setRoute([]);
+          setRouteMeta(null);
+          throw new Error(
+            json.error ??
+              "Could not build a road route. Check ZIPs and try Draw route again.",
+          );
         }
+        setRoute(json.coordinates);
+        const miles =
+          json.distanceMiles != null ? `${json.distanceMiles} mi` : null;
+        const mins =
+          json.durationMin != null ? `~${json.durationMin} min drive` : null;
+        setRouteMeta(
+          [
+            `${puList.length} PU · ${delList.length} DEL`,
+            miles,
+            mins,
+            "road route",
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        );
       } else {
         setRoute([]);
         setRouteMeta("Single stop — add more ZIPs for a route");
