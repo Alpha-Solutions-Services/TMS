@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Mail, MapPin, Phone, RefreshCw, Sparkles, Upload } from "lucide-react";
 import { InviteDriverModal } from "@/components/freight/InviteDriverModal";
@@ -141,9 +141,131 @@ export function CarrierLoadsPage() {
 }
 
 export function CarrierTrucksPage() {
-  const { data, loading, company } = useCarrierPage();
+  const { data, loading, company, refresh } = useCarrierPage();
+  const [truckNumber, setTruckNumber] = useState("");
+  const [equipment, setEquipment] = useState("Dry Van");
+  const [vin, setVin] = useState("");
+  const [plate, setPlate] = useState("");
+  const [homeBase, setHomeBase] = useState("");
+  const [assignDriverId, setAssignDriverId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [fleet, setFleet] = useState<
+    {
+      id: string;
+      truck_number: string;
+      equipment: string | null;
+      status: string;
+      assigned_driver_profile_id: string | null;
+      driver_name: string | null;
+      vin?: string | null;
+      license_plate?: string | null;
+      home_base?: string | null;
+      truck_type?: string | null;
+    }[]
+  >([]);
+
+  const loadFleet = useCallback(async () => {
+    try {
+      const res = await fetch("/api/freight/trucks", { cache: "no-store" });
+      const json = await res.json();
+      if (res.ok) setFleet(json.trucks ?? []);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadFleet();
+  }, [loadFleet, data?.trucks?.length]);
+
   const rolling =
-    data?.trucks.filter((t) => t.status.toLowerCase() !== "available").length ?? 0;
+    fleet.filter((t) => String(t.status || "").toLowerCase() !== "available")
+      .length ||
+    data?.trucks.filter((t) => t.status.toLowerCase() !== "available").length ||
+    0;
+
+  async function addTruck() {
+    if (!truckNumber.trim()) {
+      setMsg("Enter a truck number");
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/freight/trucks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          truckNumber: truckNumber.trim(),
+          equipment: equipment.trim() || "Dry Van",
+          truckType: equipment.trim() || "Dry Van",
+          vin: vin.trim() || undefined,
+          licensePlate: plate.trim() || undefined,
+          homeBase: homeBase.trim() || undefined,
+          assignedDriverProfileId: assignDriverId || null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed");
+      setTruckNumber("");
+      setVin("");
+      setPlate("");
+      setHomeBase("");
+      setAssignDriverId("");
+      setMsg("Truck added.");
+      await loadFleet();
+      await refresh();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function assignDriver(truckId: string, driverId: string | null) {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/freight/trucks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          truckId,
+          assignedDriverProfileId: driverId,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed");
+      setMsg(driverId ? "Truck assigned to driver." : "Driver unassigned.");
+      await loadFleet();
+      await refresh();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeTruck(truckId: string) {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/freight/trucks?truckId=${truckId}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed");
+      setMsg("Truck removed.");
+      await loadFleet();
+      await refresh();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <CarrierPageShell title="Trucks & GPS" loading={loading && !data} companyName={company}>
       {data ? (
@@ -153,12 +275,130 @@ export function CarrierTrucksPage() {
             totalMiles={data.summary.miles_driven}
             carriersManaged={1}
             trackingHref="/carrier/tracking"
-            footerNote={`${data.trucks.length} trucks · ${data.drivers.length} drivers · ${rolling || data.summary.active_loads} rolling`}
+            footerNote={`${fleet.length || data.trucks.length} trucks · ${data.drivers.length} drivers · ${rolling || data.summary.active_loads} rolling`}
           />
-          {data.trucks.length === 0 ? (
-            <p className="rounded-xl border border-[var(--color-border)] px-4 py-6 text-center text-sm text-[var(--color-muted)]">
-              No truck units yet. Invite drivers and assign loads — units appear here with live GPS.
+
+          <CarrierGlassCard>
+            <p className="text-sm font-semibold text-[var(--color-text)]">Add truck</p>
+            <p className="mt-1 text-xs text-[var(--color-muted)]">
+              Create a unit, then assign it to a driver (carrier or dispatcher can do this).
             </p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <input
+                value={truckNumber}
+                onChange={(e) => setTruckNumber(e.target.value)}
+                placeholder="Truck #"
+                className="rounded-lg border border-[var(--color-border)] bg-[#050912] px-3 py-2 text-sm"
+              />
+              <input
+                value={equipment}
+                onChange={(e) => setEquipment(e.target.value)}
+                placeholder="Truck type / equipment"
+                className="rounded-lg border border-[var(--color-border)] bg-[#050912] px-3 py-2 text-sm"
+              />
+              <input
+                value={vin}
+                onChange={(e) => setVin(e.target.value)}
+                placeholder="VIN"
+                className="rounded-lg border border-[var(--color-border)] bg-[#050912] px-3 py-2 text-sm"
+              />
+              <input
+                value={plate}
+                onChange={(e) => setPlate(e.target.value)}
+                placeholder="License plate"
+                className="rounded-lg border border-[var(--color-border)] bg-[#050912] px-3 py-2 text-sm"
+              />
+              <input
+                value={homeBase}
+                onChange={(e) => setHomeBase(e.target.value)}
+                placeholder="Home base"
+                className="rounded-lg border border-[var(--color-border)] bg-[#050912] px-3 py-2 text-sm"
+              />
+              <select
+                value={assignDriverId}
+                onChange={(e) => setAssignDriverId(e.target.value)}
+                className="rounded-lg border border-[var(--color-border)] bg-[#050912] px-3 py-2 text-sm"
+              >
+                <option value="">Assign later…</option>
+                {data.drivers
+                  .filter((d) => d.status === "Active")
+                  .map((d) => (
+                    <option key={d.driver_id} value={d.driver_id}>
+                      {d.name}
+                    </option>
+                  ))}
+              </select>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void addTruck()}
+                className="rounded-lg bg-[var(--color-accent)] px-3 py-2 text-sm font-semibold text-[#05080f] disabled:opacity-50 sm:col-span-2 lg:col-span-1"
+              >
+                Add truck
+              </button>
+            </div>
+            {msg ? <p className="mt-2 text-xs text-[var(--color-muted)]">{msg}</p> : null}
+          </CarrierGlassCard>
+
+          {(fleet.length ? fleet : data.trucks).length === 0 ? (
+            <p className="rounded-xl border border-[var(--color-border)] px-4 py-6 text-center text-sm text-[var(--color-muted)]">
+              No trucks yet. Add a truck number above and assign a driver.
+            </p>
+          ) : fleet.length ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              {fleet.map((t) => (
+                <CarrierGlassCard key={t.id} glow>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-lg font-bold text-[var(--color-text)]">
+                        Truck #{t.truck_number}
+                      </p>
+                      <p className="text-sm text-[var(--color-muted)]">
+                        {t.truck_type || t.equipment || "—"}
+                      </p>
+                      {t.vin || t.license_plate || t.home_base ? (
+                        <p className="mt-1 text-[10px] text-[var(--color-muted)]">
+                          {[
+                            t.license_plate ? `Plate ${t.license_plate}` : null,
+                            t.vin ? `VIN ${t.vin}` : null,
+                            t.home_base ? t.home_base : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      ) : null}
+                    </div>
+                    <CarrierStatusBadge status={t.status} />
+                  </div>
+                  <label className="mt-3 block text-xs text-[var(--color-muted)]">
+                    Assigned driver
+                    <select
+                      className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[#050912] px-2 py-1.5 text-sm text-[var(--color-text)]"
+                      value={t.assigned_driver_profile_id || ""}
+                      disabled={busy}
+                      onChange={(e) =>
+                        void assignDriver(t.id, e.target.value || null)
+                      }
+                    >
+                      <option value="">Unassigned</option>
+                      {data.drivers.map((d) => (
+                        <option key={d.driver_id} value={d.driver_id}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void removeTruck(t.id)}
+                    className="mt-3 text-xs text-red-300 hover:underline"
+                  >
+                    Remove truck
+                  </button>
+                </CarrierGlassCard>
+              ))}
+            </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {data.trucks.map((t) => (
@@ -174,13 +414,6 @@ export function CarrierTrucksPage() {
                   </div>
                   <p className="mt-3 text-sm">
                     Driver: <strong>{t.driver}</strong>
-                  </p>
-                  <p className="mt-1 flex items-center gap-1 text-sm text-[var(--color-accent)]">
-                    <MapPin className="h-4 w-4" />
-                    {t.location}
-                  </p>
-                  <p className="mt-2 text-xs text-[var(--color-muted)]">
-                    Live GPS on map above when the driver shares location
                   </p>
                 </CarrierGlassCard>
               ))}
@@ -200,6 +433,7 @@ export function CarrierDriversPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [payEdits, setPayEdits] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<string | null>(null);
+  const [truckEdits, setTruckEdits] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const paid = searchParams.get("driver_paid");
@@ -223,6 +457,29 @@ export function CarrierDriversPage() {
       }
     })();
   }, [searchParams, refresh]);
+
+  async function assignTruck(driverProfileId: string, truckNumber: string) {
+    setBusyId(driverProfileId);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/freight/trucks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          truckNumber: truckNumber.trim(),
+          assignToDriverProfileId: driverProfileId,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed");
+      setMsg(`Truck #${truckNumber.trim()} assigned.`);
+      await refresh();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   async function manageDriver(
     driverProfileId: string,
@@ -285,6 +542,39 @@ export function CarrierDriversPage() {
                     <span className="text-sm text-emerald-400">Score {d.score}</span>
                   ) : null}
                 </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <input
+                    className="min-w-0 flex-1 rounded-lg border border-[var(--color-border)] bg-[#050912] px-2 py-1 text-xs"
+                    placeholder="Truck #"
+                    value={
+                      truckEdits[d.driver_id] ??
+                      (d.truck_number != null ? String(d.truck_number) : "")
+                    }
+                    onChange={(e) =>
+                      setTruckEdits((m) => ({ ...m, [d.driver_id]: e.target.value }))
+                    }
+                  />
+                  <button
+                    type="button"
+                    disabled={busyId === d.driver_id}
+                    className="shrink-0 text-xs font-semibold text-[var(--color-accent)]"
+                    onClick={() => {
+                      const n = (truckEdits[d.driver_id] ?? d.truck_number ?? "").trim();
+                      if (!n) {
+                        setMsg("Enter a truck number");
+                        return;
+                      }
+                      void assignTruck(d.driver_id, n);
+                    }}
+                  >
+                    Assign
+                  </button>
+                </div>
+                {d.truck_number ? (
+                  <p className="mt-1 text-[10px] text-[var(--color-muted)]">
+                    Current unit: #{d.truck_number}
+                  </p>
+                ) : null}
                 <div className="mt-3 flex items-center gap-2">
                   <input
                     className="w-16 rounded-lg border border-[var(--color-border)] bg-[#050912] px-2 py-1 text-xs"

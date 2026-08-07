@@ -43,6 +43,9 @@ export type CarrierDriver = {
   phone: string;
   status: string;
   score?: number;
+  /** Assigned unit from carrier_trucks */
+  truck_number?: string | null;
+  truck_id?: string | null;
 };
 
 export type CarrierLoadRow = {

@@ -31,6 +31,7 @@ export function DispatcherDriversManage({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [payEdits, setPayEdits] = useState<Record<string, string>>({});
+  const [truckEdits, setTruckEdits] = useState<Record<string, string>>({});
 
   useEffect(() => {
     void (async () => {
@@ -133,6 +134,38 @@ export function DispatcherDriversManage({
       await refresh();
     } catch {
       setMsg("Could not remove driver.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function assignTruck(
+    profileId: string,
+    carrierProfileId: string | null | undefined,
+    truckNumber: string,
+  ) {
+    if (!carrierProfileId) {
+      setMsg("Driver must be linked to a carrier profile to assign a truck.");
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/freight/trucks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          carrierProfileId,
+          truckNumber: truckNumber.trim(),
+          assignToDriverProfileId: profileId,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed");
+      setMsg(`Truck #${truckNumber.trim()} assigned.`);
+      await refresh();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed");
     } finally {
       setBusy(false);
     }
@@ -308,6 +341,7 @@ export function DispatcherDriversManage({
               {canViewContacts ? <th className="px-4 py-3">Email</th> : null}
               {canViewContacts ? <th className="px-4 py-3">Phone</th> : null}
               <th className="px-4 py-3">Carrier</th>
+              <th className="px-4 py-3">Truck</th>
               <th className="px-4 py-3">Source</th>
               <th className="px-4 py-3">Pay %</th>
               <th className="px-4 py-3">Status</th>
@@ -317,7 +351,7 @@ export function DispatcherDriversManage({
           <tbody className="divide-y divide-[var(--color-border)]">
             {data.driver_roster.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-[var(--color-muted)]">
+                <td colSpan={9} className="px-4 py-10 text-center text-[var(--color-muted)]">
                   No drivers found.
                 </td>
               </tr>
@@ -333,6 +367,48 @@ export function DispatcherDriversManage({
                     {canViewContacts ? <td className="px-4 py-3">{d.driverEmail || "—"}</td> : null}
                     {canViewContacts ? <td className="px-4 py-3">{d.driverPhone || "—"}</td> : null}
                     <td className="px-4 py-3">{d.carrierCompanyName}</td>
+                    <td className="px-4 py-3">
+                      {profileId && canManage ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            className="w-20 rounded border border-[var(--color-border)] bg-[#050912] px-1 py-0.5 text-xs"
+                            value={
+                              truckEdits[payKey] ??
+                              (d.assignedTruckNumber != null
+                                ? String(d.assignedTruckNumber)
+                                : "")
+                            }
+                            placeholder="Unit #"
+                            onChange={(e) =>
+                              setTruckEdits((m) => ({ ...m, [payKey]: e.target.value }))
+                            }
+                          />
+                          <button
+                            type="button"
+                            disabled={busy}
+                            className="text-[10px] font-semibold text-[var(--color-accent)]"
+                            onClick={() => {
+                              const n = (
+                                truckEdits[payKey] ??
+                                d.assignedTruckNumber ??
+                                ""
+                              ).trim();
+                              if (!n) {
+                                setMsg("Enter a truck number");
+                                return;
+                              }
+                              void assignTruck(profileId, d.carrierProfileId, n);
+                            }}
+                          >
+                            Assign
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[var(--color-muted)]">
+                          {d.assignedTruckNumber ? `#${d.assignedTruckNumber}` : "—"}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-xs uppercase text-[var(--color-muted)]">
                       {d.source === "portal" ? "portal" : "roster"}
                     </td>

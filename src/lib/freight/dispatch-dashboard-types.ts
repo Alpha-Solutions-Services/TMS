@@ -156,6 +156,8 @@ export type DriverRosterItem = {
   profileId?: string | null;
   driverStatus?: string | null;
   defaultDriverPayPercent?: number | null;
+  assignedTruckNumber?: string | null;
+  assignedTruckId?: string | null;
 };
 
 /** Open AR aging — filled from dispatched sent invoices when available. */

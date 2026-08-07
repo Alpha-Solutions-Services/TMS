@@ -1,6 +1,7 @@
 import type { User } from "@supabase/supabase-js";
 import type { CarrierRosterEntry } from "./carrier-sheet";
 import { fetchCarrierSheetCsv, parseCarrierCsv } from "./carrier-sheet";
+import { trucksForDrivers } from "./carrier-trucks";
 import { resolveTmsRole } from "@/lib/tms/auth";
 import { isDispatcherRole } from "@/lib/tms/roles";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
@@ -121,6 +122,9 @@ export type DriverRosterEntry = {
   profileId?: string | null;
   driverStatus?: string | null;
   defaultDriverPayPercent?: number | null;
+  /** From carrier_trucks when assigned */
+  assignedTruckNumber?: string | null;
+  assignedTruckId?: string | null;
 };
 
 type RosterRow = {
@@ -285,6 +289,21 @@ export async function loadDriverRoster(): Promise<DriverRosterEntry[]> {
           ? null
           : Number(d.default_driver_pay_percent),
     });
+  }
+
+  const profileIds = roster
+    .map((r) => r.profileId)
+    .filter(Boolean) as string[];
+  if (profileIds.length) {
+    const byDriver = await trucksForDrivers(profileIds);
+    for (const r of roster) {
+      if (!r.profileId) continue;
+      const truck = byDriver.get(r.profileId);
+      if (truck) {
+        r.assignedTruckId = truck.id;
+        r.assignedTruckNumber = truck.truck_number;
+      }
+    }
   }
 
   return roster.sort((a, b) => a.driverName.localeCompare(b.driverName));

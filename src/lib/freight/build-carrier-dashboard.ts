@@ -21,6 +21,7 @@ import {
   fetchCarrierScorecard,
   listActiveAnnouncements,
 } from "@/lib/freight/announcements";
+import { listCarrierTrucks } from "./carrier-trucks";
 
 function mapSheetRowToLoad(row: {
   loadNumber: string;
@@ -340,8 +341,47 @@ export async function buildCarrierDashboard(opts: {
     }
   }
 
-  // Build trucks after drivers so units can be attributed
-  if (dbRows.length > 0) {
+  // Prefer real fleet inventory from carrier_trucks
+  if (opts.carrierProfileId) {
+    const fleet = await listCarrierTrucks(opts.carrierProfileId);
+    if (fleet.length) {
+      const driverById = new Map(dashboard.drivers.map((d) => [d.driver_id, d]));
+      dashboard.trucks = fleet.map((t) => {
+        const driver = t.assigned_driver_profile_id
+          ? driverById.get(t.assigned_driver_profile_id)
+          : undefined;
+        return {
+          truck_id: t.id,
+          truck_number: t.truck_number,
+          driver: driver?.name || "Unassigned",
+          equipment: t.equipment || t.truck_number,
+          location: t.assigned_driver_profile_id ? "Assigned" : "Yard",
+          status: t.status || (t.assigned_driver_profile_id ? "Assigned" : "Available"),
+        };
+      });
+      for (const t of fleet) {
+        if (!t.assigned_driver_profile_id) continue;
+        const d = dashboard.drivers.find(
+          (x) => x.driver_id === t.assigned_driver_profile_id,
+        );
+        if (d) {
+          d.truck_id = t.id;
+          d.truck_number = t.truck_number;
+        }
+      }
+    } else if (dbRows.length > 0) {
+      dashboard.trucks = buildTrucksFromFleet({
+        dbRows,
+        drivers: dashboard.drivers,
+        loads: dashboard.loads,
+      });
+    } else if (dashboard.loads.length || dashboard.drivers.length) {
+      dashboard.trucks = buildTrucksFromFleet({
+        drivers: dashboard.drivers,
+        loads: dashboard.loads,
+      });
+    }
+  } else if (dbRows.length > 0) {
     dashboard.trucks = buildTrucksFromFleet({
       dbRows,
       drivers: dashboard.drivers,
