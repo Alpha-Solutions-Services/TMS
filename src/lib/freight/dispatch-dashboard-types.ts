@@ -150,6 +150,10 @@ export type DriverRosterItem = {
   carrierCompanyName: string;
   carrierProfileId: string | null;
   notes: string;
+  source?: "roster" | "portal";
+  profileId?: string | null;
+  driverStatus?: string | null;
+  defaultDriverPayPercent?: number | null;
 };
 
 /** Open AR aging — filled from dispatched sent invoices when available. */

@@ -45,6 +45,7 @@ export function FreightChatPanel({
   onSendComplete,
   onLoadCreated,
   onBack,
+  loadsHref,
 }: {
   mode: ChatMode;
   carrierProfileId?: string;
@@ -60,6 +61,8 @@ export function FreightChatPanel({
   onLoadCreated?: (message: string) => void;
   /** Mobile WhatsApp-style: show back control and edge-to-edge panel */
   onBack?: () => void;
+  /** Optional link back to My loads (driver mobile) */
+  loadsHref?: string;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -364,7 +367,7 @@ export function FreightChatPanel({
           : "rounded-2xl border border-[var(--color-border)]"
       }`}
     >
-      {title || onBack ? (
+      {title || onBack || loadsHref ? (
         <div className="flex shrink-0 items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-surface)]/60 px-3 py-3 sm:px-4">
           {onBack ? (
             <button
@@ -379,6 +382,14 @@ export function FreightChatPanel({
           <p className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--color-text)]">
             {title ?? "Chat"}
           </p>
+          {loadsHref ? (
+            <a
+              href={loadsHref}
+              className="shrink-0 rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 text-[11px] font-semibold text-[var(--color-accent)] lg:hidden"
+            >
+              My loads
+            </a>
+          ) : null}
           {enableAiAssist ? (
             <button
               type="button"

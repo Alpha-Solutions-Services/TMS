@@ -116,6 +116,11 @@ export type DriverRosterEntry = {
   assignedDispatcherId: string | null;
   active: boolean;
   notes: string;
+  /** roster | portal — portal = invited profiles.carrier_id drivers */
+  source?: "roster" | "portal";
+  profileId?: string | null;
+  driverStatus?: string | null;
+  defaultDriverPayPercent?: number | null;
 };
 
 export async function loadDriverRoster(): Promise<DriverRosterEntry[]> {
@@ -133,7 +138,7 @@ export async function loadDriverRoster(): Promise<DriverRosterEntry[]> {
     return [];
   }
 
-  return ((data ?? []) as {
+  const roster: DriverRosterEntry[] = ((data ?? []) as {
     id: string;
     driver_name: string;
     driver_email: string | null;
@@ -155,7 +160,100 @@ export async function loadDriverRoster(): Promise<DriverRosterEntry[]> {
     assignedDispatcherId: row.assigned_dispatcher_id ?? null,
     active: row.active,
     notes: row.notes ?? "",
+    source: "roster",
+    profileId: null,
+    driverStatus: null,
+    defaultDriverPayPercent: null,
   }));
+
+  // Merge invited/portal drivers (profiles) so super dispatcher sees them
+  // even when they were never added to dispatch_driver_roster.
+  const { data: portalDrivers } = await sb
+    .from("profiles")
+    .select(
+      "id, full_name, email, phone, carrier_id, driver_status, default_driver_pay_percent, company_name",
+    )
+    .eq("role", "driver")
+    .or("driver_status.is.null,driver_status.neq.terminated");
+
+  const carrierIds = Array.from(
+    new Set(
+      (portalDrivers ?? [])
+        .map((d) => d.carrier_id as string | null)
+        .filter(Boolean) as string[],
+    ),
+  );
+  const carrierNames = new Map<string, string>();
+  if (carrierIds.length) {
+    const { data: carriers } = await sb
+      .from("profiles")
+      .select("id, company_name, full_name")
+      .in("id", carrierIds);
+    for (const c of carriers ?? []) {
+      carrierNames.set(
+        c.id as string,
+        (c.company_name as string) || (c.full_name as string) || "Carrier",
+      );
+    }
+  }
+
+  const byEmail = new Set(
+    roster.map((r) => r.driverEmail.trim().toLowerCase()).filter(Boolean),
+  );
+  const byProfileCarrier = new Set(
+    roster
+      .filter((r) => r.carrierProfileId)
+      .map((r) => `${r.driverEmail.trim().toLowerCase()}|${r.carrierProfileId}`),
+  );
+
+  for (const d of portalDrivers ?? []) {
+    const email = ((d.email as string) || "").trim().toLowerCase();
+    const carrierId = (d.carrier_id as string) || null;
+    const dedupeKey = `${email}|${carrierId}`;
+    if (email && byEmail.has(email) && (!carrierId || byProfileCarrier.has(dedupeKey))) {
+      // Enrich matching roster row
+      const match = roster.find(
+        (r) => r.driverEmail.trim().toLowerCase() === email,
+      );
+      if (match) {
+        match.profileId = d.id as string;
+        match.driverStatus = (d.driver_status as string) || "active";
+        match.defaultDriverPayPercent =
+          d.default_driver_pay_percent == null
+            ? null
+            : Number(d.default_driver_pay_percent);
+        if (!match.carrierCompanyName && carrierId) {
+          match.carrierCompanyName = carrierNames.get(carrierId) || match.carrierCompanyName;
+        }
+        if (!match.carrierProfileId && carrierId) match.carrierProfileId = carrierId;
+      }
+      continue;
+    }
+
+    roster.push({
+      id: `portal-${d.id}`,
+      driverName: (d.full_name as string) || "Driver",
+      driverEmail: (d.email as string) || "",
+      driverPhone: (d.phone as string) || "",
+      carrierCompanyName: carrierId
+        ? carrierNames.get(carrierId) || "Carrier"
+        : (d.company_name as string) || "Unassigned",
+      carrierRosterId: null,
+      carrierProfileId: carrierId,
+      assignedDispatcherId: null,
+      active: true,
+      notes: "Portal driver",
+      source: "portal",
+      profileId: d.id as string,
+      driverStatus: (d.driver_status as string) || "active",
+      defaultDriverPayPercent:
+        d.default_driver_pay_percent == null
+          ? null
+          : Number(d.default_driver_pay_percent),
+    });
+  }
+
+  return roster.sort((a, b) => a.driverName.localeCompare(b.driverName));
 }
 
 /** Same role resolution as portal layout — includes env-based super dispatchers. */

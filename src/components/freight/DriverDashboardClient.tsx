@@ -1,8 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
-import { Download, Loader2, MessageSquare, RefreshCw, Upload } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  CheckCircle2,
+  Download,
+  Loader2,
+  MapPin,
+  MessageSquare,
+  RefreshCw,
+  Upload,
+} from "lucide-react";
 import { PortalClock } from "@/components/freight/PortalClock";
 
 type DriverLoad = {
@@ -45,12 +53,25 @@ function formatUsd(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 }
 
+function isDelivered(status: string) {
+  const v = status.toLowerCase();
+  return (
+    v.includes("deliver") ||
+    v === "completed" ||
+    v === "complete" ||
+    v === "paid"
+  );
+}
+
 export function DriverDashboardClient() {
   const [data, setData] = useState<DriverDashboardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [tab, setTab] = useState<"active" | "delivered">("active");
+  const [locBusy, setLocBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -71,6 +92,16 @@ export function DriverDashboardClient() {
     void refresh();
   }, [refresh]);
 
+  const { activeLoads, deliveredLoads } = useMemo(() => {
+    const loads = data?.loads ?? [];
+    return {
+      activeLoads: loads.filter((l) => !isDelivered(l.status)),
+      deliveredLoads: loads.filter((l) => isDelivered(l.status)),
+    };
+  }, [data]);
+
+  const visible = tab === "active" ? activeLoads : deliveredLoads;
+
   async function uploadDoc(loadId: string, type: "bol" | "commodity" | "pod", file: File) {
     setUploading(`${loadId}-${type}`);
     try {
@@ -90,6 +121,65 @@ export function DriverDashboardClient() {
     } finally {
       setUploading(null);
     }
+  }
+
+  async function markDelivered(loadId: string) {
+    if (!confirm("Mark this load as delivered?")) return;
+    setBusyId(loadId);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/freight/driver/loads/${loadId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "Delivered" }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed");
+      setMsg("Load marked delivered.");
+      setTab("delivered");
+      await refresh();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function shareLocation(loadId?: string) {
+    if (!navigator.geolocation) {
+      setMsg("Location not supported on this device.");
+      return;
+    }
+    setLocBusy(true);
+    setMsg(null);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const res = await fetch("/api/freight/driver/location", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              accuracyM: pos.coords.accuracy,
+              loadId: loadId || null,
+            }),
+          });
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.error ?? "Failed");
+          setMsg("Location shared with dispatch.");
+        } catch (e) {
+          setMsg(e instanceof Error ? e.message : "Could not share location");
+        } finally {
+          setLocBusy(false);
+        }
+      },
+      () => {
+        setMsg("Location permission denied.");
+        setLocBusy(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000 },
+    );
   }
 
   if (loading && !data) {
@@ -122,8 +212,17 @@ export function DriverDashboardClient() {
           <h1 className="mt-1 truncate text-xl font-bold text-[var(--color-text)] sm:text-2xl">{data.driver.name}</h1>
           <p className="mt-1 text-sm text-[var(--color-muted)]">{data.driver.company}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <PortalClock compact />
+          <button
+            type="button"
+            disabled={locBusy}
+            onClick={() => void shareLocation(activeLoads[0]?.id)}
+            className="inline-flex items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm disabled:opacity-40"
+          >
+            {locBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
+            Share location
+          </button>
           <button
             type="button"
             onClick={() => void refresh()}
@@ -135,26 +234,55 @@ export function DriverDashboardClient() {
         </div>
       </header>
 
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setTab("active")}
+          className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+            tab === "active"
+              ? "bg-[var(--color-accent)] text-[#05080f]"
+              : "border border-[var(--color-border)] text-[var(--color-muted)]"
+          }`}
+        >
+          My loads ({activeLoads.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("delivered")}
+          className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+            tab === "delivered"
+              ? "bg-[var(--color-accent)] text-[#05080f]"
+              : "border border-[var(--color-border)] text-[var(--color-muted)]"
+          }`}
+        >
+          Delivered ({deliveredLoads.length})
+        </button>
+      </div>
+
       {msg ? (
         <p className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/50 px-3 py-2 text-xs text-[var(--color-muted)]">
           {msg}
         </p>
       ) : null}
 
-      {data.loads.length === 0 ? (
+      {visible.length === 0 ? (
         <div className="rounded-2xl border border-[var(--color-border)] px-4 py-10 text-center text-[var(--color-muted)]">
-          No loads assigned yet. Dispatch will assign trips from the portal.
+          {tab === "active"
+            ? "No active loads. Dispatch will assign trips from the portal."
+            : "No delivered loads yet."}
         </div>
       ) : (
         <div className="space-y-4">
-          {data.loads.map((load) => (
+          {visible.map((load) => (
             <div
               key={load.id}
               className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/40 p-4 sm:p-5"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase text-[var(--color-accent)]">Assigned load</p>
+                  <p className="text-xs font-semibold uppercase text-[var(--color-accent)]">
+                    {tab === "delivered" ? "Delivered load" : "Assigned load"}
+                  </p>
                   <p className="text-lg font-semibold text-[var(--color-text)]">Load {load.load_number}</p>
                   <p className="mt-1 text-sm text-[var(--color-muted)]">
                     {load.pickup} → {load.delivery}
@@ -169,30 +297,51 @@ export function DriverDashboardClient() {
                     className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent)] px-3 py-2 text-xs font-semibold text-[#05080f]"
                   >
                     <MessageSquare className="h-4 w-4" />
-                    Chat dispatch & carrier
+                    Chat
                   </Link>
-                {load.documents.rate_con && load.document_urls.rate_con ? (
-                  <a
-                    href={load.document_urls.rate_con}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-accent)]/40 px-3 py-2 text-xs text-[var(--color-accent)]"
+                  {tab === "active" ? (
+                    <button
+                      type="button"
+                      disabled={busyId === load.id}
+                      onClick={() => void markDelivered(load.id)}
+                      className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/40 px-3 py-2 text-xs font-semibold text-emerald-300 disabled:opacity-40"
+                    >
+                      {busyId === load.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4" />
+                      )}
+                      Mark delivered
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    disabled={locBusy}
+                    onClick={() => void shareLocation(load.id)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs text-[var(--color-muted)]"
                   >
-                    <Download className="h-4 w-4" />
-                    Rate confirmation
-                  </a>
-                ) : (
-                  <span className="text-xs text-[var(--color-muted)]">Rate con pending from dispatch</span>
-                )}
+                    <MapPin className="h-4 w-4" />
+                    Ping GPS
+                  </button>
+                  {load.documents.rate_con && load.document_urls.rate_con ? (
+                    <a
+                      href={load.document_urls.rate_con}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-accent)]/40 px-3 py-2 text-xs text-[var(--color-accent)]"
+                    >
+                      <Download className="h-4 w-4" />
+                      Rate confirmation
+                    </a>
+                  ) : (
+                    <span className="text-xs text-[var(--color-muted)]">Rate con pending</span>
+                  )}
                 </div>
               </div>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 {UPLOAD_TYPES.map(({ key, label }) => (
-                  <div
-                    key={key}
-                    className="rounded-xl border border-[var(--color-border)] p-3"
-                  >
+                  <div key={key} className="rounded-xl border border-[var(--color-border)] p-3">
                     <p className="text-xs font-medium text-[var(--color-text)]">{label}</p>
                     {load.documents[key] && load.document_urls[key] ? (
                       <a

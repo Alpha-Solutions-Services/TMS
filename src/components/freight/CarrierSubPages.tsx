@@ -126,6 +126,9 @@ export function CarrierDriversPage() {
   const { data, loading, company, refresh } = useCarrierPage();
   const searchParams = useSearchParams();
   const [paidMsg, setPaidMsg] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [payEdits, setPayEdits] = useState<Record<string, string>>({});
+  const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const paid = searchParams.get("driver_paid");
@@ -150,6 +153,34 @@ export function CarrierDriversPage() {
     })();
   }, [searchParams, refresh]);
 
+  async function manageDriver(
+    driverProfileId: string,
+    action: "terminate" | "suspend" | "activate" | "set_pay_percent",
+    payPercent?: number,
+  ) {
+    setBusyId(driverProfileId);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/freight/drivers/manage", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ driverProfileId, action, payPercent }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed");
+      setMsg(
+        action === "set_pay_percent"
+          ? `Driver pay set to ${payPercent}%`
+          : `Driver ${action}d.`,
+      );
+      await refresh();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <CarrierPageShell title="Drivers" loading={loading && !data} companyName={company}>
       {paidMsg ? (
@@ -157,10 +188,17 @@ export function CarrierDriversPage() {
           {paidMsg}
         </p>
       ) : null}
+      {msg ? (
+        <p className="mb-4 rounded-xl border border-[var(--color-border)] px-4 py-2 text-sm text-[var(--color-muted)]">
+          {msg}
+        </p>
+      ) : null}
       {data ? (
         <div className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <p className="text-sm text-[var(--color-muted)]">Manage fleet drivers and scorecards.</p>
+            <p className="text-sm text-[var(--color-muted)]">
+              Manage drivers, settle pay % (like Excel Driver Pay), and terminate access.
+            </p>
             <InviteDriverModal mode="carrier" />
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -173,6 +211,53 @@ export function CarrierDriversPage() {
                   {d.score ? (
                     <span className="text-sm text-emerald-400">Score {d.score}</span>
                   ) : null}
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <input
+                    className="w-16 rounded-lg border border-[var(--color-border)] bg-[#050912] px-2 py-1 text-xs"
+                    placeholder="Pay %"
+                    value={payEdits[d.driver_id] ?? ""}
+                    onChange={(e) =>
+                      setPayEdits((m) => ({ ...m, [d.driver_id]: e.target.value }))
+                    }
+                  />
+                  <button
+                    type="button"
+                    disabled={busyId === d.driver_id}
+                    className="text-xs text-[var(--color-accent)]"
+                    onClick={() => {
+                      const n = Number(payEdits[d.driver_id]);
+                      if (!(n >= 0 && n <= 100)) {
+                        setMsg("Enter pay % between 0 and 100");
+                        return;
+                      }
+                      void manageDriver(d.driver_id, "set_pay_percent", n);
+                    }}
+                  >
+                    Save %
+                  </button>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={busyId === d.driver_id}
+                    onClick={() => {
+                      if (confirm(`Terminate ${d.name}? They will lose portal access.`)) {
+                        void manageDriver(d.driver_id, "terminate");
+                      }
+                    }}
+                    className="rounded-lg border border-red-500/30 px-2 py-1 text-[10px] text-red-300"
+                  >
+                    Terminate
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busyId === d.driver_id}
+                    onClick={() => void manageDriver(d.driver_id, "suspend")}
+                    className="rounded-lg border border-orange-500/30 px-2 py-1 text-[10px] text-orange-300"
+                  >
+                    Suspend
+                  </button>
                 </div>
               </CarrierGlassCard>
             ))}

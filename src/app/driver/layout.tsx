@@ -17,12 +17,18 @@ export default async function DriverLayout({ children }: Readonly<{ children: Re
 
   const { data: profile } = await sb
     .from("profiles")
-    .select("role, full_name")
+    .select("role, full_name, driver_status")
     .eq("id", user.id)
     .maybeSingle();
 
   if (!profile || profile.role !== "driver") {
     redirect("/login");
+  }
+  if (
+    profile.driver_status === "terminated" ||
+    profile.driver_status === "suspended"
+  ) {
+    redirect("/login?error=account&reason=driver_inactive");
   }
 
   return (

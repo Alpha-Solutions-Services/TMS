@@ -19,6 +19,7 @@ import { InvoiceAgingPanel } from "@/components/freight/InvoiceAgingPanel";
 import { PortalClock } from "@/components/freight/PortalClock";
 import { SubDispatcherPerformancePanel } from "@/components/freight/SubDispatcherPerformancePanel";
 import { TopBookersPanel } from "@/components/freight/TopBookersPanel";
+import { DispatcherDriverTrackingPanel } from "@/components/freight/DispatcherDriverTrackingPanel";
 import { useDispatchDashboard } from "@/components/freight/useDispatchDashboard";
 import type { SummaryCard } from "@/lib/freight/dispatch-dashboard-types";
 import type { InvoiceAgingReport } from "@/lib/freight/dispatch-reports";
@@ -219,6 +220,8 @@ export function DispatcherDashboardClient({ weeklyOnly = false }: { weeklyOnly?:
           <SummaryCardView key={card.title} card={card} />
         ))}
       </div>
+
+      <DispatcherDriverTrackingPanel />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="relative overflow-hidden rounded-3xl border border-[var(--color-border)] bg-gradient-to-br from-[var(--color-surface)] to-[var(--color-bg)] lg:col-span-2">

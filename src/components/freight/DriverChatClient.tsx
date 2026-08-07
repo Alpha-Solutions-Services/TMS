@@ -106,7 +106,7 @@ export function DriverChatClient() {
         <div
           className={
             chatOpen
-              ? "fixed inset-0 z-[60] flex flex-col bg-[var(--color-bg)] lg:static lg:inset-auto lg:z-auto lg:bg-transparent"
+              ? "fixed inset-0 z-40 flex flex-col bg-[var(--color-bg)] pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:static lg:inset-auto lg:z-auto lg:bg-transparent lg:pb-0"
               : "hidden lg:flex lg:flex-col"
           }
         >
@@ -117,6 +117,7 @@ export function DriverChatClient() {
               title={active?.title}
               viewerRole="driver"
               onBack={closeChat}
+              loadsHref="/driver/dashboard"
               emptyHint="Message dispatch and carrier. Attach BOL or POD when delivered."
             />
           ) : (
