@@ -31,8 +31,10 @@ export function UsaTrackingMap({
       if (!containerRef.current || mapRef.current) return;
       const L = (await import("leaflet")).default;
       // Ensure default marker icons work with bundlers
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
+      const defaultProto = L.Icon.Default.prototype as unknown as {
+        _getIconUrl?: unknown;
+      };
+      delete defaultProto._getIconUrl;
       L.Icon.Default.mergeOptions({
         iconRetinaUrl:
           "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
