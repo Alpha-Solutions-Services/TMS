@@ -41,6 +41,7 @@ export type DbDispatchLoad = {
   commodity_path: string | null;
   pod_path: string | null;
   deleted_at: string | null;
+  created_at?: string | null;
 };
 
 export type LoadInsertPayload = {
@@ -247,26 +248,73 @@ export async function fetchCarrierLoadsFromDb(opts: {
   const admin = getServiceRoleClient();
   if (!admin) return [];
 
-  let query = admin
-    .from("dispatch_loads")
-    .select("*")
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false });
+  const byId = new Map<string, DbDispatchLoad>();
 
+  const merge = (rows: DbDispatchLoad[]) => {
+    for (const row of rows) {
+      if (row?.id) byId.set(row.id, row);
+    }
+  };
+
+  // 1) Direct carrier FK match
   if (opts.carrierProfileId) {
-    query = query.or(
-      `carrier_profile_id.eq.${opts.carrierProfileId},company_name.ilike.${opts.companyName}`,
-    );
-  } else {
-    query = query.ilike("company_name", opts.companyName);
+    const { data, error } = await admin
+      .from("dispatch_loads")
+      .select("*")
+      .is("deleted_at", null)
+      .eq("carrier_profile_id", opts.carrierProfileId)
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.warn("[dispatch-loads-db] carrier_profile_id fetch:", error.message);
+    } else {
+      merge((data ?? []) as DbDispatchLoad[]);
+    }
   }
 
-  const { data, error } = await query;
-  if (error) {
-    console.warn("[dispatch-loads-db] carrier fetch failed:", error.message);
-    return [];
+  // 2) Company name match (quoted for PostgREST; exact case-insensitive)
+  const company = opts.companyName?.trim();
+  if (company && company !== "ABC Trucking LLC") {
+    const { data, error } = await admin
+      .from("dispatch_loads")
+      .select("*")
+      .is("deleted_at", null)
+      .ilike("company_name", company)
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.warn("[dispatch-loads-db] company_name fetch:", error.message);
+    } else {
+      merge((data ?? []) as DbDispatchLoad[]);
+    }
   }
-  return (data ?? []) as DbDispatchLoad[];
+
+  // 3) Loads assigned to this carrier's drivers (fixes "assigned but not on portal")
+  if (opts.carrierProfileId) {
+    const { data: drivers } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("role", "driver")
+      .eq("carrier_id", opts.carrierProfileId);
+    const driverIds = (drivers ?? []).map((d) => d.id as string).filter(Boolean);
+    if (driverIds.length) {
+      const { data, error } = await admin
+        .from("dispatch_loads")
+        .select("*")
+        .is("deleted_at", null)
+        .in("assigned_driver_profile_id", driverIds)
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.warn("[dispatch-loads-db] driver-assigned fetch:", error.message);
+      } else {
+        merge((data ?? []) as DbDispatchLoad[]);
+      }
+    }
+  }
+
+  return Array.from(byId.values()).sort((a, b) => {
+    const at = new Date(a.created_at || 0).getTime();
+    const bt = new Date(b.created_at || 0).getTime();
+    return bt - at;
+  });
 }
 
 export async function fetchDriverLoadsFromDb(
@@ -468,6 +516,22 @@ export async function updateDispatchLoad(
   }
   if (patch.assignedDriverProfileId !== undefined) {
     row.assigned_driver_profile_id = patch.assignedDriverProfileId || null;
+    // When assigning a portal driver, also stamp carrier_profile_id so the
+    // carrier portal can see the load even if company_name differs.
+    if (patch.assignedDriverProfileId) {
+      const { data: driver } = await admin
+        .from("profiles")
+        .select("carrier_id")
+        .eq("id", patch.assignedDriverProfileId)
+        .eq("role", "driver")
+        .maybeSingle();
+      if (driver?.carrier_id) {
+        row.carrier_profile_id = driver.carrier_id as string;
+      }
+    }
+  }
+  if (patch.carrierProfileId !== undefined) {
+    row.carrier_profile_id = patch.carrierProfileId || null;
   }
 
   const rcInvoice =

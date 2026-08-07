@@ -4,6 +4,7 @@ import { checkRateLimit, sanitizeText } from "@/lib/freight/api-security";
 import { assertDispatcher, resolveDispatcherTmsRole } from "@/lib/freight/dispatch-roster";
 import { sendDispatcherMessageToCarrierEmail } from "@/lib/freight/emails";
 import { PUBLIC_SITE_URL } from "@/lib/freight/constants";
+import { mapChatMessageRow } from "@/lib/freight/message-edit";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
 import { canChatWithCarriers } from "@/lib/tms/permissions";
@@ -79,7 +80,9 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await admin
     .from("dispatch_carrier_messages")
-    .select("id,created_at,sender_role,body,attachments,read_at")
+    .select(
+      "id,created_at,sender_role,sender_profile_id,body,attachments,read_at,edited_at,deleted_at",
+    )
     .eq("carrier_profile_id", carrierId)
     .order("created_at", { ascending: true })
     .limit(100);
@@ -88,7 +91,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Could not load messages" }, { status: 500 });
   }
 
-  return NextResponse.json({ messages: data ?? [] });
+  return NextResponse.json({
+    messages: (data ?? []).map((row) => mapChatMessageRow(row, auth.user.id)),
+  });
 }
 
 export async function POST(req: NextRequest) {

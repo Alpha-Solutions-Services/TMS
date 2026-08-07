@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { Mail, Phone, RefreshCw } from "lucide-react";
+import { ChatMessageBubble } from "@/components/freight/ChatMessageBubble";
 import { FreightChatPanel } from "@/components/freight/FreightChatPanel";
 import { CarrierGlassCard } from "@/components/freight/carrier/CarrierGlassCard";
 import { CarrierTopBar } from "@/components/freight/carrier/CarrierTopBar";
 import { useCarrierDashboard } from "@/components/freight/useCarrierDashboard";
+import type { ChatMessage } from "@/lib/freight/chat-types";
 
 function useCarrierPage() {
   const { data, loading, error, refresh } = useCarrierDashboard();
@@ -26,25 +28,19 @@ export function CarrierChatPage() {
   >([]);
   const [activeLoadId, setActiveLoadId] = useState<string | null>(null);
   const [dispatchOpen, setDispatchOpen] = useState(false);
-  const [messages, setMessages] = useState<
-    {
-      id: string;
-      created_at: string;
-      sender_role: string;
-      body: string;
-      attachments?: { name: string; url: string }[];
-    }[]
-  >([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [reply, setReply] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
   const [chatMsg, setChatMsg] = useState<string | null>(null);
 
+  async function refreshDispatchMessages() {
+    const res = await fetch("/api/carrier/messages");
+    const json = (await res.json()) as { messages?: ChatMessage[] };
+    if (res.ok) setMessages(json.messages ?? []);
+  }
+
   useEffect(() => {
-    void (async () => {
-      const res = await fetch("/api/carrier/messages");
-      const json = (await res.json()) as { messages?: typeof messages };
-      if (res.ok) setMessages(json.messages ?? []);
-    })();
+    void refreshDispatchMessages();
     void (async () => {
       const res = await fetch("/api/freight/load-threads");
       if (res.ok) {
@@ -82,15 +78,31 @@ export function CarrierChatPage() {
       const json = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(json.error ?? "Send failed");
       setReply("");
-      const refresh = await fetch("/api/carrier/messages");
-      const body = (await refresh.json()) as { messages?: typeof messages };
-      setMessages(body.messages ?? []);
+      await refreshDispatchMessages();
       setChatMsg("Message sent to dispatch.");
     } catch (e) {
       setChatMsg(e instanceof Error ? e.message : "Could not send");
     } finally {
       setChatBusy(false);
     }
+  }
+
+  async function editDispatchMessage(id: string, body: string) {
+    const res = await fetch(`/api/carrier/messages/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body }),
+    });
+    const json = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) throw new Error(json.error ?? "Could not edit");
+    await refreshDispatchMessages();
+  }
+
+  async function deleteDispatchMessage(id: string) {
+    const res = await fetch(`/api/carrier/messages/${id}`, { method: "DELETE" });
+    const json = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) throw new Error(json.error ?? "Could not delete");
+    await refreshDispatchMessages();
   }
 
   const activeLoad = loadThreads.find((t) => t.load_id === activeLoadId);
@@ -290,32 +302,15 @@ export function CarrierChatPage() {
                         Messages from your dispatcher appear here.
                       </p>
                     ) : (
-                      messages.map((m) => {
-                        const own = m.sender_role === "carrier";
-                        return (
-                          <div
-                            key={m.id}
-                            className={`flex w-full ${own ? "justify-end" : "justify-start"}`}
-                          >
-                            <div
-                              className={
-                                own
-                                  ? "max-w-[85%] rounded-2xl rounded-br-md bg-[#005c4b] px-3 py-2 text-sm text-white"
-                                  : "max-w-[85%] rounded-2xl rounded-bl-md bg-[var(--color-surface)] px-3 py-2 text-sm"
-                              }
-                            >
-                              <p className="text-[10px] uppercase opacity-70">
-                                {m.sender_role} ·{" "}
-                                {new Date(m.created_at).toLocaleTimeString([], {
-                                  hour: "numeric",
-                                  minute: "2-digit",
-                                })}
-                              </p>
-                              <p className="mt-1 whitespace-pre-wrap">{m.body}</p>
-                            </div>
-                          </div>
-                        );
-                      })
+                      messages.map((m) => (
+                        <ChatMessageBubble
+                          key={m.id}
+                          message={m}
+                          viewerRole="carrier"
+                          onEdit={editDispatchMessage}
+                          onDelete={deleteDispatchMessage}
+                        />
+                      ))
                     )}
                   </div>
                   <div className="flex shrink-0 gap-2 border-t border-[var(--color-border)] p-2">

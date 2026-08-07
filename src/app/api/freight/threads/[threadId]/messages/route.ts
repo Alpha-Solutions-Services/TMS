@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { logFreightAction } from "@/lib/freight/audit-log";
+import { mapChatMessageRow } from "@/lib/freight/message-edit";
 import { getPortalUser } from "@/lib/portal/auth";
 import { resolveTmsRole } from "@/lib/tms/auth";
 import { isDispatcherRole } from "@/lib/tms/roles";
@@ -52,7 +53,9 @@ export async function GET(
 
   const { data: messages } = await db
     .from("freight_thread_messages")
-    .select("id, sender_id, sender_role, body, attachments, created_at")
+    .select(
+      "id, sender_id, sender_role, body, attachments, created_at, edited_at, deleted_at",
+    )
     .eq("thread_id", params.threadId)
     .order("created_at", { ascending: true });
 
@@ -61,7 +64,10 @@ export async function GET(
     .select("user_id, role")
     .eq("thread_id", params.threadId);
 
-  return NextResponse.json({ messages: messages ?? [], members: members ?? [] });
+  return NextResponse.json({
+    messages: (messages ?? []).map((row) => mapChatMessageRow(row, user.id)),
+    members: members ?? [],
+  });
 }
 
 export async function POST(

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { checkRateLimit, sanitizeText } from "@/lib/freight/api-security";
 import { isVerifiedCarrier } from "@/lib/freight/carrier-identity";
+import { mapChatMessageRow } from "@/lib/freight/message-edit";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
 
@@ -43,7 +44,9 @@ export async function GET() {
 
   const { data, error } = await admin
     .from("dispatch_carrier_messages")
-    .select("id,created_at,sender_role,body,attachments")
+    .select(
+      "id,created_at,sender_role,sender_profile_id,body,attachments,edited_at,deleted_at",
+    )
     .eq("carrier_profile_id", user.id)
     .order("created_at", { ascending: true })
     .limit(100);
@@ -52,7 +55,9 @@ export async function GET() {
     return NextResponse.json({ error: "Could not load messages" }, { status: 500 });
   }
 
-  return NextResponse.json({ messages: data ?? [] });
+  return NextResponse.json({
+    messages: (data ?? []).map((row) => mapChatMessageRow(row, user.id)),
+  });
 }
 
 export async function POST(req: NextRequest) {

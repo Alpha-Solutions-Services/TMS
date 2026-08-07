@@ -50,40 +50,63 @@ function useCarrierPage() {
 }
 
 export function CarrierLoadsPage() {
-  const { data, loading, company } = useCarrierPage();
+  const { data, loading, company, refresh } = useCarrierPage();
   return (
     <CarrierPageShell title="Loads" loading={loading && !data} companyName={company}>
       {data ? (
-        <CarrierGlassCard glow className="overflow-hidden p-0">
-          <table className="min-w-full text-sm">
-            <thead className="bg-[var(--color-surface)]/80 text-xs uppercase text-[var(--color-muted)]">
-              <tr>
-                <th className="px-4 py-3 text-left">Load #</th>
-                <th className="px-4 py-3 text-left">Route</th>
-                <th className="px-4 py-3 text-left">Miles</th>
-                <th className="px-4 py-3 text-left">Rate</th>
-                <th className="px-4 py-3 text-left">Status</th>
-                <th className="px-4 py-3 text-left">Dispatcher</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--color-border)]">
-              {data.loads.map((l) => (
-                <tr key={l.load_id}>
-                  <td className="px-4 py-3 font-medium text-[var(--color-accent)]">{l.load_number}</td>
-                  <td className="px-4 py-3">
-                    {l.pickup} → {l.delivery}
-                  </td>
-                  <td className="px-4 py-3 tabular-nums">{l.miles ?? "—"}</td>
-                  <td className="px-4 py-3 text-emerald-400">{formatUsd(l.rate)}</td>
-                  <td className="px-4 py-3">
-                    <CarrierStatusBadge status={l.status} />
-                  </td>
-                  <td className="px-4 py-3 text-[var(--color-muted)]">{l.dispatcher}</td>
+        <>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <p className="text-xs text-[var(--color-muted)]">
+              Auto-updates every 20s · includes loads assigned to your drivers
+            </p>
+            <button
+              type="button"
+              onClick={() => void refresh()}
+              className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-muted)] hover:text-[var(--color-accent)]"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Refresh
+            </button>
+          </div>
+          <CarrierGlassCard glow className="overflow-hidden p-0">
+            <table className="min-w-full text-sm">
+              <thead className="bg-[var(--color-surface)]/80 text-xs uppercase text-[var(--color-muted)]">
+                <tr>
+                  <th className="px-4 py-3 text-left">Load #</th>
+                  <th className="px-4 py-3 text-left">Route</th>
+                  <th className="px-4 py-3 text-left">Miles</th>
+                  <th className="px-4 py-3 text-left">Rate</th>
+                  <th className="px-4 py-3 text-left">Status</th>
+                  <th className="px-4 py-3 text-left">Dispatcher</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </CarrierGlassCard>
+              </thead>
+              <tbody className="divide-y divide-[var(--color-border)]">
+                {data.loads.map((l) => (
+                  <tr key={l.load_id}>
+                    <td className="px-4 py-3 font-medium text-[var(--color-accent)]">
+                      {l.load_number}
+                    </td>
+                    <td className="px-4 py-3">
+                      {l.pickup} → {l.delivery}
+                    </td>
+                    <td className="px-4 py-3 tabular-nums">{l.miles ?? "—"}</td>
+                    <td className="px-4 py-3 text-emerald-400">{formatUsd(l.rate)}</td>
+                    <td className="px-4 py-3">
+                      <CarrierStatusBadge status={l.status} />
+                    </td>
+                    <td className="px-4 py-3 text-[var(--color-muted)]">{l.dispatcher}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {data.loads.length === 0 ? (
+              <p className="px-4 py-8 text-center text-sm text-[var(--color-muted)]">
+                No assigned loads yet. When a dispatcher assigns your driver (or links your
+                company), loads show up here automatically.
+              </p>
+            ) : null}
+          </CarrierGlassCard>
+        </>
       ) : null}
     </CarrierPageShell>
   );

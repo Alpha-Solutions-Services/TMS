@@ -63,11 +63,22 @@ export type PublicTrackLoad = {
   carrierName: string;
 };
 
+export type PublicTrackLocation = {
+  lat: number;
+  lng: number;
+  updatedAt: string;
+};
+
 export async function publicTrackLoad(
   token: string,
   zip: string,
 ): Promise<
-  | { ok: true; load: PublicTrackLoad; expiresAt: string }
+  | {
+      ok: true;
+      load: PublicTrackLoad;
+      location: PublicTrackLocation | null;
+      expiresAt: string;
+    }
   | { ok: false; error: string }
 > {
   const admin = getServiceRoleClient();
@@ -87,6 +98,7 @@ export async function publicTrackLoad(
     ok?: boolean;
     error?: string;
     load?: PublicTrackLoad;
+    location?: PublicTrackLocation | null;
     expiresAt?: string;
   } | null;
 
@@ -97,6 +109,7 @@ export async function publicTrackLoad(
   return {
     ok: true,
     load: row.load,
+    location: row.location ?? null,
     expiresAt: row.expiresAt ?? "",
   };
 }

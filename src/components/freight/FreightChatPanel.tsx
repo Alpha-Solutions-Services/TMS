@@ -111,6 +111,38 @@ export function FreightChatPanel({
     }
   }, [mode, carrierProfileId, loadId, threadId]);
 
+  const messageApiUrl = useCallback(
+    (id: string) => {
+      if (mode === "carrier") return `/api/dispatcher/carriers/messages/${id}`;
+      return `/api/freight/thread-messages/${id}`;
+    },
+    [mode],
+  );
+
+  const editMessage = useCallback(
+    async (id: string, body: string) => {
+      const res = await fetch(messageApiUrl(id), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Could not edit message");
+      await loadMessages();
+    },
+    [loadMessages, messageApiUrl],
+  );
+
+  const deleteMessage = useCallback(
+    async (id: string) => {
+      const res = await fetch(messageApiUrl(id), { method: "DELETE" });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Could not delete message");
+      await loadMessages();
+    },
+    [loadMessages, messageApiUrl],
+  );
+
   useEffect(() => {
     setDocAnalysis(null);
     void loadMessages();
@@ -469,7 +501,13 @@ export function FreightChatPanel({
           </p>
         ) : null}
         {messages.map((m) => (
-          <ChatMessageBubble key={m.id} message={m} viewerRole={viewerRole} />
+          <ChatMessageBubble
+            key={m.id}
+            message={m}
+            viewerRole={viewerRole}
+            onEdit={editMessage}
+            onDelete={deleteMessage}
+          />
         ))}
       </div>
 

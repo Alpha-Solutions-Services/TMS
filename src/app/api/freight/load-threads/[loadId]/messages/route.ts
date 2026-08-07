@@ -10,6 +10,7 @@ import {
   syncLoadChatMembers,
 } from "@/lib/freight/load-chat-thread";
 import { resolveProfileName } from "@/lib/freight/load-documents";
+import { mapChatMessageRow } from "@/lib/freight/message-edit";
 import { getPortalUser } from "@/lib/portal/auth";
 import { resolveTmsRole } from "@/lib/tms/auth";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
@@ -92,11 +93,16 @@ export async function GET(
 
   const { data: messages } = await db
     .from("freight_thread_messages")
-    .select("id, sender_id, sender_role, body, attachments, created_at")
+    .select(
+      "id, sender_id, sender_role, body, attachments, created_at, edited_at, deleted_at",
+    )
     .eq("thread_id", threadId)
     .order("created_at", { ascending: true });
 
-  return NextResponse.json({ threadId, messages: messages ?? [] });
+  return NextResponse.json({
+    threadId,
+    messages: (messages ?? []).map((row) => mapChatMessageRow(row, user.id)),
+  });
 }
 
 export async function POST(

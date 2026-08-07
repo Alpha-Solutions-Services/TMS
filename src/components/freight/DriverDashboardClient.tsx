@@ -12,6 +12,7 @@ import {
   Upload,
 } from "lucide-react";
 import { PortalClock } from "@/components/freight/PortalClock";
+import { useAutoRefresh } from "@/lib/hooks/useAutoRefresh";
 
 type DriverLoad = {
   id: string;
@@ -73,24 +74,29 @@ export function DriverDashboardClient() {
   const [tab, setTab] = useState<"active" | "delivered">("active");
   const [locBusy, setLocBusy] = useState(false);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const refresh = useCallback(async (soft = false) => {
+    if (!soft) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const res = await fetch("/api/driver/dashboard", { cache: "no-store" });
       const json = (await res.json()) as DriverDashboardPayload & { error?: string };
       if (!res.ok) throw new Error(json.error ?? "Failed to load");
       setData(json);
+      setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error");
+      if (!soft) setError(e instanceof Error ? e.message : "Error");
     } finally {
-      setLoading(false);
+      if (!soft) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void refresh();
+    void refresh(false);
   }, [refresh]);
+
+  useAutoRefresh(() => refresh(true), { intervalMs: 20000 });
 
   const { activeLoads, deliveredLoads } = useMemo(() => {
     const loads = data?.loads ?? [];
