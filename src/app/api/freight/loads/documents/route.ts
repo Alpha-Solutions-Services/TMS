@@ -117,10 +117,15 @@ export async function GET(req: NextRequest) {
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const loadId = req.nextUrl.searchParams.get("loadId")?.trim();
-  const docType = req.nextUrl.searchParams.get("type")?.trim() as LoadDocumentType | undefined;
+  const docTypeParam = req.nextUrl.searchParams.get("type")?.trim() as
+    | LoadDocumentType
+    | undefined;
 
-  if (!loadId || !docType || !ALLOWED_TYPES.has(docType)) {
-    return NextResponse.json({ error: "loadId and valid type required" }, { status: 400 });
+  if (!loadId) {
+    return NextResponse.json({ error: "loadId required" }, { status: 400 });
+  }
+  if (docTypeParam && !ALLOWED_TYPES.has(docTypeParam)) {
+    return NextResponse.json({ error: "Invalid type" }, { status: 400 });
   }
 
   const admin = getServiceRoleClient();
@@ -129,7 +134,7 @@ export async function GET(req: NextRequest) {
   const { data: load } = await admin
     .from("dispatch_loads")
     .select(
-      "id, company_name, carrier_profile_id, assigned_driver_profile_id, rate_con_path, bol_path, commodity_path, pod_path",
+      "id, company_name, carrier_profile_id, assigned_driver_profile_id, rate_con_path, bol_path, commodity_path, pod_path, load_number, sr",
     )
     .eq("id", loadId)
     .is("deleted_at", null)
@@ -163,13 +168,47 @@ export async function GET(req: NextRequest) {
     pod: load.pod_path as string | null,
   };
 
-  const path = pathMap[docType];
-  if (!path) return NextResponse.json({ error: "Document not uploaded yet" }, { status: 404 });
+  const visibleTypes: LoadDocumentType[] = isDispatcher
+    ? ["rate_con", "bol", "commodity", "pod"]
+    : ["rate_con", "bol", "commodity", "pod"];
 
-  const url = await getLoadDocumentSignedUrl(path);
-  if (!url) return NextResponse.json({ error: "Could not generate URL" }, { status: 500 });
+  // Single document URL
+  if (docTypeParam) {
+    const path = pathMap[docTypeParam];
+    if (!path) return NextResponse.json({ error: "Document not uploaded yet" }, { status: 404 });
+    const url = await getLoadDocumentSignedUrl(path);
+    if (!url) return NextResponse.json({ error: "Could not generate URL" }, { status: 500 });
+    return NextResponse.json({ url, type: docTypeParam, label: DOCUMENT_LABELS[docTypeParam] });
+  }
 
-  return NextResponse.json({ url });
+  // List all docs for this load
+  const documents = await Promise.all(
+    visibleTypes.map(async (type) => {
+      const path = pathMap[type];
+      const url = path ? await getLoadDocumentSignedUrl(path) : null;
+      return {
+        type,
+        label: DOCUMENT_LABELS[type],
+        uploaded: Boolean(path),
+        url,
+      };
+    }),
+  );
+
+  const canUpload: LoadDocumentType[] = isDispatcher
+    ? ["rate_con", "bol", "commodity", "pod"]
+    : isCarrier
+      ? ["bol", "commodity", "pod"]
+      : isDriver
+        ? ["bol", "commodity", "pod"]
+        : [];
+
+  return NextResponse.json({
+    loadId,
+    loadNumber: String(load.load_number || load.sr || ""),
+    documents,
+    canUpload,
+  });
 }
 
 function normalizeCarrierMatch(

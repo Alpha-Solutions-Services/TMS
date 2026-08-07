@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import clsx from "clsx";
 import { ArrowDown, ArrowUp, Search } from "lucide-react";
 import type { DashboardLoad } from "@/lib/freight/dispatch-dashboard-types";
+import { LoadDocumentsPanel } from "@/components/freight/LoadDocumentsPanel";
 
 type SortKey = keyof Pick<DashboardLoad, "sr" | "carrier" | "broker" | "rate" | "status" | "balance">;
 
@@ -32,6 +33,7 @@ export function DispatchLoadsTable({
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortKey, setSortKey] = useState<SortKey>("sr");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [docsLoad, setDocsLoad] = useState<DashboardLoad | null>(null);
 
   const statuses = useMemo(() => {
     const set = new Set(loads.map((l) => l.status).filter((s) => s && s !== "—"));
@@ -87,7 +89,17 @@ export function DispatchLoadsTable({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-accent-dim)]/20 px-4 py-2">
+      {docsLoad?.db_id ? (
+        <LoadDocumentsPanel
+          loadId={docsLoad.db_id}
+          loadLabel={
+            docsLoad.load_number !== "—"
+              ? `#${docsLoad.load_number}`
+              : `SR ${docsLoad.sr}`
+          }
+          onClose={() => setDocsLoad(null)}
+        />
+      ) : null}      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-accent-dim)]/20 px-4 py-2">
         <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-accent)]">
           Load board
         </p>
@@ -167,13 +179,15 @@ export function DispatchLoadsTable({
               <th className="whitespace-nowrap px-3 py-3 font-medium">CPAY</th>
               {showActions ? (
                 <th className="whitespace-nowrap px-3 py-3 font-medium">Actions</th>
-              ) : null}
+              ) : (
+                <th className="whitespace-nowrap px-3 py-3 font-medium">Docs</th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--color-border)]">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={18} className="px-4 py-10 text-center text-[var(--color-muted)]">
+                <td colSpan={19} className="px-4 py-10 text-center text-[var(--color-muted)]">
                   No loads on this month&apos;s dispatch sheet.
                 </td>
               </tr>
@@ -224,9 +238,17 @@ export function DispatchLoadsTable({
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-3 py-2.5 text-[var(--color-muted)]">{load.cpay}</td>
-                  {showActions ? (
-                    <td className="whitespace-nowrap px-3 py-2.5">
+                  <td className="whitespace-nowrap px-3 py-2.5">
                       <div className="flex flex-wrap gap-1">
+                        {load.db_id ? (
+                          <button
+                            type="button"
+                            onClick={() => setDocsLoad(load)}
+                            className="rounded-lg border border-[var(--color-accent)]/40 px-2 py-1 text-[10px] font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent-dim)]/30"
+                          >
+                            Docs
+                          </button>
+                        ) : null}
                         {onEdit && load.db_id ? (
                           <button
                             type="button"
@@ -256,7 +278,6 @@ export function DispatchLoadsTable({
                         ) : null}
                       </div>
                     </td>
-                  ) : null}
                 </tr>
               ))
             )}

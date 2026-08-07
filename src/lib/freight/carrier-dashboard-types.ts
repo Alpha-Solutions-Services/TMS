@@ -47,6 +47,8 @@ export type CarrierDriver = {
 
 export type CarrierLoadRow = {
   load_id: string;
+  /** UUID for document APIs when from DB */
+  db_id?: string;
   load_number: string;
   pickup: string;
   delivery: string;

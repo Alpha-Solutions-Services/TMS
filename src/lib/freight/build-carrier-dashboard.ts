@@ -145,6 +145,7 @@ export async function buildCarrierDashboard(opts: {
       const dl = dbLoadToDashboardLoad(row, i);
       return {
         load_id: dl.load_id,
+        db_id: dl.db_id,
         load_number: dl.load_number !== "—" ? dl.load_number : dl.sr,
         pickup: dl.pickup,
         delivery: dl.delivery,

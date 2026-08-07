@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Mail, MapPin, Phone, RefreshCw, Sparkles, Upload } from "lucide-react";
 import { InviteDriverModal } from "@/components/freight/InviteDriverModal";
 import { DriverInvitationList } from "@/components/freight/DriverInvitationList";
+import { LoadDocumentsPanel } from "@/components/freight/LoadDocumentsPanel";
 import {
   CarrierGlassCard,
   CarrierStatusBadge,
@@ -52,13 +53,24 @@ function useCarrierPage() {
 
 export function CarrierLoadsPage() {
   const { data, loading, company, refresh } = useCarrierPage();
+  const [docsLoadId, setDocsLoadId] = useState<string | null>(null);
+  const [docsLabel, setDocsLabel] = useState<string>("");
+
   return (
     <CarrierPageShell title="Loads" loading={loading && !data} companyName={company}>
+      {docsLoadId ? (
+        <LoadDocumentsPanel
+          loadId={docsLoadId}
+          loadLabel={docsLabel}
+          onClose={() => setDocsLoadId(null)}
+        />
+      ) : null}
       {data ? (
         <>
           <div className="mb-3 flex items-center justify-between gap-2">
             <p className="text-xs text-[var(--color-muted)]">
-              Auto-updates every 20s · includes loads assigned to your drivers
+              Auto-updates every 20s · includes loads assigned to your drivers · open Docs for
+              BOL / commodity / POD
             </p>
             <button
               type="button"
@@ -79,6 +91,7 @@ export function CarrierLoadsPage() {
                   <th className="px-4 py-3 text-left">Rate</th>
                   <th className="px-4 py-3 text-left">Status</th>
                   <th className="px-4 py-3 text-left">Dispatcher</th>
+                  <th className="px-4 py-3 text-left">Docs</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--color-border)]">
@@ -96,6 +109,22 @@ export function CarrierLoadsPage() {
                       <CarrierStatusBadge status={l.status} />
                     </td>
                     <td className="px-4 py-3 text-[var(--color-muted)]">{l.dispatcher}</td>
+                    <td className="px-4 py-3">
+                      {l.db_id ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDocsLoadId(l.db_id!);
+                            setDocsLabel(`#${l.load_number}`);
+                          }}
+                          className="rounded-lg border border-[var(--color-accent)]/40 px-2.5 py-1 text-xs font-semibold text-[var(--color-accent)]"
+                        >
+                          Docs
+                        </button>
+                      ) : (
+                        <span className="text-xs text-[var(--color-muted)]">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
