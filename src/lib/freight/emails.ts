@@ -558,22 +558,63 @@ export async function sendLoadAssignedToDriverEmail(params: {
   loadNumber: string;
   pickup: string;
   delivery: string;
+  pickupZips?: string;
+  deliveryZips?: string;
+  pickupAddress?: string;
+  deliveryAddress?: string;
+  miles?: number | null;
+  rate?: number | null;
+  notes?: string | null;
+  carrierName?: string;
 }) {
+  const rows = [
+    ["Load #", params.loadNumber],
+    ["Carrier", params.carrierName || "—"],
+    ["Pickup date/time", params.pickup || "—"],
+    ["Pickup ZIP", params.pickupZips || "—"],
+    ["Pickup address / lane", params.pickupAddress || "—"],
+    ["Delivery date/time", params.delivery || "—"],
+    ["Delivery ZIP", params.deliveryZips || "—"],
+    ["Delivery address / lane", params.deliveryAddress || "—"],
+    ["Miles", params.miles != null ? String(params.miles) : "—"],
+    [
+      "Rate",
+      params.rate != null
+        ? `$${Number(params.rate).toLocaleString("en-US", { maximumFractionDigits: 2 })}`
+        : "—",
+    ],
+  ];
+  if (params.notes?.trim()) {
+    rows.push(["Notes", params.notes.trim()]);
+  }
+  const table = rows
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:6px 10px;color:#6a8caf;vertical-align:top">${escapeHtml(k)}</td><td style="padding:6px 10px;color:#e8f0ff">${escapeHtml(v)}</td></tr>`,
+    )
+    .join("");
+
   const html = brandedEmailWrap(
     "Load assigned",
     `<p>Hi ${escapeHtml(params.driverName)},</p>
      <p>You have been assigned load <strong>#${escapeHtml(params.loadNumber)}</strong>.</p>
-     <ul>
-       <li><strong>Pickup:</strong> ${escapeHtml(params.pickup || "—")}</li>
-       <li><strong>Delivery:</strong> ${escapeHtml(params.delivery || "—")}</li>
-     </ul>
+     <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px">${table}</table>
      ${cta("Open driver portal", `${PUBLIC_SITE_URL}/driver/dashboard`)}`,
   );
   await sendTransactional({
     to: params.to,
     subject: `Load assigned — ${params.loadNumber}`,
     html,
-    text: `Load ${params.loadNumber} assigned. Pickup: ${params.pickup}. Driver portal: ${PUBLIC_SITE_URL}/driver/dashboard`,
+    text: [
+      `Load ${params.loadNumber} assigned.`,
+      `PU: ${params.pickup} | ZIP ${params.pickupZips || "—"} | ${params.pickupAddress || ""}`,
+      `DEL: ${params.delivery} | ZIP ${params.deliveryZips || "—"} | ${params.deliveryAddress || ""}`,
+      `Miles: ${params.miles ?? "—"} | Rate: ${params.rate ?? "—"}`,
+      params.notes ? `Notes: ${params.notes}` : "",
+      `Portal: ${PUBLIC_SITE_URL}/driver/dashboard`,
+    ]
+      .filter(Boolean)
+      .join("\n"),
   });
 }
 
@@ -582,18 +623,63 @@ export async function sendLoadDriverAssignedCarrierEmail(params: {
   carrierName: string;
   loadNumber: string;
   driverName: string;
+  pickup?: string;
+  delivery?: string;
+  pickupZips?: string;
+  deliveryZips?: string;
+  pickupAddress?: string;
+  deliveryAddress?: string;
+  miles?: number | null;
+  rate?: number | null;
+  notes?: string | null;
 }) {
+  const rows = [
+    ["Load #", params.loadNumber],
+    ["Driver", params.driverName],
+    ["Pickup date/time", params.pickup || "—"],
+    ["Pickup ZIP", params.pickupZips || "—"],
+    ["Pickup address / lane", params.pickupAddress || "—"],
+    ["Delivery date/time", params.delivery || "—"],
+    ["Delivery ZIP", params.deliveryZips || "—"],
+    ["Delivery address / lane", params.deliveryAddress || "—"],
+    ["Miles", params.miles != null ? String(params.miles) : "—"],
+    [
+      "Rate",
+      params.rate != null
+        ? `$${Number(params.rate).toLocaleString("en-US", { maximumFractionDigits: 2 })}`
+        : "—",
+    ],
+  ];
+  if (params.notes?.trim()) {
+    rows.push(["Notes", params.notes.trim()]);
+  }
+  const table = rows
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:6px 10px;color:#6a8caf;vertical-align:top">${escapeHtml(k)}</td><td style="padding:6px 10px;color:#e8f0ff">${escapeHtml(v)}</td></tr>`,
+    )
+    .join("");
+
   const html = brandedEmailWrap(
     "Driver assigned to load",
     `<p>Hi ${escapeHtml(params.carrierName)},</p>
      <p>Driver <strong>${escapeHtml(params.driverName)}</strong> was assigned to load <strong>#${escapeHtml(params.loadNumber)}</strong>.</p>
+     <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px">${table}</table>
      ${cta("View loads", `${PUBLIC_SITE_URL}/carrier/loads`)}`,
   );
   await sendTransactional({
     to: params.to,
     subject: `Driver assigned — load ${params.loadNumber}`,
     html,
-    text: `Driver ${params.driverName} assigned to load ${params.loadNumber}.`,
+    text: [
+      `Driver ${params.driverName} assigned to load ${params.loadNumber}.`,
+      `PU: ${params.pickup || "—"} | ZIP ${params.pickupZips || "—"}`,
+      `DEL: ${params.delivery || "—"} | ZIP ${params.deliveryZips || "—"}`,
+      `Miles: ${params.miles ?? "—"} | Rate: ${params.rate ?? "—"}`,
+      params.notes ? `Notes: ${params.notes}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n"),
   });
 }
 

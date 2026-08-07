@@ -294,6 +294,13 @@ export async function PATCH(req: NextRequest) {
       delivery_date_time: string | null;
       email: string | null;
       broker: string | null;
+      miles: number | null;
+      rc_invoice: number | null;
+      notes: string | null;
+      load_details: string | null;
+      states: string | null;
+      pickup_zips: string[];
+      delivery_zips: string[];
     };
     let loadMeta: LoadMeta | null = null;
 
@@ -301,7 +308,7 @@ export async function PATCH(req: NextRequest) {
       const { data: row } = await admin
         .from("dispatch_loads")
         .select(
-          "assigned_driver_profile_id, load_number, sr, company_name, pickup_date_time, delivery_date_time, email, broker",
+          "assigned_driver_profile_id, load_number, sr, company_name, pickup_date_time, delivery_date_time, email, broker, miles, rc_invoice, notes, load_details, states, pickup_zips, delivery_zips",
         )
         .eq("id", body.id)
         .maybeSingle();
@@ -315,6 +322,13 @@ export async function PATCH(req: NextRequest) {
           delivery_date_time: row.delivery_date_time as string | null,
           email: row.email as string | null,
           broker: row.broker as string | null,
+          miles: row.miles == null ? null : Number(row.miles),
+          rc_invoice: row.rc_invoice == null ? null : Number(row.rc_invoice),
+          notes: row.notes as string | null,
+          load_details: row.load_details as string | null,
+          states: row.states as string | null,
+          pickup_zips: (row.pickup_zips as string[] | null) ?? [],
+          delivery_zips: (row.delivery_zips as string[] | null) ?? [],
         };
       }
     }
@@ -383,14 +397,26 @@ export async function PATCH(req: NextRequest) {
     ) {
       const driverEmail = await resolveProfileEmail(body.assignedDriverProfileId);
       const driverName = await resolveProfileName(body.assignedDriverProfileId);
+      const puZips = (loadMeta.pickup_zips ?? []).join(", ");
+      const delZips = (loadMeta.delivery_zips ?? []).join(", ");
+      const addressLane =
+        [loadMeta.load_details, loadMeta.states].filter(Boolean).join(" · ") || "—";
 
       if (driverEmail) {
         await sendLoadAssignedToDriverEmail({
           to: driverEmail,
           driverName,
           loadNumber: loadNo,
+          carrierName: loadMeta.company_name,
           pickup: loadMeta.pickup_date_time ?? "",
           delivery: loadMeta.delivery_date_time ?? "",
+          pickupZips: puZips,
+          deliveryZips: delZips,
+          pickupAddress: addressLane,
+          deliveryAddress: addressLane,
+          miles: loadMeta.miles,
+          rate: loadMeta.rc_invoice,
+          notes: loadMeta.notes,
         }).catch(() => {});
       }
 
@@ -401,6 +427,15 @@ export async function PATCH(req: NextRequest) {
           carrierName: loadMeta.company_name,
           loadNumber: loadNo,
           driverName,
+          pickup: loadMeta.pickup_date_time ?? "",
+          delivery: loadMeta.delivery_date_time ?? "",
+          pickupZips: puZips,
+          deliveryZips: delZips,
+          pickupAddress: addressLane,
+          deliveryAddress: addressLane,
+          miles: loadMeta.miles,
+          rate: loadMeta.rc_invoice,
+          notes: loadMeta.notes,
         }).catch(() => {});
         carrierNotified = true;
       }

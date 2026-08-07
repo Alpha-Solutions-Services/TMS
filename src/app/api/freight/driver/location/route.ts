@@ -4,6 +4,7 @@ import { checkRateLimit } from "@/lib/freight/api-security";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceRoleClient } from "@/lib/supabase/service-role";
 import { assertDispatcher } from "@/lib/freight/dispatch-roster";
+import { geocodeUsZip } from "@/lib/freight/usa-map-geo";
 
 const postSchema = z.object({
   lat: z.number().min(-90).max(90),
@@ -237,34 +238,53 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const drivers = (assignedLoads ?? [])
-    .filter((l) => {
-      const s = String(l.status || "").toLowerCase();
-      return !(
-        s.includes("deliver") ||
-        s === "completed" ||
-        s === "complete" ||
-        s === "paid"
-      );
-    })
-    .map((l) => {
-      const did = l.assigned_driver_profile_id as string;
-      const meta = assignedNames.get(did);
-      const loc = locations.find((x) => x.driverId === did);
-      return {
-        driverId: did,
-        driverName: meta?.name || "Driver",
-        carrierName: meta?.carrier || (l.company_name as string) || "—",
-        loadId: l.id as string,
-        loadNumber: String(l.load_number || ""),
-        lane: (l.states as string) || "",
-        lat: loc?.lat ?? null,
-        lng: loc?.lng ?? null,
-        updatedAt: loc?.updatedAt ?? null,
-        pickupZips: (l.pickup_zips as string[]) ?? [],
-        deliveryZips: (l.delivery_zips as string[]) ?? [],
-      };
-    });
+  const drivers = await Promise.all(
+    (assignedLoads ?? [])
+      .filter((l) => {
+        const s = String(l.status || "").toLowerCase();
+        return !(
+          s.includes("deliver") ||
+          s === "completed" ||
+          s === "complete" ||
+          s === "paid"
+        );
+      })
+      .map(async (l) => {
+        const did = l.assigned_driver_profile_id as string;
+        const meta = assignedNames.get(did);
+        const loc = locations.find((x) => x.driverId === did);
+        const pickupZips = (l.pickup_zips as string[]) ?? [];
+        const deliveryZips = (l.delivery_zips as string[]) ?? [];
+        let lat = loc?.lat ?? null;
+        let lng = loc?.lng ?? null;
+        let pingSource: "gps" | "zip" | "none" = loc ? "gps" : "none";
+        if (lat == null || lng == null) {
+          const zip = pickupZips[0] || deliveryZips[0];
+          if (zip) {
+            const geo = await geocodeUsZip(zip);
+            if (geo) {
+              lat = geo.lat;
+              lng = geo.lng;
+              pingSource = "zip";
+            }
+          }
+        }
+        return {
+          driverId: did,
+          driverName: meta?.name || "Driver",
+          carrierName: meta?.carrier || (l.company_name as string) || "—",
+          loadId: l.id as string,
+          loadNumber: String(l.load_number || ""),
+          lane: (l.states as string) || "",
+          lat,
+          lng,
+          updatedAt: loc?.updatedAt ?? null,
+          pickupZips,
+          deliveryZips,
+          pingSource,
+        };
+      }),
+  );
 
   return NextResponse.json({ locations, drivers });
 }

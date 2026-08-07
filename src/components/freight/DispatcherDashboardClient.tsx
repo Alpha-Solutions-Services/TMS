@@ -15,6 +15,7 @@ import {
 import { FleetDonutChart, RevenueLineChart } from "@/components/freight/DispatchCharts";
 import { DispatchLoadsTable } from "@/components/freight/DispatchLoadsTable";
 import { DispatchMonthSelector } from "@/components/freight/DispatchMonthSelector";
+import { DispatcherFleetMap } from "@/components/freight/DispatcherFleetMap";
 import { InvoiceAgingPanel } from "@/components/freight/InvoiceAgingPanel";
 import { PortalClock } from "@/components/freight/PortalClock";
 import { SubDispatcherPerformancePanel } from "@/components/freight/SubDispatcherPerformancePanel";
@@ -238,26 +239,12 @@ export function DispatcherDashboardClient({ weeklyOnly = false }: { weeklyOnly?:
       </Link>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="relative overflow-hidden rounded-3xl border border-[var(--color-border)] bg-gradient-to-br from-[var(--color-surface)] to-[var(--color-bg)] lg:col-span-2">
-          <div
-            className="absolute inset-0 bg-cover bg-center opacity-30"
-            style={{
-              backgroundImage:
-                "linear-gradient(135deg, rgba(5,8,15,0.85), rgba(11,17,32,0.95)), url('https://i.pinimg.com/736x/c5/61/37/c56137a6d3def2f28cbb3f218ceb33ce.jpg')",
-            }}
+        <div className="lg:col-span-2">
+          <DispatcherFleetMap
+            inTransit={data.fleet_overview.in_transit}
+            totalMiles={data.footer_stats.total_miles}
+            carriersManaged={data.footer_stats.carriers_managed}
           />
-          <div className="relative flex min-h-[220px] flex-col justify-end p-6 sm:min-h-[280px] sm:p-8">
-            <p className="text-xs uppercase tracking-wider text-[var(--color-accent)]">
-              Operations
-            </p>
-            <h2 className="mt-2 text-xl font-bold text-[var(--color-text)]">
-              Fleet on the road — {data.fleet_overview.in_transit} in transit
-            </h2>
-            <p className="mt-2 max-w-lg text-sm text-[var(--color-muted)]">
-              {data.footer_stats.total_miles.toLocaleString()} total miles on the dispatch board ·{" "}
-              {data.footer_stats.carriers_managed} carriers managed
-            </p>
-          </div>
         </div>
 
         <div className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)]/40 p-5">
@@ -289,6 +276,33 @@ export function DispatcherDashboardClient({ weeklyOnly = false }: { weeklyOnly?:
           >
             View all alerts →
           </Link>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/50 px-4 py-3">
+          <p className="text-[10px] uppercase tracking-wider text-[var(--color-accent)]">
+            Operations
+          </p>
+          <p className="mt-1 text-sm font-semibold text-[var(--color-text)]">
+            Fleet on the road — {data.fleet_overview.in_transit} in transit
+          </p>
+        </div>
+        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/50 px-4 py-3">
+          <p className="text-[10px] uppercase tracking-wider text-[var(--color-muted)]">
+            Board miles
+          </p>
+          <p className="mt-1 text-sm font-semibold tabular-nums text-[var(--color-text)]">
+            {data.footer_stats.total_miles.toLocaleString()} mi
+          </p>
+        </div>
+        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/50 px-4 py-3">
+          <p className="text-[10px] uppercase tracking-wider text-[var(--color-muted)]">
+            Carriers managed
+          </p>
+          <p className="mt-1 text-sm font-semibold tabular-nums text-[var(--color-text)]">
+            {data.footer_stats.carriers_managed}
+          </p>
         </div>
       </div>
 
