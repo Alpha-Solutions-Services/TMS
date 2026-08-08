@@ -14,6 +14,9 @@ type DocItem = {
   filePurged: boolean;
   viewUrl: string | null;
   reviewed_by: { full_name?: string | null; email?: string | null } | null;
+  uploaded_by: { full_name?: string | null; email?: string | null } | null;
+  uploadedByStaff: boolean;
+  canReview: boolean;
   carrier: {
     company_name: string | null;
     full_name: string | null;
@@ -71,6 +74,8 @@ function DocRow({
   const carrierName =
     doc.carrier?.company_name || doc.carrier?.full_name || "Carrier";
   const isPending = filter === "pending" || doc.status === "pending";
+  // E2 four-eyes: hide approve/reject when the current user uploaded this doc.
+  const canAct = isPending && doc.canReview;
 
   return (
     <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/40 px-6 py-5">
@@ -92,6 +97,14 @@ function DocRow({
             {doc.carrier?.email ?? "—"} · uploaded{" "}
             {new Date(doc.uploaded_at).toLocaleString()}
           </p>
+          {doc.uploadedByStaff ? (
+            <p className="mt-1 text-[11px] text-[var(--color-muted)]">
+              Uploaded by staff
+              {doc.uploaded_by?.full_name || doc.uploaded_by?.email
+                ? `: ${doc.uploaded_by.full_name || doc.uploaded_by.email}`
+                : ""}
+            </p>
+          ) : null}
           {doc.viewUrl ? (
             <a
               href={doc.viewUrl}
@@ -118,7 +131,7 @@ function DocRow({
             <p className="mt-2 text-xs text-red-200">{doc.rejection_reason}</p>
           ) : null}
         </div>
-        {isPending ? (
+        {canAct ? (
           <button
             type="button"
             disabled={busy}
@@ -129,7 +142,13 @@ function DocRow({
           </button>
         ) : null}
       </div>
-      {isPending ? (
+      {isPending && !doc.canReview ? (
+        <p className="mt-4 rounded-lg border border-amber-500/35 bg-amber-500/10 px-4 py-2 text-[11px] text-amber-100">
+          Four-eyes: you uploaded this document. Another reviewer must approve or
+          reject it.
+        </p>
+      ) : null}
+      {canAct ? (
         <>
           <label className="mt-6 block text-[11px] text-[var(--color-muted)]">
             Rejection note (required to reject)

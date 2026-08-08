@@ -3,6 +3,7 @@ import {
   CARRIER_DOCUMENT_LABELS,
   fetchCarrierDocuments,
   getCarrierDocumentSignedUrl,
+  maybeDemoteVerifiedCarrierIfDocsIncomplete,
   requiredCarrierDocumentTypes,
   resolveCarrierDocMime,
   uploadCarrierDocument,
@@ -124,6 +125,24 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Enforce server-side (UI already hides this): a carrier cannot silently
+  // replace an already-approved document. Dispatch must revert it first.
+  const { data: existingDoc } = await admin
+    .from("tms_carrier_documents")
+    .select("status")
+    .eq("carrier_profile_id", user.id)
+    .eq("document_type", type)
+    .maybeSingle();
+  if (existingDoc?.status === "approved") {
+    return NextResponse.json(
+      {
+        error:
+          "This document is already approved and can't be replaced. Contact dispatch if it needs to change.",
+      },
+      { status: 400 },
+    );
+  }
+
   const file = form.get("file");
   if (!(file instanceof File) || file.size <= 0) {
     return NextResponse.json({ error: "File required" }, { status: 400 });
@@ -161,6 +180,10 @@ export async function POST(req: NextRequest) {
       .eq("id", user.id)
       .eq("carrier_status", "rejected");
   }
+
+  // If this carrier was verified, a re-uploaded doc reset to pending can break
+  // full approval → demote verified → pending (C1 parity for uploads).
+  await maybeDemoteVerifiedCarrierIfDocsIncomplete(user.id);
 
   return NextResponse.json({ ok: true, row: result.row });
 }

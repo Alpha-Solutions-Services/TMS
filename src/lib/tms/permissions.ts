@@ -78,6 +78,17 @@ export function canManageCarriersRoster(role: TmsRole): boolean {
   return role === "super_dispatcher";
 }
 
+/** E1: super may upload for any carrier; full dispatcher only for carriers assigned to them. */
+export function canUploadCarrierDocumentsFor(
+  role: TmsRole,
+  callerId: string,
+  assignedDispatcherId: string | null | undefined,
+): boolean {
+  if (role === "super_dispatcher") return true;
+  if (role === "dispatcher" && assignedDispatcherId === callerId) return true;
+  return false;
+}
+
 /** Create / list / revoke carrier e-sign agreements. */
 export function canManageCarrierAgreements(role: TmsRole): boolean {
   return role === "super_dispatcher" || role === "dispatcher";

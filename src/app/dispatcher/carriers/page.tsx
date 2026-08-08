@@ -6,6 +6,7 @@ import { DispatcherCarrierDocumentsReview } from "@/components/freight/Dispatche
 import { DispatcherCarrierInvitesPanel } from "@/components/freight/DispatcherCarrierInvitesPanel";
 import { DispatcherCarrierReview } from "@/components/freight/DispatcherCarrierReview";
 import { DispatcherCarrierRoster } from "@/components/freight/DispatcherCarrierRoster";
+import { DispatcherStaffDocUpload } from "@/components/freight/DispatcherStaffDocUpload";
 import { getPortalUser } from "@/lib/portal/auth";
 import { resolveTmsRole } from "@/lib/tms/auth";
 import { canManageCarriersRoster, dispatcherLandingPath } from "@/lib/tms/permissions";
@@ -58,6 +59,8 @@ function CarriersContent({
           <DispatcherCarrierReview />
         </div>
       </section>
+
+      <DispatcherStaffDocUpload />
 
       <section className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)]/40 p-5 sm:p-8">
         <DispatcherCarrierDocumentsReview />

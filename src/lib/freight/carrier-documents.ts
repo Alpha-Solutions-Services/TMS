@@ -25,6 +25,7 @@ export type CarrierDocumentRow = {
   reviewed_at: string | null;
   rejection_reason: string | null;
   file_purged_at: string | null;
+  uploaded_by: string | null;
 };
 
 const REJECTED_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -67,6 +68,8 @@ export async function uploadCarrierDocument(params: {
   file: Buffer;
   filename: string;
   contentType: string;
+  /** Staff upload (Slice E): staff profile id. Carrier self-upload: omit/null. */
+  uploadedBy?: string | null;
 }): Promise<{ path: string; row: CarrierDocumentRow } | { error: string }> {
   const admin = getServiceRoleClient();
   if (!admin) return { error: "Storage not configured" };
@@ -114,11 +117,12 @@ export async function uploadCarrierDocument(params: {
         reviewed_at: null,
         rejection_reason: null,
         file_purged_at: null,
+        uploaded_by: params.uploadedBy ?? null,
       },
       { onConflict: "carrier_profile_id,document_type" },
     )
     .select(
-      "id, carrier_profile_id, document_type, file_path, status, uploaded_at, reviewed_by, reviewed_at, rejection_reason, file_purged_at",
+      "id, carrier_profile_id, document_type, file_path, status, uploaded_at, reviewed_by, reviewed_at, rejection_reason, file_purged_at, uploaded_by",
     )
     .maybeSingle();
 
@@ -157,7 +161,7 @@ export async function fetchCarrierDocuments(
   const { data, error } = await admin
     .from("tms_carrier_documents")
     .select(
-      "id, carrier_profile_id, document_type, file_path, status, uploaded_at, reviewed_by, reviewed_at, rejection_reason, file_purged_at",
+      "id, carrier_profile_id, document_type, file_path, status, uploaded_at, reviewed_by, reviewed_at, rejection_reason, file_purged_at, uploaded_by",
     )
     .eq("carrier_profile_id", carrierProfileId)
     .order("document_type");
